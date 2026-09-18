@@ -457,9 +457,12 @@ const APP = (() => {
     w.appendChild(pg);
 
     w.appendChild(UI.html('div', 'foot',
-      'Built as a companion to the Red Bow Music <em>producer theory</em> curriculum — ' +
-      'the concepts, rebuilt here as things you can click, hear and rotate. ' +
-      'Every note you hear is generated live in the browser.'));
+      '<b>Free, and not the course.</b> The curriculum shape follows the Red Bow Music ' +
+      '<em>All The Music Theory A Producer Needs</em> syllabus, but every explanation, ' +
+      'exercise and line of code here is original — none of that course’s material is ' +
+      'reproduced. Nothing is sold here and nothing is tracked: your progress and your saved ' +
+      'ideas stay in this browser. Every note you hear is generated live in it too. ' +
+      '<a href="https://redbowmusic.com/" target="_blank" rel="noopener">The course itself is here</a>.'));
     art.appendChild(w);
 
     /* the 3D instrument gets set up last, so it can talk to the DOM above */
@@ -741,6 +744,41 @@ const APP = (() => {
   }
   let reviewing = false;
   function openReview() { reviewing = true; renderReview(); closeRail(); }
+
+  /* Start over — the ticks, the answers and the review list. Saved musical
+     ideas are the learner's own work, not progress, so they are left alone;
+     the button says so, and asks twice before doing anything. */
+  function resetProgress() {
+    done = {}; save();
+    drills = {}; saveDrills();
+    if (typeof PRACTICE !== 'undefined') PRACTICE.clear();
+    reviewing = false;
+    render();
+  }
+  function wireReset() {
+    const b = $('#resetBtn');
+    if (!b) return;
+    const idle = 'Reset progress';
+    let armed = false, t = null;
+    const disarm = () => {
+      armed = false; b.classList.remove('armed'); b.textContent = idle;
+      b.title = 'Clears lesson ticks, question answers and the review list. ' +
+                'Saved ideas and MIDI exports are not touched.';
+      if (t) clearTimeout(t);
+    };
+    b.addEventListener('click', () => {
+      if (!armed) {
+        armed = true;
+        b.classList.add('armed');
+        b.textContent = 'Clear it all? Tap again';
+        t = setTimeout(disarm, 6000);
+        return;
+      }
+      disarm();
+      resetProgress();
+    });
+    disarm();
+  }
   const closeRail = () => {
     $('#rail').dataset.open = 'false';
     $('#scrim').dataset.open = 'false';
@@ -778,6 +816,7 @@ const APP = (() => {
     $('#scrim').addEventListener('click', closeRail);
     const rb = $('#reviewBtn');
     if (rb) rb.addEventListener('click', () => { A.resume(); openReview(); });
+    wireReset();
     const fb = $('#flatBtn');
     if (fb && typeof FLAT !== 'undefined') {
       fb.addEventListener('click', () => { A.resume(); FLAT.set(!FLAT.on); applyFlat(); });

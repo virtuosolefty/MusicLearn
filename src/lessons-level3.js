@@ -2,6 +2,44 @@
    LESSONS — Level 3 · Pro moves
    ═══════════════════════════════════════════════════════════════ */
 
+/* How each ear-training drill is going, drawn from the same per-concept record
+   the review reads — one lumped score cannot tell you that your chords are fine
+   and your scale degrees are guesswork. */
+const DRILL_NAMES = { interval:'Interval', chord:'Chord quality', progression:'Progression',
+                      scale:'Scale', degree:'Scale degree' };
+function paintDrillStats(host, lessonId) {
+  if (!host || typeof PRACTICE === 'undefined') return;
+  host.innerHTML = '';
+  const mine = PRACTICE.forLesson(lessonId);
+  if (!mine.length) {
+    host.appendChild(UI.html('p', 'hint',
+      'Answer a few and this fills in with how each drill is going.'));
+    return;
+  }
+  host.appendChild(UI.html('h4', null, 'How each drill is going'));
+  const tw = UI.el('div', 'tablewrap'), t = UI.el('table');
+  const hd = UI.el('thead'), hr = UI.el('tr');
+  ['Drill', 'Right', 'Asked', 'Recent', 'Weakest'].forEach(h => hr.appendChild(UI.html('th', null, h)));
+  hd.appendChild(hr); t.appendChild(hd);
+  const tb = UI.el('tbody');
+  Object.keys(DRILL_NAMES).forEach(kind => {
+    const rows = mine.filter(e => e.kind === kind);
+    if (!rows.length) return;
+    const right = rows.reduce((n, e) => n + e.right, 0);
+    const total = rows.reduce((n, e) => n + e.right + e.wrong, 0);
+    /* the most-missed item in this drill, which is the useful part */
+    const worst = rows.slice().sort((a, b) => (b.wrong - b.right) - (a.wrong - a.right))[0];
+    const runs = rows.reduce((a, e) => a.concat((e.runs || []).slice(-2)), []).slice(-6);
+    const tr = UI.el('tr');
+    [DRILL_NAMES[kind], String(right), String(total),
+     runs.map(x => x ? '✓' : '✗').join(' ') || '—',
+     worst && worst.wrong ? worst.label + ' (×' + worst.wrong + ')' : '—'
+    ].forEach((c, i) => tr.appendChild(UI.html('td', i === 0 ? 'hi' : null, c)));
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb); tw.appendChild(t); host.appendChild(tw);
+}
+
 LESSONS.push({
   id:'circle', level:3, tag:'Keys', title:'The Circle of Fifths',
   hint:'Tap a key on the wheel',
@@ -493,6 +531,11 @@ LESSONS.push({
                  UI.toggle('Hard mode', v => ctx.setHard(v), !!ctx.recall('hard'))),
           box);
         ctx.answers = box;
+        /* a breakdown per drill, so "keep practising" can say which one */
+        const stats = UI.el('div', 'drillstats');
+        wrap.appendChild(stats);
+        ctx.showStats = () => paintDrillStats(stats, ctx.L.id);
+        ctx.showStats();
         return wrap;
       } } }
   ],
@@ -531,7 +574,8 @@ LESSONS.push({
            7th above F is E♭, so the keyboard must not call it D♯ */
         const spell = { flats:topName.indexOf('♭') >= 0 || rn.indexOf('♭') >= 0 };
         spell[T.pc(base)] = rn; spell[T.pc(top)] = topName;
-        return { notes:[[base], [top]], answer:T.ivl(n).label,
+        return { kind:'interval', concept:String(n),
+          notes:[[base], [top]], answer:T.ivl(n).label,
           options:T.IVL.slice(1, hard ? 15 : 13).map(i => i.label),
           show:() => {
             ctx.v.clear().mark(base, 'root').mark(top, 'target').apply().clearExtras()
@@ -553,7 +597,8 @@ LESSONS.push({
         const spelt = T.spellChord(rn, t);
         const spell = { flats:spelt.some(s => s.indexOf('♭') >= 0) };
         T.chordNotes(T.nameToPc(rn), t).forEach((m, i) => { spell[T.pc(m)] = spelt[i]; });
-        return { notes:[ns], answer:T.CHORDS[t].label,
+        return { kind:'chord', concept:t,
+          notes:[ns], answer:T.CHORDS[t].label,
           options:types.map(x => T.CHORDS[x].label),
           show:() => ctx.v.clear().marks(ns, 'chord').mark(ns[0], 'root')
             .apply().clearExtras().spelling(spell).stack(ns),
@@ -568,7 +613,8 @@ LESSONS.push({
         const rn = T.rootFor(root, kind);
         const dia = T.diatonic(root, kind);
         const chords = p.map(d => dia[d - 1]);
-        return { notes:chords.map(c => c.notes), spaced:true,
+        return { kind:'progression', concept:p.join(''),
+          notes:chords.map(c => c.notes), spaced:true,
           answer:p.map(d => T.roman(d, dia[d - 1].quality)).join(' \u2013 '),
           options:opts.map(o => o.map(d => T.roman(d, dia[d - 1].quality)).join(' \u2013 ')),
           show:() => {
@@ -586,7 +632,8 @@ LESSONS.push({
         const root = pickRoot();
         const rn = T.rootFor(root, k);
         const ns = drop(T.scaleNotes(root, k).concat([root + 12]));
-        return { notes:ns.map(n => [n]), spaced:true, answer:T.SCALES[k].label,
+        return { kind:'scale', concept:k,
+          notes:ns.map(n => [n]), spaced:true, answer:T.SCALES[k].label,
           options:keys.map(x => T.SCALES[x].label),
           show:() => ctx.v.clear().marks(ns, 'scale').mark(ns[0], 'root')
             .apply().clearExtras().spelling(T.keyMap(rn, k)),
@@ -605,7 +652,8 @@ LESSONS.push({
         const shift = all[0] - dia[0].notes[0];
         const tonic = dia[0].notes.map(n => n + shift);
         const dom = dia[4].notes.map(n => n + shift);
-        return { notes:[tonic, dom, tonic, [target + shift]], spaced:true,
+        return { kind:'degree', concept:'deg' + d,
+          notes:[tonic, dom, tonic, [target + shift]], spaced:true,
           answer:'degree ' + d,
           options:[1,2,3,4,5,6,7].map(x => 'degree ' + x),
           show:() => ctx.v.clear()
@@ -632,6 +680,12 @@ LESSONS.push({
           if (ok) score.right++;
           ctx.keep('score', score);
           ctx.score(ok);
+          /* recorded against the thing that was asked, not just as another
+             tally mark — so the breakdown below can say which drills are weak,
+             and a miss here turns up in the review like any other */
+          if (typeof PRACTICE !== 'undefined' && q.kind)
+            PRACTICE.record(ctx.L.id, q.kind, q.concept, q.answer, ok);
+          if (ctx.showStats) ctx.showStats();
           Array.from(ctx.answers.children).forEach(c => {
             if (c.textContent === q.answer) c.style.borderColor = '#4FD1A5';
             if (c === b && !ok) c.style.borderColor = '#E23E57';

@@ -83,6 +83,16 @@ the list after three right answers in a row, so the page empties as the gaps clo
 a table shows each concept's record, its last six attempts and its trend, so improvement is
 visible rather than asserted.
 
+The **ear-training drills** in lesson 22 write to the same record, so each answer is filed under
+what was actually asked — the tritone, the half-diminished chord, degree 6. That gives the lesson
+a per-drill breakdown (right, asked, recent runs, and the item you miss most) instead of one
+lumped score, and it means a note you cannot hear turns up in the review like anything else, where
+you have to name it *and* build it.
+
+**Reset progress** sits at the bottom of the sidebar and asks twice. It clears lesson ticks,
+question answers and the review list — and deliberately leaves your saved ideas alone, because
+those are work, not progress.
+
 ## Keeping what you make
 
 The six lessons with something worth keeping — the two drum-grid lessons, the three piano-roll
@@ -198,7 +208,7 @@ reads C–E♭–G rather than C–D♯–G.
 
 ```bash
 node test/check-theory.js      # 581 assertions, all twelve keys
-node test/check-behaviour.js   # 646 assertions, what the lessons do
+node test/check-behaviour.js   # 656 assertions, what the lessons do
 ```
 
 The first covers the engine in every key plus the lesson data (answer indices in range, distinct
@@ -217,7 +227,8 @@ things that break when two parts of the app describe the same thing differently:
 - ear training never lights a key it did not play, in any drill, at any register;
 - a practice round's notes always fit the keyboard that lesson puts on stage;
 - the review asks the concept you missed, with different notes, still among several options;
-- the MIDI it writes decodes back to the notes, channels and tempo it claims.
+- the MIDI it writes decodes back to the notes, channels and tempo it claims;
+- every ear-training drill records a concept the review knows how to ask again.
 
 All 22 lessons are also walked in a headless browser in both reading levels, both themes and both
 instrument views, clicking every control and every quiz option.

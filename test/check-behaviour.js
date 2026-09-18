@@ -127,10 +127,10 @@ PRACTICE.plan(LESSONS);
 
 /* a lesson context, backed by a store that survives a "re-render" the way the
    app's own per-lesson scratch space does */
-function makeCtx(store) {
+function makeCtx(store, L) {
   let syncs = 0;
   const ctx = {
-    v:stage, T, A:Amock, UI, later:fn => fn(), reads:[],
+    v:stage, L:L || { id:'test', title:'Test' }, T, A:Amock, UI, later:fn => fn(), reads:[],
     read(t) { ctx.reads.push(String(t)); },
     hint(){}, stage(){}, seq(){}, stop(){},
     keep:(k, v) => { store[k] = v; },
@@ -143,7 +143,7 @@ function makeCtx(store) {
 }
 /* run a lesson the way render() does: build its controls, then init */
 function mount(L, store) {
-  const ctx = makeCtx(store);
+  const ctx = makeCtx(store, L);
   const built = [];
   (L.blocks || []).forEach(b => {
     if (!b.try || !b.try.build) return;
@@ -555,6 +555,47 @@ head('Flat view');
   const uncovered = LESSONS.filter(L => ['keys','grid','roll'].indexOf(L.stage.view) < 0)
     .map(L => L.id + ':' + L.stage.view);
   eq(uncovered.join(','), 'circle:wheel', 'every other lesson has a face-on instrument');
+}
+
+/* ═══ 11. an ear-training miss is recorded as a concept, and re-askable ═══ */
+head('Ear training feeds the review');
+{
+  PRACTICE.clear();
+  const L = lesson('challenges');
+  const seen = {};
+  ['ivl','chord','prog','scale','deg'].forEach(kind => {
+    const { ctx } = mount(L, { drill:kind, hard:false });
+    for (let i = 0; i < 8; i++) {
+      ctx.next();
+      const first = ctx.answers && ctx.answers.children[0];
+      if (first) first.click();
+    }
+    const got = PRACTICE.forLesson('challenges').filter(e => !seen[e.kind + e.concept]);
+    got.forEach(e => { seen[e.kind + e.concept] = 1; });
+    ok(got.length > 0, kind + ': answers are recorded against what was asked');
+  });
+
+  const all = PRACTICE.forLesson('challenges');
+  ok(all.length > 0, 'the ear trainer writes to the same record the review reads');
+  ok(all.every(e => !!PRACTICE.MAKERS[e.kind]),
+     'every drill records a kind the review knows how to ask again (' +
+     [...new Set(all.map(e => e.kind))].join(', ') + ')');
+  ok(all.every(e => e.label && String(e.concept).length),
+     'and names the concept, so a breakdown can point at it');
+
+  /* the round trip: a miss here comes back as a question about the same thing */
+  let mismatched = 0;
+  all.forEach(e => {
+    const cfg = PRACTICE.queued(e);
+    const q = PRACTICE.MAKERS[cfg.kind](cfg, cfg.only);
+    if (String(q.concept) !== String(e.concept)) mismatched++;
+  });
+  eq(mismatched, 0, 'and the review asks about exactly that concept again');
+
+  /* the five drills map onto five distinct practice kinds */
+  eq([...new Set(all.map(e => e.kind))].sort().join(','),
+     'chord,degree,interval,progression,scale', 'all five drills are covered');
+  PRACTICE.clear();
 }
 
 console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));
