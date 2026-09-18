@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+*.log
+
+# only the standalone single-file build is committed
+dist/artifact.html
