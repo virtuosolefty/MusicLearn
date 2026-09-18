@@ -306,6 +306,51 @@ td.hi{color:var(--accent-2)}
   font-size:14px;line-height:1.5;color:var(--muted);
 }
 
+/* drill accuracy, kept visually distinct from "lesson done" */
+#drillBar{background:linear-gradient(90deg,var(--sky),var(--accent))}
+.nav button.review .tick{opacity:1;color:var(--amber);font-weight:700}
+
+/* ── Accessible 2D instrument ──────────────────────────────────
+   A real, focusable control for every key, pad and tile the 3D
+   stage draws. Always in the accessibility tree; opened on demand. */
+.a11y{
+  border-bottom:1px solid var(--line);background:var(--bg-2);
+  font-family:"Bricolage Grotesque",sans-serif;
+}
+.a11y > summary{
+  padding:10px 22px;font-size:12px;font-weight:600;color:var(--accent-2);
+  cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+}
+.a11y > summary::-webkit-details-marker{display:none}
+.a11y > summary::before{content:"\2328";font-size:14px}
+.a11y > summary::after{content:"\25BE";margin-left:auto;color:var(--muted)}
+.a11y[open] > summary::after{content:"\25B4"}
+.a11y > summary:hover{color:var(--accent)}
+#a11yBody{padding:4px 22px 18px;max-width:900px}
+.a11y h4{
+  margin:12px 0 7px;font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--muted);font-weight:600;
+}
+.a11y .pads{display:flex;flex-wrap:wrap;gap:5px}
+.a11y .pad{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;min-width:38px;
+  padding:6px 8px;border:1px solid var(--line);border-radius:7px;
+  background:var(--panel);color:var(--text-2);cursor:pointer;
+}
+.a11y .pad:hover{border-color:var(--line-2);color:var(--text)}
+.a11y .pad[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.a11y .pad.black{background:var(--panel-3)}
+.a11y .hint{font-size:12px;color:var(--muted);margin:2px 0 10px;font-family:"Bricolage Grotesque",sans-serif}
+.a11y .notelist{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+@media (max-width:860px){
+  .a11y > summary{padding:10px 16px}
+  #a11yBody{padding:4px 16px 18px}
+}
+
 </style>
 </head>
 <body>
@@ -323,8 +368,10 @@ td.hi{color:var(--accent-2)}
       </div>
     </div>
     <div class="prog">
-      <div class="prog-row"><span>Progress</span><span class="mono" id="progTxt">0 / 22</span></div>
+      <div class="prog-row"><span>Lessons</span><span class="mono" id="progTxt">0 / 22</span></div>
       <div class="prog-bar"><i id="progBar"></i></div>
+      <div class="prog-row" style="margin-top:11px"><span>Drills</span><span class="mono" id="drillTxt">not started</span></div>
+      <div class="prog-bar"><i id="drillBar"></i></div>
     </div>
     <nav class="nav" id="nav" aria-label="Lessons"></nav>
   </aside>
@@ -332,10 +379,10 @@ td.hi{color:var(--accent-2)}
 
   <main id="main">
     <section class="stage" id="stage">
-      <canvas id="gl"></canvas>
+      <canvas id="gl" aria-hidden="true"></canvas>
       <div class="hud">
         <span class="tag" id="hudTag">Rhythm</span>
-        <div class="readout mono" id="readout">ready</div>
+        <div class="readout mono" id="readout" role="status" aria-live="polite">ready</div>
       </div>
       <div class="stage-foot">
         <button class="b menu-btn" id="menuBtn" aria-expanded="false">☰ Lessons</button>
@@ -343,6 +390,10 @@ td.hi{color:var(--accent-2)}
         <span class="hint" id="stageHint"></span>
       </div>
     </section>
+    <details class="a11y" id="a11y">
+      <summary id="a11ySum">Instrument controls (keyboard and screen-reader friendly)</summary>
+      <div id="a11yBody"></div>
+    </details>
     <article class="console" id="console"></article>
   </main>
 </div>
@@ -368,73 +419,82 @@ const T = (() => {
   const isBlack = m => [1,3,6,8,10].includes(pc(m));
 
   /* Scales — semitones above the root. */
+  /* `deg` is the letter distance of each note from the root: 0 = same letter,
+     1 = the next letter up, and so on. It is what makes correct spelling
+     possible — C minor is C E♭ G, never C D♯ G, because the third of a chord
+     is always two letters above its root. */
   const SCALES = {
-    major:          { label:'Major (Ionian)',   steps:[0,2,4,5,7,9,11], mood:'bright, resolved, pop' },
-    dorian:         { label:'Dorian',           steps:[0,2,3,5,7,9,10], mood:'minor but hopeful, jazzy' },
-    phrygian:       { label:'Phrygian',         steps:[0,1,3,5,7,8,10], mood:'dark, Spanish, trap' },
-    lydian:         { label:'Lydian',           steps:[0,2,4,6,7,9,11], mood:'dreamy, floating' },
-    mixolydian:     { label:'Mixolydian',       steps:[0,2,4,5,7,9,10], mood:'bluesy, funk, rock' },
-    minor:          { label:'Natural minor (Aeolian)', steps:[0,2,3,5,7,8,10], mood:'sad, serious, most rap' },
-    locrian:        { label:'Locrian',          steps:[0,1,3,5,6,8,10], mood:'unstable, rarely a home key' },
-    harmonicMinor:  { label:'Harmonic minor',   steps:[0,2,3,5,7,8,11], mood:'cinematic, ominous, exotic' },
-    melodicMinor:   { label:'Melodic minor',    steps:[0,2,3,5,7,9,11], mood:'smooth minor, jazz' },
-    phrygianDom:    { label:'Phrygian dominant',steps:[0,1,4,5,7,8,10], mood:'Egyptian, dark drill' },
-    majorPent:      { label:'Major pentatonic', steps:[0,2,4,7,9],      mood:'safe, singable' },
-    minorPent:      { label:'Minor pentatonic', steps:[0,3,5,7,10],     mood:'riffs, hooks, blues' },
-    blues:          { label:'Blues',            steps:[0,3,5,6,7,10],   mood:'gritty, vocal' },
-    chromatic:      { label:'Chromatic',        steps:[0,1,2,3,4,5,6,7,8,9,10,11], mood:'every note' }
+    major:          { label:'Major (Ionian)',   steps:[0,2,4,5,7,9,11], deg:[0,1,2,3,4,5,6], mood:'bright, resolved, pop' },
+    dorian:         { label:'Dorian',           steps:[0,2,3,5,7,9,10], deg:[0,1,2,3,4,5,6], mood:'minor but hopeful, jazzy' },
+    phrygian:       { label:'Phrygian',         steps:[0,1,3,5,7,8,10], deg:[0,1,2,3,4,5,6], mood:'dark, Spanish, trap' },
+    lydian:         { label:'Lydian',           steps:[0,2,4,6,7,9,11], deg:[0,1,2,3,4,5,6], mood:'dreamy, floating' },
+    mixolydian:     { label:'Mixolydian',       steps:[0,2,4,5,7,9,10], deg:[0,1,2,3,4,5,6], mood:'bluesy, funk, rock' },
+    minor:          { label:'Natural minor (Aeolian)', steps:[0,2,3,5,7,8,10], deg:[0,1,2,3,4,5,6], mood:'sad, serious, most rap' },
+    locrian:        { label:'Locrian',          steps:[0,1,3,5,6,8,10], deg:[0,1,2,3,4,5,6], mood:'unstable, rarely a home key' },
+    harmonicMinor:  { label:'Harmonic minor',   steps:[0,2,3,5,7,8,11], deg:[0,1,2,3,4,5,6], mood:'cinematic, ominous, exotic' },
+    melodicMinor:   { label:'Melodic minor',    steps:[0,2,3,5,7,9,11], deg:[0,1,2,3,4,5,6], mood:'smooth minor, jazz' },
+    phrygianDom:    { label:'Phrygian dominant',steps:[0,1,4,5,7,8,10], deg:[0,1,2,3,4,5,6], mood:'Egyptian, dark drill' },
+    majorPent:      { label:'Major pentatonic', steps:[0,2,4,7,9], deg:[0,1,2,4,5],      mood:'safe, singable' },
+    minorPent:      { label:'Minor pentatonic', steps:[0,3,5,7,10], deg:[0,2,3,4,6],     mood:'riffs, hooks, blues' },
+    blues:          { label:'Blues',            steps:[0,3,5,6,7,10], deg:[0,2,3,4,4,6],   mood:'gritty, vocal' },
+    chromatic:      { label:'Chromatic',        steps:[0,1,2,3,4,5,6,7,8,9,10,11], deg:[0,0,1,1,2,3,3,4,4,5,5,6], mood:'every note' }
   };
   const MODE_ORDER = ['lydian','major','mixolydian','dorian','minor','phrygian','locrian'];
 
   /* Chords — semitones above the root. */
   const CHORDS = {
-    maj:    { label:'major',            sym:'',        steps:[0,4,7] },
-    min:    { label:'minor',            sym:'m',       steps:[0,3,7] },
-    dim:    { label:'diminished',        sym:'dim',     steps:[0,3,6] },
-    aug:    { label:'augmented',         sym:'aug',     steps:[0,4,8] },
-    sus2:   { label:'suspended 2nd',     sym:'sus2',    steps:[0,2,7] },
-    sus4:   { label:'suspended 4th',     sym:'sus4',    steps:[0,5,7] },
-    maj7:   { label:'major 7th',         sym:'maj7',    steps:[0,4,7,11] },
-    min7:   { label:'minor 7th',         sym:'m7',      steps:[0,3,7,10] },
-    dom7:   { label:'dominant 7th',      sym:'7',       steps:[0,4,7,10] },
-    m7b5:   { label:'half-diminished',   sym:'m7♭5', steps:[0,3,6,10] },
-    dim7:   { label:'diminished 7th',    sym:'dim7',    steps:[0,3,6,9] },
-    minMaj7:{ label:'minor major 7th',   sym:'m(maj7)', steps:[0,3,7,11] },
-    aug7:   { label:'augmented 7th',     sym:'7♯5', steps:[0,4,8,10] },
-    add9:   { label:'added 9th',         sym:'add9',    steps:[0,4,7,14] },
-    maj9:   { label:'major 9th',         sym:'maj9',    steps:[0,4,7,11,14] },
-    min9:   { label:'minor 9th',         sym:'m9',      steps:[0,3,7,10,14] },
-    dom9:   { label:'dominant 9th',      sym:'9',       steps:[0,4,7,10,14] },
-    min11:  { label:'minor 11th',        sym:'m11',     steps:[0,3,7,10,14,17] },
-    maj13:  { label:'major 13th',        sym:'maj13',   steps:[0,4,7,11,14,21] },
-    min6:   { label:'minor 6th',         sym:'m6',      steps:[0,3,7,9] },
-    maj6:   { label:'major 6th',         sym:'6',       steps:[0,4,7,9] },
-    six9:   { label:'six / nine',        sym:'6/9',     steps:[0,4,7,9,14] }
+    maj:    { label:'major',            sym:'',        steps:[0,4,7], deg:[0,2,4] },
+    min:    { label:'minor',            sym:'m',       steps:[0,3,7], deg:[0,2,4] },
+    dim:    { label:'diminished',        sym:'dim',     steps:[0,3,6], deg:[0,2,4] },
+    aug:    { label:'augmented',         sym:'aug',     steps:[0,4,8], deg:[0,2,4] },
+    sus2:   { label:'suspended 2nd',     sym:'sus2',    steps:[0,2,7], deg:[0,1,4] },
+    sus4:   { label:'suspended 4th',     sym:'sus4',    steps:[0,5,7], deg:[0,3,4] },
+    maj7:   { label:'major 7th',         sym:'maj7',    steps:[0,4,7,11], deg:[0,2,4,6] },
+    min7:   { label:'minor 7th',         sym:'m7',      steps:[0,3,7,10], deg:[0,2,4,6] },
+    dom7:   { label:'dominant 7th',      sym:'7',       steps:[0,4,7,10], deg:[0,2,4,6] },
+    m7b5:   { label:'half-diminished',   sym:'m7♭5', steps:[0,3,6,10], deg:[0,2,4,6] },
+    dim7:   { label:'diminished 7th',    sym:'dim7',    steps:[0,3,6,9], deg:[0,2,4,6] },
+    minMaj7:{ label:'minor major 7th',   sym:'m(maj7)', steps:[0,3,7,11], deg:[0,2,4,6] },
+    aug7:   { label:'augmented 7th',     sym:'7♯5', steps:[0,4,8,10], deg:[0,2,4,6] },
+    add9:   { label:'added 9th',         sym:'add9',    steps:[0,4,7,14], deg:[0,2,4,8] },
+    maj9:   { label:'major 9th',         sym:'maj9',    steps:[0,4,7,11,14], deg:[0,2,4,6,8] },
+    min9:   { label:'minor 9th',         sym:'m9',      steps:[0,3,7,10,14], deg:[0,2,4,6,8] },
+    dom9:   { label:'dominant 9th',      sym:'9',       steps:[0,4,7,10,14], deg:[0,2,4,6,8] },
+    min11:  { label:'minor 11th',        sym:'m11',     steps:[0,3,7,10,14,17], deg:[0,2,4,6,8,10] },
+    maj13:  { label:'major 13th',        sym:'maj13',   steps:[0,4,7,11,14,21], deg:[0,2,4,6,8,12] },
+    min6:   { label:'minor 6th',         sym:'m6',      steps:[0,3,7,9], deg:[0,2,4,5] },
+    maj6:   { label:'major 6th',         sym:'6',       steps:[0,4,7,9], deg:[0,2,4,5] },
+    six9:   { label:'six / nine',        sym:'6/9',     steps:[0,4,7,9,14], deg:[0,2,4,5,8] }
   };
 
   /* Intervals, 0–12 semitones, then the compound ones. */
   const IVL = [
-    { n:0,  short:'P1',  label:'unison',          feel:'the same note' },
-    { n:1,  short:'m2',  label:'minor 2nd',       feel:'tense, horror-film' },
-    { n:2,  short:'M2',  label:'major 2nd',       feel:'a step, neutral' },
-    { n:3,  short:'m3',  label:'minor 3rd',       feel:'sad' },
-    { n:4,  short:'M3',  label:'major 3rd',       feel:'happy' },
-    { n:5,  short:'P4',  label:'perfect 4th',     feel:'open, heroic' },
-    { n:6,  short:'TT',  label:'tritone',         feel:'unstable, wants to move' },
-    { n:7,  short:'P5',  label:'perfect 5th',     feel:'strong, hollow, powerful' },
-    { n:8,  short:'m6',  label:'minor 6th',       feel:'longing' },
-    { n:9,  short:'M6',  label:'major 6th',       feel:'warm, sweet' },
-    { n:10, short:'m7',  label:'minor 7th',       feel:'smooth, soulful' },
-    { n:11, short:'M7',  label:'major 7th',       feel:'dreamy, sharp-edged' },
-    { n:12, short:'P8',  label:'octave',          feel:'the same note, higher' },
-    { n:13, short:'m9',  label:'minor 9th',       feel:'crunchy' },
-    { n:14, short:'M9',  label:'major 9th',       feel:'colourful, floaty' },
-    { n:15, short:'m10', label:'minor 10th',      feel:'a wide sad third' },
-    { n:16, short:'M10', label:'major 10th',      feel:'a wide happy third' },
-    { n:17, short:'P11', label:'11th',            feel:'washy, suspended' },
-    { n:21, short:'M13', label:'13th',            feel:'jazzy, plush' }
+    { n:0,  short:'P1',  label:'unison',          feel:'the same note', deg:0 },
+    { n:1,  short:'m2',  label:'minor 2nd',       feel:'tense, horror-film', deg:1 },
+    { n:2,  short:'M2',  label:'major 2nd',       feel:'a step, neutral', deg:1 },
+    { n:3,  short:'m3',  label:'minor 3rd',       feel:'sad', deg:2 },
+    { n:4,  short:'M3',  label:'major 3rd',       feel:'happy', deg:2 },
+    { n:5,  short:'P4',  label:'perfect 4th',     feel:'open, heroic', deg:3 },
+    { n:6,  short:'TT',  label:'tritone',         feel:'unstable, wants to move', deg:3 },
+    { n:7,  short:'P5',  label:'perfect 5th',     feel:'strong, hollow, powerful', deg:4 },
+    { n:8,  short:'m6',  label:'minor 6th',       feel:'longing', deg:5 },
+    { n:9,  short:'M6',  label:'major 6th',       feel:'warm, sweet', deg:5 },
+    { n:10, short:'m7',  label:'minor 7th',       feel:'smooth, soulful', deg:6 },
+    { n:11, short:'M7',  label:'major 7th',       feel:'dreamy, sharp-edged', deg:6 },
+    { n:12, short:'P8',  label:'octave',          feel:'the same note, higher', deg:7 },
+    { n:13, short:'m9',  label:'minor 9th',       feel:'crunchy', deg:8 },
+    { n:14, short:'M9',  label:'major 9th',       feel:'colourful, floaty', deg:8 },
+    { n:15, short:'m10', label:'minor 10th',      feel:'a wide sad third', deg:9 },
+    { n:16, short:'M10', label:'major 10th',      feel:'a wide happy third', deg:9 },
+    { n:17, short:'P11', label:'11th',            feel:'washy, suspended', deg:10 },
+    { n:21, short:'M13', label:'13th',            feel:'jazzy, plush', deg:12 }
   ];
-  const ivl = n => IVL.find(i => i.n === n) || { n, short:n+'st', label:n+' semitones', feel:'' };
+  const ivl = n => IVL.find(i => i.n === n) || { n, short:n+'st', label:n+' semitones', feel:'', deg:(n % 12) };
+  /* the note `semis` above rootName, spelled the way that interval is written */
+  const spellIvl = (rootName, semis) => {
+    const I = ivl(semis);
+    return spellNote(rootName, (I.deg == null ? 0 : I.deg) % 7, semis);
+  };
 
   const scaleNotes = (rootMidi, type) => SCALES[type].steps.map(s => rootMidi + s);
   const chordNotes = (rootMidi, type) => CHORDS[type].steps.map(s => rootMidi + s);
@@ -474,6 +534,68 @@ const T = (() => {
   };
   const chordLabel = (rootMidi, type, flats) => name(rootMidi, flats) + (CHORDS[type] ? CHORDS[type].sym : '');
 
+  /* ── Spelling ───────────────────────────────────────────────────
+     A note's name is a letter plus an accidental, and the letter comes
+     from the interval's *degree*, not from its semitone count. These
+     helpers spell notes inside a chord or a key so that displayed names
+     match what a musician would write.                               */
+  const LETTERS = ['C','D','E','F','G','A','B'];
+  const LETTER_PC = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+  const ACC = { '':0, '\u266F':1, '\u266F\u266F':2, '\u266D':-1, '\u266D\u266D':-2, '#':1, 'b':-1 };
+  const ACC_NAME = { '-2':'\u266D\u266D', '-1':'\u266D', '0':'', '1':'\u266F', '2':'\u266F\u266F' };
+
+  const nameToPc = n => {
+    const l = n[0].toUpperCase(), a = ACC[n.slice(1)] || 0;
+    return pc(LETTER_PC[l] + a);
+  };
+  /* Spell the note `semis` semitones above `rootName`, `letterStep` letters up. */
+  function spellNote(rootName, letterStep, semis) {
+    const rl = rootName[0].toUpperCase();
+    const rootPc = nameToPc(rootName);
+    const tl = LETTERS[(LETTERS.indexOf(rl) + letterStep) % 7];
+    let acc = pc(rootPc + semis) - LETTER_PC[tl];
+    acc = ((acc + 18) % 12) - 6;               // fold into -6..+5
+    if (acc < -2 || acc > 2) return name(rootPc + semis, acc < 0); // give up gracefully
+    return tl + ACC_NAME[String(acc)];
+  }
+  const spellChord = (rootName, type) => {
+    const c = CHORDS[type]; if (!c) return [];
+    const deg = c.deg || c.steps.map((_, i) => i * 2);
+    return c.steps.map((st, i) => spellNote(rootName, deg[i] % 7, st));
+  };
+  const spellScale = (rootName, type) => {
+    const sc = SCALES[type]; if (!sc) return [];
+    const deg = sc.deg || sc.steps.map((_, i) => i);
+    return sc.steps.map((st, i) => spellNote(rootName, deg[i] % 7, st));
+  };
+  const chordName = (rootName, type) => rootName + (CHORDS[type] ? CHORDS[type].sym : '');
+
+  /* pitch class → spelled name, for one key. Notes outside the key fall back
+     to the accidental the key signature already prefers. */
+  const _mapCache = {};
+  function keyMap(rootName, type) {
+    const k = rootName + '|' + type;
+    if (_mapCache[k]) return _mapCache[k];
+    const names = spellScale(rootName, type), sc = SCALES[type];
+    const out = { flats:false };
+    sc.steps.forEach((st, i) => { out[pc(nameToPc(rootName) + st)] = names[i]; });
+    out.flats = names.some(n => n.indexOf('\u266D') >= 0);
+    _mapCache[k] = out;
+    return out;
+  }
+  /* Name one MIDI note as it would be written in this key. */
+  const inKey = (midi, rootName, type) => {
+    const m = keyMap(rootName || 'C', type || 'major');
+    return m[pc(midi)] || name(midi, m.flats);
+  };
+  /* Conventional key names, so we always spell from a real key root. */
+  const MAJ_ROOT = ['C','D\u266D','D','E\u266D','E','F','F\u266F','G','A\u266D','A','B\u266D','B'];
+  const MIN_ROOT = ['C','C\u266F','D','E\u266D','E','F','F\u266F','G','G\u266F','A','B\u266D','B'];
+  const rootName = (midiOrPc, minorish) =>
+    (minorish ? MIN_ROOT : MAJ_ROOT)[pc(midiOrPc)];
+  const MINOR_TYPES = ['minor','harmonicMinor','melodicMinor','minorPent','dorian','phrygian','locrian','blues','phrygianDom'];
+  const rootFor = (midiOrPc, type) => rootName(midiOrPc, MINOR_TYPES.indexOf(type) >= 0);
+
   /* Circle of fifths, clockwise from C. */
   const CIRCLE = [0,7,2,9,4,11,6,1,8,3,10,5];
   const KEY_LABEL = ['C','G','D','A','E','B','F♯','D♭','A♭','E♭','B♭','F'];
@@ -487,6 +609,8 @@ const T = (() => {
   };
 
   return { SHARP, FLAT, PRETTY, pc, oct, name, fullName, freq, isBlack,
+           LETTERS, nameToPc, spellNote, spellChord, spellScale, chordName,
+           keyMap, inKey, rootName, rootFor, MAJ_ROOT, MIN_ROOT, spellIvl,
            SCALES, MODE_ORDER, CHORDS, IVL, ivl, scaleNotes, chordNotes,
            diatonic, roman, ROMAN, chordLabel, CIRCLE, KEY_LABEL, MINOR_LABEL,
            SIGNATURE, invert, qualityOf };
@@ -851,6 +975,11 @@ const V = (() => {
     const marks = new Map();     // midi -> role
     const extras = new THREE.Group(); g.add(extras);
     let onKeyCb = null, labelMap = null, labelMode = cfg.labels;
+    let spell = cfg.spell || null;          /* pc -> spelled name */
+    /* a spelled name when the key supplies one, otherwise the accidental that
+       key signature prefers — so a button and the readout never disagree */
+    const nameOf = m => (spell && spell[T.pc(m)]) ||
+      T.name(m, spell ? !!spell.flats : cfg.flats);
 
     let wi = 0; const whites = [];
     for (let m = cfg.lo; m <= cfg.hi; m++) if (!T.isBlack(m)) whites.push(m);
@@ -889,9 +1018,9 @@ const V = (() => {
         const ink = inkOn(keyCol);
         let txt = null, col = ink;
         if (labelMode === 'names') {
-          if (k.white || role) txt = T.name(m, cfg.flats);
+          if (k.white || role) txt = nameOf(m);
           if (T.pc(m) === 0) {
-            txt = T.name(m, cfg.flats) + T.oct(m);
+            txt = nameOf(m) + T.oct(m);
             col = ink === '#FFFFFF' ? '#FFE2A8' : '#8A5A10';
           }
         } else if (labelMode === 'map') {
@@ -921,8 +1050,24 @@ const V = (() => {
       onPick(hit) {
         const m = hit.object.userData.midi;
         if (m == null) return;
-        api.press(m);
-        if (onKeyCb) onKeyCb(m);
+        api.tap(m);
+      },
+      /* the one place a key press happens, whether from the canvas or a button */
+      tap(m) { api.press(m); if (onKeyCb) onKeyCb(m); return api; },
+      a11y() {
+        const items = [];
+        keys.forEach((k, m) => {
+          const role = marks.get(m);
+          items.push({
+            label:nameOf(m) + T.oct(m),
+            aria:nameOf(m) + T.oct(m) + ', ' + (k.white ? 'white key' : 'black key') +
+              (role ? ', highlighted as ' + role : ''),
+            pressed:!!role,
+            act:() => api.tap(m)
+          });
+        });
+        items.sort((a, b) => 0);
+        return { title:'Piano keys', groups:[{ name:'Keys, low to high', items }] };
       },
       onKey(cb) { onKeyCb = cb; return api; },
       press(m, dur) {
@@ -939,6 +1084,9 @@ const V = (() => {
       apply() { paint(); return api; },
       labelMode(mode, map) { labelMode = mode; labelMap = map || null; drawLabels(); return api; },
       flats(v) { cfg.flats = v; drawLabels(); return api; },
+      /* pass {pitchClass: 'E\u266D', …} so labels read the way the key is written */
+      spelling(map) { spell = map || null; drawLabels(); return api; },
+      nameOf,
       clearExtras() { disposeDeep(extras); return api; },
       /* an arc from key a to key b, with a dot per semitone stepped through */
       arc(a, b, text, opt) {
@@ -976,7 +1124,7 @@ const V = (() => {
             mat(col, { emissive:col, emissiveIntensity:0.34, roughness:0.35 }));
           tile.position.set(x, y, 1.9); extras.add(tile);
           const gap = i > 0 ? midis[i] - midis[i - 1] : 0;
-          const nm = label(T.name(m, cfg.flats) +
+          const nm = label(nameOf(m) +
             (opt.degrees && opt.degrees[i] ? ' ' + opt.degrees[i] : '') +
             (gap ? '  +' + gap : ''), { h:0.46, color:C.labOn, weight:700 });
           nm.position.set(x, y + 0.02, 2.3); extras.add(nm);
@@ -1067,8 +1215,25 @@ const V = (() => {
       get pickables() { return [].concat.apply([], cells); },
       onPick(hit) {
         const { lane, step } = hit.object.userData;
-        api.toggle(lane, step);
-        if (onCellCb) onCellCb(lane, step, state[lane][step]);
+        api.tapCell(lane, step);
+      },
+      tapCell(l, s) {
+        api.toggle(l, s);
+        if (onCellCb) onCellCb(l, s, state[l][s]);
+        return api;
+      },
+      a11y() {
+        return { title:'Step grid',
+          groups:cfg.lanes.map((ln, l) => ({
+            name:ln.name + ' \u00B7 ' + S + ' steps',
+            items:state[l].map((v, st) => ({
+              label:String(st + 1),
+              aria:ln.name + ', step ' + (st + 1) + ' of ' + S +
+                ', beat ' + (Math.floor(st / cfg.group) + 1) + (v ? ', on' : ', off'),
+              pressed:!!v,
+              act:() => api.tapCell(l, st)
+            }))
+          })) };
       },
       onCell(cb) { onCellCb = cb; return api; },
       toggle(l, s) { state[l][s] = state[l][s] ? 0 : 1; paint(); return api; },
@@ -1153,9 +1318,25 @@ const V = (() => {
       get pickables() { return outer.concat(inner); },
       onPick(hit) {
         const { idx, ring } = hit.object.userData;
+        api.tapTile(idx, ring);
+      },
+      tapTile(idx, ring) {
         if (ring === 'maj') sel = idx;
         paint();
         if (onTileCb) onTileCb(idx, ring);
+        return api;
+      },
+      a11y() {
+        const mk = (ring, labels) => labels.map((lab, i) => ({
+          label:lab,
+          aria:lab + (ring === 'maj' ? ' major' : ' minor') + ', position ' + (i + 1) +
+            ' on the circle' + (ring === 'maj' && i === sel ? ', selected' : ''),
+          pressed:ring === 'maj' && i === sel,
+          act:() => api.tapTile(i, ring)
+        }));
+        return { title:'Circle of fifths',
+          groups:[{ name:'Major keys, clockwise from C', items:mk('maj', T.KEY_LABEL) },
+                  { name:'Relative minors', items:mk('min', T.MINOR_LABEL) }] };
       },
       onTile(cb) { onTileCb = cb; return api; },
       select(i) { sel = i; paint(); return api; },
@@ -1287,6 +1468,22 @@ const V = (() => {
         if (onCellCb) onCellCb(s, midi, i < 0);
       },
       onCell(cb) { onCellCb = cb; return api; },
+      tapCell(step, midi) {
+        const i = noteList.findIndex(n => n.step === step && n.midi === midi);
+        if (i >= 0) noteList.splice(i, 1); else noteList.push({ step, midi, len:1 });
+        drawNotes();
+        if (onCellCb) onCellCb(step, midi, i < 0);
+        return api;
+      },
+      a11y() {
+        return { title:'Piano roll', form:{
+          steps:S, rows:rows.slice(),
+          rowLabel:m => T.name(m) + T.oct(m),
+          has:(step, midi) => noteList.some(n => n.step === step && n.midi === midi),
+          toggle:(step, midi) => api.tapCell(step, midi),
+          list:() => noteList.slice().sort((a, b) => a.step - b.step || a.midi - b.midi)
+        } };
+      },
       get notes() { return noteList; },
       setNotes(list) { noteList = (list || []).slice(); drawNotes(); return api; },
       clearNotes() { noteList = []; drawNotes(); return api; },
@@ -1354,7 +1551,8 @@ const V = (() => {
     if (lightFill) { lightFill.color.setHex(C.fillC); lightFill.intensity = C.fillI; }
     if (lightRim) { lightRim.color.setHex(C.accent); lightRim.intensity = C.rimI; }
   }
-  return { mount, set, label, setTheme, get C() { return C; }, get ROLE() { return ROLE; },
+  const a11y = () => (current && current.a11y) ? current.a11y() : null;
+  return { mount, set, label, setTheme, a11y, get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
            get orbit() { return orb; }, resize };
 })();
@@ -1504,8 +1702,21 @@ const APP = (() => {
     const n = Object.keys(done).filter(k => done[k]).length;
     $('#progTxt').textContent = n + ' / ' + LESSONS.length;
     $('#progBar').style.width = (100 * n / LESSONS.length) + '%';
+    let right = 0, total = 0;
+    LESSONS.forEach(L => { const t = drillTally(L.id); right += t.right; total += t.total; });
+    const dt = $('#drillTxt');
+    if (dt) dt.textContent = total ? right + ' / ' + total + ' right' : 'not started';
+    const db = $('#drillBar');
+    if (db) db.style.width = (total ? 100 * right / total : 0) + '%';
     document.querySelectorAll('#nav button').forEach(b => {
       b.classList.toggle('done', !!done[b.dataset.id]);
+      const t = drillTally(b.dataset.id);
+      b.classList.toggle('review', t.wrong.length > 0);
+      const tk = b.querySelector('.tick');
+      if (tk) tk.textContent = t.wrong.length ? '!' : '\u2713';
+      b.title = t.total
+        ? t.right + ' of ' + t.total + ' drill answers right' + (t.wrong.length ? ' \u00B7 worth revisiting' : '')
+        : '';
     });
   }
 
@@ -1529,6 +1740,28 @@ const APP = (() => {
     });
   }
 
+  /* Scratch space per lesson, kept for the life of the session so that
+     switching reading level or theme does not throw away a pattern or a
+     progression the learner built. */
+  const kept = {};
+  const keep = (id, k, v) => { (kept[id] = kept[id] || {})[k] = v; };
+  const recall = (id, k) => (kept[id] || {})[k];
+
+  /* Drill accuracy, tracked separately from "lesson done". First answer on
+     each question counts; a lesson can be retried to clear its record. */
+  const DKEY = 'rbx-theory-drills-v1';
+  let drills = {};
+  function loadDrills() {
+    try { drills = JSON.parse(localStorage.getItem(DKEY) || '{}') || {}; } catch (e) { drills = {}; }
+  }
+  function saveDrills() { try { localStorage.setItem(DKEY, JSON.stringify(drills)); } catch (e) {} }
+  function drillTally(id) {
+    const rec = drills[id] || {};
+    const ks = Object.keys(rec);
+    return { total:ks.length, right:ks.filter(k => rec[k]).length,
+             wrong:ks.filter(k => !rec[k]).map(Number) };
+  }
+
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
   const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
@@ -1548,8 +1781,18 @@ const APP = (() => {
       hint: t => { $('#stageHint').textContent = t; },
       stage: (...kids) => { kids.forEach(k => k && $('#stageCtl').appendChild(k)); },
       seq: opts => { transport.stop(); transport.start(opts); },
-      stop: () => { transport.stop(); }
+      stop: () => { transport.stop(); },
+      keep: (k, v) => keep(L.id, k, v),
+      recall: k => recall(L.id, k),
+      /* ear-training results feed the same accuracy tally as the quizzes */
+      score: ok => {
+        const rec = drills[L.id] = drills[L.id] || {};
+        rec['d' + Object.keys(rec).filter(x => x[0] === 'd').length] = !!ok;
+        saveDrills(); progress();
+      }
     };
+
+    buildA11y(ctx);
 
     /* ── prose ── */
     const S = (mode === 'simple' && L.simple) ? L.simple : null;
@@ -1638,7 +1881,13 @@ const APP = (() => {
     /* ── quiz ── */
     {
       const q = UI.el('div', 'quiz');
-      if (quiz && quiz.length) q.appendChild(UI.html('h3', null, 'Check yourself'));
+      if (quiz && quiz.length) {
+        const t = drillTally(L.id);
+        q.appendChild(UI.html('h3', null, 'Check yourself' +
+          (t.total ? ' \u00B7 <span style="color:var(--muted)">' + t.right + '/' + t.total +
+            ' right so far</span>' : '')));
+      }
+      const rec = drills[L.id] = drills[L.id] || {};
       (quiz || []).forEach((Q, qi) => {
         const box = UI.el('div', 'q');
         box.appendChild(UI.html('p', 'qt', '<span class="qn">Q' + (qi + 1) + '</span>' + Q.q));
@@ -1654,6 +1903,9 @@ const APP = (() => {
             });
             if (ai !== Q.c) b.classList.add('wrong');
             why.hidden = false;
+            if (rec[qi] === undefined) {      /* only the first answer is scored */
+              rec[qi] = (ai === Q.c); saveDrills(); progress();
+            }
             if (Q.hear) { A.resume(); Q.hear(); }
           });
           opts.appendChild(b);
@@ -1700,6 +1952,72 @@ const APP = (() => {
     try { location.hash = L.id; } catch (e) {}
   }
 
+  /* Mirror the 3D instrument as real buttons: operable by keyboard, named for
+     screen readers, and legible for anyone who finds the perspective labels
+     small. The canvas itself is marked decorative. */
+  function buildA11y(ctx) {
+    const body = $('#a11yBody'), sum = $('#a11ySum');
+    if (!body) return;
+    body.innerHTML = '';
+    const d = V.a11y && V.a11y();
+    if (!d) {
+      body.appendChild(UI.html('p', 'hint', 'This lesson has no instrument to operate.'));
+      return;
+    }
+    if (sum) sum.textContent = d.title + ' \u2014 buttons (keyboard and screen-reader friendly)';
+    body.appendChild(UI.html('p', 'hint',
+      'These do exactly what tapping the 3D stage does. Tab to move, Enter or Space to play. ' +
+      'Results are announced in the readout above the lesson.'));
+
+    (d.groups || []).forEach(g => {
+      body.appendChild(UI.html('h4', null, g.name));
+      const row = UI.el('div', 'pads');
+      g.items.forEach(it => {
+        const b = UI.el('button', 'pad' + (/black/.test(it.aria || '') ? ' black' : ''), it.label);
+        b.type = 'button';
+        b.setAttribute('aria-label', it.aria || it.label);
+        if (it.pressed != null) b.setAttribute('aria-pressed', it.pressed ? 'true' : 'false');
+        b.addEventListener('click', () => {
+          A.resume(); it.act();
+          if (it.pressed != null) {
+            const now = b.getAttribute('aria-pressed') === 'true';
+            b.setAttribute('aria-pressed', now ? 'false' : 'true');
+          }
+        });
+        row.appendChild(b);
+      });
+      body.appendChild(row);
+    });
+
+    /* the piano roll gets a compact add/remove form instead of 240 buttons */
+    if (d.form) {
+      const f = d.form;
+      body.appendChild(UI.html('h4', null, 'Write a note'));
+      const stepSel = UI.select('Step', Array.from({ length:f.steps }, (_, i) =>
+        ({ label:'step ' + (i + 1), value:i })), () => {}, 0);
+      const rowSel = UI.select('Note', f.rows.map(m =>
+        ({ label:f.rowLabel(m), value:m })), () => {}, f.rows[0]);
+      const act = UI.btn('Add or remove', () => {
+        const st = Number(stepSel.el.value), md = Number(rowSel.el.value);
+        f.toggle(st, md);
+        buildA11y(ctx);
+      }, { primary:true });
+      body.appendChild(UI.row(stepSel, rowSel, act));
+      const list = f.list();
+      body.appendChild(UI.html('h4', null, 'Notes on the roll (' + list.length + ')'));
+      const wrap = UI.el('div', 'notelist');
+      if (!list.length) wrap.appendChild(UI.html('span', 'hint', 'empty'));
+      list.forEach(n => {
+        const b = UI.el('button', 'pad', f.rowLabel(n.midi) + ' @' + (n.step + 1));
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Remove ' + f.rowLabel(n.midi) + ' at step ' + (n.step + 1));
+        b.addEventListener('click', () => { A.resume(); f.toggle(n.step, n.midi); buildA11y(ctx); });
+        wrap.appendChild(b);
+      });
+      body.appendChild(wrap);
+    }
+  }
+
   function go(i) {
     idx = Math.max(0, Math.min(LESSONS.length - 1, i));
     render();
@@ -1724,7 +2042,7 @@ const APP = (() => {
     } else {
       V.mount(document.querySelector('#gl'));
     }
-    load(); loadMode(); applyTheme(); buildNav();
+    load(); loadMode(); loadDrills(); applyTheme(); buildNav();
     const hash = (location.hash || '').replace('#', '');
     const at = LESSONS.findIndex(l => l.id === hash);
     idx = at >= 0 ? at : 0;
@@ -1831,8 +2149,10 @@ LESSONS.push({
       UI.toggle('▶ Play', play),
       UI.slider('Tempo', 60, 170, bpm, 1, v => { bpm = v; ctx.transport.bpm = v; }, v => v + ' BPM')
     );
-    ctx.v.onCell(() => {});
-    ctx.read('one bar of 4/4\n16 boxes  ·  press play');
+    const saved = ctx.recall('pattern');
+    if (saved) saved.forEach((row, l) => ctx.v.pattern(l, row));
+    ctx.v.onCell(() => ctx.keep('pattern', ctx.v.state.map(r => r.slice())));
+    ctx.read('one bar of 4/4\n16 boxes  \u00B7  press play');
   }
 });
 
@@ -1890,9 +2210,11 @@ LESSONS.push({
     let bpm = 92;
     ctx.load = k => {
       P[k].forEach((row, l) => ctx.v.pattern(l, row));
+      ctx.keep('kit', k);
       ctx.read(k + ' pattern loaded');
     };
-    ctx.load('straight');
+    ctx.v.onCell(() => {});
+    ctx.load(ctx.recall('kit') || 'straight');
     const play = on => {
       if (!on) { ctx.stop(); ctx.v.playhead(-1); return; }
       ctx.seq({ bpm, div:16, steps:16, cb:(step, t) => {
@@ -1920,7 +2242,9 @@ LESSONS.push({
     { h:'The idea in one line' },
     { p:'<b>Meter</b> is how a bar’s beats are organised, and only two things about it ever change: <b>how many beats</b> are in the bar, and whether each beat splits into <b>2</b> or into <b>3</b>. Split by 2 = <b>simple</b>. Split by 3 = <b>compound</b>. Everything below is notation for those two facts.' },
     { h:'Reading a time signature' },
-    { p:'The top number is <b>how many beats in a bar</b>. The bottom number is <b>what kind of note gets a beat</b> — 4 means a quarter note, 8 means an 8th note. So <span class="k">3/4</span> is three quarter-note beats (a waltz) and <span class="k">6/8</span> is six 8th notes, felt as two big beats of three.' },
+    { p:'The bottom number says <b>which note value one unit is</b> — 4 means a quarter note, 8 means an 8th note. The top number counts <b>how many of those units are in a bar</b>.' },
+    { p:'In <b>simple</b> meters that unit <em>is</em> the beat, so the top number is also the beat count: <span class="k">3/4</span> is three quarter-note beats, a waltz. In <b>compound</b> meters it is not. <span class="k">6/8</span> holds six 8th notes, but they group in threes, so the bar has <b>two beats</b> and each beat is a <b>dotted quarter</b>. Same for <span class="k">9/8</span> (three dotted-quarter beats) and <span class="k">12/8</span> (four).' },
+    { small:'So "top number = beats per bar" is a simple-meter rule, not a universal one. In compound meter, divide the top number by 3 to get the beats. <a href="https://viva.pressbooks.pub/openmusictheory/chapter/compound-meters-and-time-signatures/" target="_blank" rel="noopener">Open Music Theory: compound meters</a>' },
     { h:'Simple vs compound' },
     { p:'<b>Simple meter</b> splits each beat into <b>2</b>: 4/4, 3/4, 2/4. Counting is <em>1 &amp; 2 &amp;</em>. <b>Compound meter</b> splits each beat into <b>3</b>: 6/8, 9/8, 12/8. Counting is <em>1-la-li 2-la-li</em>. Compound has a rolling, galloping feel — think drill triplet flows, Afrobeats, a lot of gospel and most swung beats.' },
     { table:{ head:['Signature','Type','Beats per bar','Feel / where you hear it'],
@@ -1936,31 +2260,38 @@ LESSONS.push({
     { try:{ h:'Two against three', p:'The pulse lane marks the big beats, and the tempo stays put when you switch. In 4/4 you get four beats of two boxes; in 12/8 (which is just two bars of 6/8 back to back) you get four beats of three. Same speed, different gait.',
       build:ctx => [
         UI.chips([
-          { label:'4/4 — simple (in 2s)', value:4 },
-          { label:'12/8 — compound (in 3s)', value:3 }
-        ], v => ctx.setMeter(v), 1),
-        UI.btn('Add a triplet roll', () => ctx.v.pattern(2, [1,1,1, 1,1,1, 1,1,1, 1,1,1]))
+          { label:'Simple — 2 per beat (apple)', value:2 },
+          { label:'Compound — 3 per beat (strawberry)', value:3 }
+        ], v => ctx.setMeter(v), 0),
+        UI.btn('Now split each beat into 4', () => ctx.setMeter(4)),
+        UI.btn('Fill every box', () => ctx.fill())
       ] } },
     { keys:[
-      'Top number = beats per bar. Bottom number = which note is a beat.',
+      'Bottom number = which note value counts as one unit. Top number = how many units per bar.',
+      'Simple meter: the unit is the beat, so the top number is the beat count (3/4 = 3 beats).',
+      'Compound meter: units group in threes, so beats = top ÷ 3, and each beat is a dotted note (6/8 = 2 dotted-quarter beats).',
       'Simple = beats divide by 2. Compound = beats divide by 3.',
-      'You can get compound feel inside 4/4 with triplets or swing — no signature change needed.' ] }
+      'You can get a compound feel inside 4/4 with triplets or swing — no signature change needed.' ] }
   ],
   quiz:[
-    { q:'6/8 is usually felt as…', a:['Six equal heavy beats','Two big beats of three','Three big beats of two','Four beats of four'], c:1,
-      why:'Six 8th notes grouped 3 + 3 — two strong pulses, each rolling in three. That grouping is what makes it compound.' },
+    { q:'6/8 is usually felt as…', a:['Six equal heavy beats','Two dotted-quarter beats, each split in three','Three big beats of two','Four beats of four'], c:1,
+      why:'Six 8th notes grouped 3 + 3. The beat is the dotted quarter, so the top number (6) counts divisions here, not beats.' },
     { q:'Which is a simple meter?', a:['6/8','9/8','3/4','12/8'], c:2,
       why:'3/4 — three beats, each splitting in two. The others all split their beats into three.' },
     { q:'Turning up swing on your 16ths does what?', a:['Changes the key','Makes every other 16th late','Doubles the tempo','Adds reverb'], c:1,
       why:'It delays the second 16th of each pair, giving a long-short lope — an easy way to borrow a compound feel while staying in 4/4.' }
   ],
   init:ctx => {
-    let bpm = 100, group = 3;
+    let bpm = 100, group = 2, nSteps = 8;
+    /* One bar, four beats, tempo unchanged — only the number of boxes
+       inside each beat changes: 2 (simple), 3 (compound) or 4 (simple,
+       subdivided again). That keeps the pulse constant, which is the
+       whole point of the comparison. */
     ctx.setMeter = g => {
       group = g;
-      const steps = g === 3 ? 12 : 16;
+      const steps = g * 4;                    /* always four beats per bar */
+      nSteps = steps;
       ctx.stop();
-      /* the grid is rebuilt, because 6/8 needs 12 boxes and 4/4 needs 16 */
       ctx.v = V.set('grid', { steps, group:g,
         lanes:[{name:'Pulse',kind:'click'},{name:'Kick',kind:'kick'},{name:'Hat',kind:'hat'}] });
       const pulse = [], kick = [], hat = [];
@@ -1973,14 +2304,19 @@ LESSONS.push({
       const acc = [];
       for (let i = 0; i < steps; i++) acc.push(i === 0 ? 1 : i % (g * 2) === 0 ? .8 : i % g === 0 ? .5 : .18);
       ctx.v.accents(acc);
-      ctx.read(g === 3 ? 'STRAW-BER-RY\n4 taps · 3 pieces each\ncompound · written 12/8'
-                       : 'AP-PLE\n4 taps · 2 pieces each\nsimple · written 4/4');
+      ctx.read(g === 3
+        ? 'STRAW-BER-RY  ·  compound\n4 beats, 3 boxes each = 12/8\nbeat = a dotted quarter'
+        : g === 2
+          ? 'AP-PLE  ·  simple\n4 beats, 2 boxes each = 4/4 in 8ths\nbeat = a quarter'
+          : 'AP-PLE, twice as fine  ·  simple\n4 beats, 4 boxes each = 4/4 in 16ths\nstill 2-per-beat at heart');
+      ctx.keep('meter', g);
     };
-    ctx.setMeter(3);
+    ctx.fill = () => ctx.v.pattern(2, new Array(nSteps).fill(1));
+    ctx.setMeter(ctx.recall('meter') || 2);
     const play = on => {
       if (!on) { ctx.stop(); ctx.v.playhead(-1); return; }
-      const steps = group === 3 ? 12 : 16;
-      ctx.seq({ bpm, div: group === 3 ? 12 : 16, steps, cb:(step, t) => {
+      const steps = nSteps;
+      ctx.seq({ bpm, div: steps, steps, cb:(step, t) => {
         if (ctx.v.state[0][step]) A.click(step === 0 ? 'strong' : 'mid', t);
         if (ctx.v.state[1][step]) A.click('kick', t);
         if (ctx.v.state[2][step]) A.click('hat', t);
@@ -2098,6 +2434,8 @@ LESSONS.push({
         ['12','octave','the same note, higher'] ] } },
     { h:'The two that decide everything' },
     { p:'The <b>3rd</b> is the mood switch. 4 semitones = major = bright. 3 semitones = minor = dark. One key difference, entirely different song. The <b>5th</b> is the stability bolt — it’s so consonant it barely has an opinion, which is why power chords and 808 basslines lean on it.' },
+    { note:{ h:'“Sounds like” means “usually, in this music”',
+      p:'The moods in that table are strong tendencies in Western pop, not properties of the physics. Context overrides them constantly: a minor 3rd is the backbone of plenty of triumphant anthems, and a major 3rd over the wrong bass note can sound desolate. Rhythm, register, tempo, instrument and what came before all get a vote. Use the table to recognise intervals, then judge each one by ear in the actual track.' } },
     { note:{ h:'Consonant and dissonant',
       p:'Consonant intervals (octave, 5th, 4th, 3rds, 6ths) sound settled. Dissonant ones (2nds, 7ths, tritone) sound like they’re leaning somewhere. Dissonance is not a mistake — it’s fuel. Tension you resolve is the single oldest trick in music.' } },
     { try:{ h:'Hear the gaps', p:'Play any interval from C, or let the lab test your ear. Harmonic means both notes at once; melodic means one after the other.',
@@ -2133,7 +2471,8 @@ LESSONS.push({
       ctx.v.clear().mark(base, 'root').mark(hi, 'chord').apply().clearExtras();
       const I = T.ivl(n);
       ctx.v.arc(base, hi, I.short + '  ' + n + ' semis');
-      ctx.read(T.name(base) + ' → ' + T.name(hi) + '\n' + I.label + '  ·  ' + n + ' semitones\n' + I.feel);
+      ctx.read('C \u2192 ' + T.spellIvl('C', n) + '\n' + I.label + '  \u00B7  ' + n +
+        ' semitones\n' + I.feel);
       playPair(base, hi);
     };
     ctx.test = () => {
@@ -2149,8 +2488,9 @@ LESSONS.push({
         const guess = m - base, ok = guess === answer;
         ctx.v.clear().mark(base, 'root').mark(base + answer, 'target').apply().clearExtras();
         ctx.v.arc(base, base + answer, T.ivl(answer).short);
-        ctx.read((ok ? '✓ ' : '✗ ') + 'it was a ' + T.ivl(answer).label +
-          ' — ' + answer + ' semitones' + (ok ? '' : '\nyou picked ' + guess));
+        ctx.read((ok ? '\u2713 ' : '\u2717 ') + 'it was a ' + T.ivl(answer).label +
+          ' \u2014 C to ' + T.spellIvl('C', answer) + ', ' + answer + ' semitones' +
+          (ok ? '' : '\nyou picked ' + guess + ' semitones'));
         answer = null; ctx.hint('Press ear test for another');
       } else { A.note(m, 1); ctx.show(m - base >= 0 ? m - base : 0); }
     });
@@ -2181,10 +2521,13 @@ LESSONS.push({
         ['Major pentatonic','0 2 4 7 9','C D E G A','safe, singable melodies'],
         ['Blues','0 3 5 6 7 10','C E♭ F G♭ G B♭','grit, soul, guitar'] ] } },
     { note:{ h:'Pentatonics are the beginner’s cheat code',
-      p:'A pentatonic scale is a 7-note scale with the two most argumentative notes removed. Five notes, almost no way to sound wrong. If your melodies keep clashing with your chords, write the hook in minor pentatonic first, then add colour notes back one at a time.' } },
+      p:'A pentatonic scale is a 7-note scale with the two most argumentative notes removed. Fewer notes means fewer ways to fight the harmony, which is why hooks so often live here. If your melodies keep clashing, write the hook in minor pentatonic first, then add colour notes back one at a time.' } },
+    { note:{ h:'“In the scale” does not mean “safe”',
+      p:'A scale keeps you in the key — it does not guarantee agreement with the chord playing underneath. Hold a D over a C chord and it is a 9th (lovely); hold the same D over a G7 and it is the 5th (plain); hold an F over a C major chord and it fights the E a semitone below it, even though F is in C major. Lesson 20 is entirely about that difference. Treat a scale as a shortlist, not a guarantee.' } },
     { try:{ h:'Build a scale from any root', p:'Change the root and the scale type, and watch which keys light up — the pattern moves with the root, the shape stays the same.',
       build:ctx => [
-        UI.select('Root', [48,49,50,51,52,53,54,55,56,57,58,59].map(m => ({ label:T.name(m), value:m })),
+        UI.select('Root', [48,49,50,51,52,53,54,55,56,57,58,59].map(m =>
+          ({ label:T.MAJ_ROOT[T.pc(m)], value:m })),
           v => ctx.setRoot(Number(v)), 48),
         UI.select('Scale', ['major','minor','majorPent','minorPent','blues','harmonicMinor']
           .map(k => ({ label:T.SCALES[k].label, value:k })), v => ctx.setScale(v), 'major'),
@@ -2207,8 +2550,9 @@ LESSONS.push({
       why:'The 3rd, 6th and 7th each drop a semitone. The flat 3rd is what your ear hears as “minor”.' }
   ],
   init:ctx => {
-    let rootPc = 48, type = 'major', showDeg = false;
+    let rootPc = ctx.recall('root') || 48, type = ctx.recall('type') || 'major', showDeg = false;
     const notes = () => T.scaleNotes(rootPc + 12, type);
+    const RN = () => T.rootFor(rootPc, type);
     const paint = () => {
       const ns = notes(), all = [];
       ns.forEach(n => { all.push(n); if (n - 12 >= 48) all.push(n - 12); if (n + 12 <= 72) all.push(n + 12); });
@@ -2227,11 +2571,13 @@ LESSONS.push({
       const gaps = steps.map((s, i) => i === 0 ? null : steps[i] - steps[i - 1])
         .concat([12 - steps[steps.length - 1]]).slice(1)
         .map(g => g === 2 ? 'T' : g === 1 ? 'S' : g + '');
-      ctx.read(T.name(rootPc) + ' ' + T.SCALES[type].label + '\n' + gaps.join(' ') +
-        '\n' + steps.join(' ') + '\n' + T.SCALES[type].mood);
+      ctx.v.spelling(T.keyMap(RN(), type));
+      ctx.read(RN() + ' ' + T.SCALES[type].label + '\n' +
+        T.spellScale(RN(), type).join(' ') + '\n' +
+        gaps.join(' ') + '   (' + steps.join(' ') + ')\n' + T.SCALES[type].mood);
     };
-    ctx.setRoot = v => { rootPc = v; paint(); };
-    ctx.setScale = v => { type = v; paint(); };
+    ctx.setRoot = v => { rootPc = v; ctx.keep('root', v); paint(); };
+    ctx.setScale = v => { type = v; ctx.keep('type', v); paint(); };
     ctx.degrees = v => { showDeg = v; paint(); };
     ctx.run = () => {
       const ns = notes().concat([rootPc + 24]);
@@ -2244,8 +2590,9 @@ LESSONS.push({
       A.note(m, 1);
       const ns = T.SCALES[type].steps.map(s => T.pc(rootPc + s));
       const i = ns.indexOf(T.pc(m));
-      ctx.read(T.fullName(m) + (i >= 0 ? '\ndegree ' + (i + 1) + ' of ' + T.name(rootPc) + ' ' + T.SCALES[type].label
-        : '\noutside the scale — a colour note'));
+      ctx.read(T.inKey(m, RN(), type) + T.oct(m) +
+        (i >= 0 ? '\ndegree ' + (i + 1) + ' of ' + RN() + ' ' + T.SCALES[type].label
+                : '\noutside the scale \u2014 a colour note'));
     });
     paint();
   }
@@ -2296,22 +2643,23 @@ LESSONS.push({
       why:'E Phrygian. Same white keys as C major, but from E the pattern starts with a semitone — the dark ♭2.' }
   ],
   init:ctx => {
-    const rootMidi = 52; let mode = 'major';
+    const rootMidi = 52; let mode = ctx.recall('mode') || 'major';
     const paint = () => {
       const ns = T.scaleNotes(rootMidi, mode).concat(T.scaleNotes(rootMidi + 12, mode));
       ctx.v.clear().marks(ns.filter(n => n <= 72), 'scale').apply();
       ctx.v.mark(rootMidi, 'root').mark(rootMidi + 12, 'root').apply();
+      ctx.v.spelling(T.keyMap('E', mode));
       const maj = T.SCALES.major.steps, cur = T.SCALES[mode].steps;
       const diff = cur.map((s, i) => s === maj[i] ? null : (i + 1) + (s < maj[i] ? '♭' : '♯')).filter(Boolean);
       ctx.v.clearExtras();
       const idx = T.MODE_ORDER.indexOf(mode);
-      ctx.v.tag(T.name(rootMidi) + ' ' + T.SCALES[mode].label, 0, 3.3);
-      ctx.read(T.SCALES[mode].label + ' on ' + T.name(rootMidi) +
-        '\n' + cur.join(' ') +
+      ctx.v.tag('E ' + T.SCALES[mode].label, 0, 3.3);
+      ctx.read(T.SCALES[mode].label + ' on E' +
+        '\n' + T.spellScale('E', mode).join(' ') +
         '\nvs major: ' + (diff.length ? diff.join(' ') : 'identical') +
         '\nbrightness ' + (idx + 1) + '/7 — ' + T.SCALES[mode].mood);
     };
-    ctx.setMode = v => { mode = v; paint(); ctx.run(); };
+    ctx.setMode = v => { mode = v; ctx.keep('mode', v); paint(); ctx.run(); };
     ctx.run = () => {
       const ns = T.scaleNotes(rootMidi, mode).concat([rootMidi + 12]);
       ns.forEach((m, i) => ctx.later(() => { A.note(m, .45); ctx.v.press(m); }, i * 190));
@@ -2319,10 +2667,10 @@ LESSONS.push({
     ctx.vamp = () => {
       const d = T.diatonic(rootMidi, mode)[0];
       A.chord(d.seventh, 2.2, { spread:.05 });
-      ctx.read('home chord: ' + T.name(d.root) + T.CHORDS[d.q7].sym + '\n' +
-        d.seventh.map(n => T.name(n)).join(' '));
+      ctx.read('home chord: ' + T.chordName('E', d.q7) + '\n' +
+        T.spellChord('E', d.q7).join(' '));
     };
-    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
+    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, 'E', mode) + T.oct(m)); });
     paint();
   }
 });
@@ -2342,7 +2690,7 @@ LESSONS.push({
         ['Minor','0 3 7','minor 3rd + major 3rd','dark, settled'],
         ['Diminished','0 3 6','minor 3rd + minor 3rd','tense, unstable'],
         ['Augmented','0 4 8','major 3rd + major 3rd','eerie, floating'] ] } },
-    { p:'Look at the numbers: major and minor <em>both</em> have the perfect 5th (7). Only the middle note moves. One semitone is the entire difference between a triumphant chord and a devastated one.' },
+    { p:'Look at the numbers: major and minor <em>both</em> have the perfect 5th (7). Only the middle note moves — one semitone is the whole difference. That one semitone is usually described as happy versus sad, and in a lot of pop it does land that way, but it is a tendency and not a rule: plenty of minor-key music is euphoric and plenty of major-key music is bleak. What the 3rd reliably changes is the <em>colour</em>; what that colour means depends on everything around it.' },
     { h:'Every scale gives you seven chords' },
     { p:'Do the stacking from each degree of the scale and you get the seven <b>diatonic chords</b> of that key — the chords that are already guaranteed to fit. In a major key they always come out in this order:' },
     { p:'<span class="k v">I</span> major &nbsp; <span class="k v">ii</span> minor &nbsp; <span class="k v">iii</span> minor &nbsp; <span class="k v">IV</span> major &nbsp; <span class="k v">V</span> major &nbsp; <span class="k v">vi</span> minor &nbsp; <span class="k v">vii°</span> diminished.' },
@@ -2371,28 +2719,31 @@ LESSONS.push({
       why:'Lowercase numerals mean minor, and the numeral gives the scale degree. In C major, vi = A minor.' }
   ],
   init:ctx => {
-    let keyType = 'major', deg = 1;
+    let keyType = ctx.recall('key') || 'major', deg = ctx.recall('deg') || 1;
     const root = 48;
+    const RN = () => T.rootFor(root, keyType);
     const show = () => {
       const ch = T.diatonic(root, keyType)[deg - 1];
       const scale = T.scaleNotes(root, keyType).concat(T.scaleNotes(root + 12, keyType)).filter(n => n <= 72);
       ctx.v.clear().marks(scale, 'ghost').marks(ch.notes, 'chord').mark(ch.root, 'root').apply().clearExtras();
       ctx.v.stack(ch.notes, { degrees:['root', '3rd', '5th'] });
       const num = T.roman(ch.degree, ch.quality);
-      ctx.v.tag(T.name(ch.root) + T.CHORDS[ch.quality].sym + '   ' + num, 0, 5.1);
-      ctx.read(num + '  ·  ' + T.name(ch.root) + T.CHORDS[ch.quality].sym +
-        '\n' + ch.notes.map(n => T.name(n)).join('  ') +
-        '\n' + T.CHORDS[ch.quality].label + '  ·  ' + ch.notes.map(n => n - ch.root).join(' '));
+      const cr = T.inKey(ch.root, RN(), keyType);
+      ctx.v.spelling(T.keyMap(RN(), keyType));
+      ctx.v.tag(T.chordName(cr, ch.quality) + '   ' + num, 0, 5.1);
+      ctx.read(num + '  \u00B7  ' + T.chordName(cr, ch.quality) +
+        '\n' + T.spellChord(cr, ch.quality).join('  ') +
+        '\n' + T.CHORDS[ch.quality].label + '  \u00B7  ' + ch.notes.map(n => n - ch.root).join(' '));
       A.chord(ch.notes, 1.8, { spread:.06 });
     };
-    ctx.deg = d => { deg = d; show(); };
-    ctx.key = k => { keyType = k; show(); };
+    ctx.deg = d => { deg = d; ctx.keep('deg', d); show(); };
+    ctx.key = k => { keyType = k; ctx.keep('key', k); show(); };
     ctx.all = () => {
       T.diatonic(root, keyType).forEach((ch, i) => ctx.later(() => {
         deg = i + 1; show();
       }, i * 900));
     };
-    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
+    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN(), keyType) + T.oct(m)); });
     show();
   }
 });
@@ -2408,7 +2759,7 @@ LESSONS.push({
     { keys:[
       '<b>Tonic</b> (I, vi, iii) — home. Rest, arrival, stability.',
       '<b>Subdominant</b> (IV, ii) — motion. Away from home, no urgency.',
-      '<b>Dominant</b> (V, vii°) — tension. Contains the leading note and the tritone; it wants to fall back to I.' ] },
+      '<b>Dominant</b> (V, vii°) — tension. V contains the <em>leading note</em>, which leans into the tonic; add its 7th (V7) and you also get a tritone, which is what makes the pull so strong. The plain V triad in C major — G B D — has no tritone in it; G7 does, between B and F.' ] },
     { p:'A progression is a route through those three states. <b>Home → away → tension → home</b> is the shape underneath thousands of songs. Once a chord has done its job you can swap it for another with the same job — that’s how you reharmonise without breaking anything.' },
     { h:'The progressions worth stealing' },
     { table:{ head:['Numerals','In C','Where you hear it'],
@@ -2418,20 +2769,27 @@ LESSONS.push({
         ['ii–V–I','Dm G C','jazz, neo-soul, R&B turnarounds'],
         ['I–vi–IV–V','C Am F G','doo-wop, ballads'],
         ['i–VI–III–VII','Cm A♭ E♭ B♭','epic minor — trap, drill, film'],
-        ['i–iv–i–V','Cm Fm Cm G','dark, cinematic minor'],
+        ['i–iv–i–V','Cm Fm Cm G','dark minor — the G major needs the raised 7th (B♮)'],
         ['i–VII–VI–VII','Cm B♭ A♭ B♭','flamenco-ish vamp, reggaetón'] ] } },
     { h:'Cadences: how a phrase lands' },
-    { p:'The last two chords of a phrase are the <b>cadence</b>, and they decide whether a section feels finished. <b>V→I</b> (perfect) = full stop. <b>IV→I</b> (plagal) = gentle amen. <b>V→vi</b> or <b>I→V</b> (imperfect) = comma, keep going. <b>V→ anything unexpected</b> = interrupted, the “that’s not what I thought” move.' },
+    { p:'The end of a phrase is its <b>cadence</b>, and it decides whether the section feels finished:' },
+    { keys:[
+      '<b>Authentic / perfect — V → I.</b> A full stop. Strongest when the melody lands on the tonic.',
+      '<b>Plagal — IV → I.</b> A gentle arrival, the “amen” ending. No leading note pushing into it.',
+      '<b>Half (British: imperfect) — the phrase <em>ends on</em> V.</b> A comma: it has arrived somewhere unstable on purpose and expects an answer.',
+      '<b>Deceptive / interrupted — V → vi.</b> You set up the full stop and then sidestep it. This is a surprise, not a comma.' ] },
+    { small:'Naming conventions differ: British theory says “imperfect” where American theory says “half”, and “interrupted” where American theory says “deceptive”. Both describe the same two things, so recognise the sound and read whichever label your source uses. <a href="https://musictheory.pugetsound.edu/mt21c/cadences.html" target="_blank" rel="noopener">Cadence reference</a>' },
     { note:{ h:'Loops don’t need cadences — they need a hinge',
-      p:'Most modern production loops 4 or 8 bars forever, so instead of “ending” you want a chord that throws you back to bar 1. That’s usually the V, the VII, or the IV. Make the last chord the least stable one and your loop pulls itself around.' } },
+      p:'Most modern production loops 4 or 8 bars forever, so instead of “ending” you often want a chord that throws you back to bar 1 — usually the V, the VII or the IV. Try it both ways: ending on the unstable chord pulls the loop around, and ending on I makes each pass feel like a complete statement. Which one is right depends on the track.' } },
     { try:{ h:'Four slots, your call', p:'Load a classic, then tap any slot and change its numeral. You will hear immediately which swaps keep the story and which break it.',
       build:ctx => [
         UI.chips([
           { label:'I–V–vi–IV', value:'1,5,6,4' },
           { label:'vi–IV–I–V', value:'6,4,1,5' },
           { label:'ii–V–I–I', value:'2,5,1,1' },
-          { label:'i–VI–III–VII (minor)', value:'m1,6,3,7' },
-          { label:'i–iv–VI–V (minor)', value:'m1,4,6,5' }
+          { label:'i–VI–III–VII (natural minor)', value:'m1,6,3,7' },
+          { label:'i–iv–VI–v (natural minor)', value:'m1,4,6,5' },
+          { label:'i–iv–VI–V (harmonic minor)', value:'h1,4,6,5' }
         ], v => ctx.loadProg(v), 0),
         UI.btn('▶ Play the loop', () => ctx.loop()),
         UI.toggle('Add 7ths', v => ctx.sevenths(v))
@@ -2453,28 +2811,37 @@ LESSONS.push({
   init:ctx => {
     let keyType = 'major', seq = [1,5,6,4], sevens = false, playing = false;
     const root = 48;
+    const RN = () => T.rootFor(root, keyType === 'major' ? 'major' : 'minor');
     const chordAt = d => {
       const c = T.diatonic(root, keyType)[d - 1];
-      return { notes: sevens ? c.seventh : c.notes, root:c.root,
-               label: T.name(c.root) + T.CHORDS[sevens ? c.q7 : c.quality].sym,
-               num: T.roman(c.degree, sevens ? c.q7 : c.quality) };
+      const q = sevens ? c.q7 : c.quality;
+      const cr = T.inKey(c.root, RN(), keyType);
+      return { notes: sevens ? c.seventh : c.notes, root:c.root, spell:T.spellChord(cr, q),
+               label: T.chordName(cr, q), num: T.roman(c.degree, q) };
     };
     const showChord = i => {
       const c = chordAt(seq[i]);
       const scale = T.scaleNotes(root, keyType).concat(T.scaleNotes(root + 12, keyType)).filter(n => n <= 72);
       ctx.v.clear().marks(scale, 'ghost').marks(c.notes.filter(n => n <= 72), 'chord')
         .mark(c.root, 'root').apply().clearExtras();
+      ctx.v.spelling(T.keyMap(RN(), keyType));
       ctx.v.tag(c.num + '   ' + c.label, 0, 3.4);
       ctx.read(seq.map((d, j) => (j === i ? '[' : ' ') + chordAt(d).num + (j === i ? ']' : ' ')).join(' ') +
-        '\n' + c.label + '  ·  ' + c.notes.map(n => T.name(n)).join(' '));
+        '\n' + c.label + '  \u00B7  ' + c.spell.join(' ') +
+        (keyType === 'harmonicMinor' ? '\nharmonic minor \u2014 raised 7th' : ''));
       A.chord(c.notes, sevens ? 2 : 1.7, { spread:.05 });
     };
     ctx.loadProg = v => {
-      keyType = v[0] === 'm' ? 'minor' : 'major';
-      seq = v.replace('m', '').split(',').map(Number);
+      /* 'm' = natural minor (degree 5 is minor), 'h' = harmonic minor
+         (degree 5 is major, because the 7th is raised). The numerals in the
+         readout are derived from the notes actually played, so the label and
+         the sound can never drift apart. */
+      keyType = v[0] === 'm' ? 'minor' : v[0] === 'h' ? 'harmonicMinor' : 'major';
+      seq = v.replace(/^[mh]/, '').split(',').map(Number);
+      ctx.keep('prog', v); ctx.keep('sevens', sevens);
       showChord(0);
     };
-    ctx.sevenths = v => { sevens = v; showChord(0); };
+    ctx.sevenths = v => { sevens = v; ctx.keep('sevens', v); showChord(0); };
     ctx.loop = () => {
       if (playing) return;
       playing = true;
@@ -2491,8 +2858,9 @@ LESSONS.push({
         seq[(ctx.slot || 1) - 1] = Number(v); showChord((ctx.slot || 1) - 1);
       }, 1)
     );
-    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
-    showChord(0);
+    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN(), keyType) + T.oct(m)); });
+    sevens = !!ctx.recall('sevens');
+    ctx.loadProg(ctx.recall('prog') || '1,5,6,4');
   }
 });
 
@@ -2550,10 +2918,11 @@ LESSONS.push({
       const hi = base + n + (wide ? 12 : 0);
       ctx.v.clear().mark(base, 'root').mark(Math.min(hi, 72), 'chord').apply().clearExtras();
       if (hi <= 72) ctx.v.arc(base, hi, T.ivl(n + (wide ? 12 : 0)).short);
-      const I = T.ivl(n + (wide ? 12 : 0)), inv = T.ivl(12 - n);
-      ctx.read(T.name(base) + ' → ' + T.name(hi) + (hi > 72 ? ' (above the keys)' : '') +
-        '\n' + I.label + '  ·  ' + (n + (wide ? 12 : 0)) + ' semis' +
-        '\ninverts to ' + inv.label + '\n' + I.feel);
+      const semis = n + (wide ? 12 : 0);
+      const I = T.ivl(semis), inv = T.ivl(12 - n);
+      ctx.read('C \u2192 ' + T.spellIvl('C', semis) + (hi > 72 ? ' (above the keys)' : '') +
+        '\n' + I.label + '  \u00B7  ' + semis + ' semitones' +
+        '\ninverts to ' + inv.label + ' (' + (12 - n) + ')\n' + I.feel);
       A.note(base, 1.6, { gain:.85 }); A.note(hi, 1.6, { gain:.85 });
     };
     ctx.show = v => { n = v; wide = false; draw(); };
@@ -2586,7 +2955,7 @@ LESSONS.push({
     { p:'Run the stacking through a major scale and the seventh chords come out in a fixed order: <span class="k v">Imaj7 &nbsp; iim7 &nbsp; iiim7 &nbsp; IVmaj7 &nbsp; V7 &nbsp; vim7 &nbsp; viim7♭5</span>. Notice the <b>V7</b> — the only dominant 7th in the key. It’s the tension chord, and the m7♭5 on degree 7 is the anxious one.' },
     { p:'In natural minor: <span class="k v">im7 &nbsp; iim7♭5 &nbsp; IIImaj7 &nbsp; ivm7 &nbsp; vm7 &nbsp; VImaj7 &nbsp; VII7</span>. That <b>VII7</b> is the sound of a thousand drill loops.' },
     { note:{ h:'Producer move: swap every triad for its 7th',
-      p:'Take a progression you already like and add the 7th to each chord. Nothing about the key or the roman numerals changes, but the loop suddenly sounds expensive. If it gets muddy, drop the 5th — in a 7th chord the 5th is the most disposable note.' } },
+      p:'Take a progression you already like and add the 7th to each chord. Nothing about the key or the roman numerals changes, and the loop usually sounds richer and smoother. It is worth A/B-ing rather than assuming: 7ths soften the push of a V chord and can blur a hook, which is exactly why a lot of punchy pop and dance music stays on plain triads. If it gets muddy, drop the 5th — in a 7th chord the 5th is the most disposable note.' } },
     { try:{ h:'Triad vs 7th, back to back', p:'Pick a quality and A/B it against the plain triad. The floating tiles name every stacked gap.',
       build:ctx => [
         UI.chips([{label:'maj7',value:'maj7'},{label:'m7',value:'min7'},{label:'7 (dominant)',value:'dom7'},
@@ -2605,18 +2974,19 @@ LESSONS.push({
       why:'Drop the 5th. The root, 3rd and 7th carry the chord’s identity; the 5th mostly adds weight you don’t need.' }
   ],
   init:ctx => {
-    let type = 'maj7';
-    const root = 55;
+    let type = ctx.recall('type') || 'maj7';
+    const root = 55, RN = 'G';
+    ctx.v.spelling(T.keyMap(RN, 'major'));
     const draw = () => {
       const ns = T.chordNotes(root, type);
       ctx.v.clear().marks(ns.filter(n => n <= 72), 'chord').mark(root, 'root').apply().clearExtras();
       ctx.v.stack(ns, { degrees:['root','3rd','5th','7th'] });
-      ctx.v.tag(T.name(root) + T.CHORDS[type].sym, 0, 5.9);
-      ctx.read(T.name(root) + T.CHORDS[type].sym + '  ·  ' + T.CHORDS[type].label +
-        '\n' + ns.map(n => T.name(n)).join(' ') + '\n' + T.CHORDS[type].steps.join(' '));
+      ctx.v.tag(T.chordName(RN, type), 0, 5.9);
+      ctx.read(T.chordName(RN, type) + '  \u00B7  ' + T.CHORDS[type].label +
+        '\n' + T.spellChord(RN, type).join(' ') + '\n' + T.CHORDS[type].steps.join(' '));
       A.chord(ns, 2.4, { spread:.05 });
     };
-    ctx.show = v => { type = v; draw(); };
+    ctx.show = v => { type = v; ctx.keep('type', v); draw(); };
     ctx.compare = () => {
       const tri = type === 'min7' || type === 'minMaj7' ? 'min' : type === 'dom7' || type === 'maj7' ? 'maj' : 'dim';
       A.chord(T.chordNotes(root, tri), 1.3, { spread:.05 });
@@ -2626,13 +2996,15 @@ LESSONS.push({
     ctx.key = () => {
       T.diatonic(48, 'major').forEach((c, i) => ctx.later(() => {
         ctx.v.clear().marks(c.seventh.filter(n => n <= 72), 'chord').mark(c.root, 'root').apply().clearExtras();
-        ctx.v.tag(T.roman(c.degree, c.q7) + '   ' + T.name(c.root) + T.CHORDS[c.q7].sym, 0, 3.4);
-        ctx.read(T.roman(c.degree, c.q7) + '  ·  ' + T.name(c.root) + T.CHORDS[c.q7].sym +
-          '\n' + T.CHORDS[c.q7].label);
+        const cr = T.inKey(c.root, 'C', 'major');
+        ctx.v.spelling(T.keyMap('C', 'major'));
+        ctx.v.tag(T.roman(c.degree, c.q7) + '   ' + T.chordName(cr, c.q7), 0, 3.4);
+        ctx.read(T.roman(c.degree, c.q7) + '  \u00B7  ' + T.chordName(cr, c.q7) +
+          '\n' + T.spellChord(cr, c.q7).join(' ') + '\n' + T.CHORDS[c.q7].label);
         A.chord(c.seventh, 1.1, { spread:.04 });
       }, i * 950));
     };
-    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
+    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN, 'major') + T.oct(m)); });
     draw();
   }
 });
@@ -2666,36 +3038,39 @@ LESSONS.push({
       ] } }
   ],
   quiz:[
-    { q:'Cadd9 contains…', a:['C E G B♭ D','C E G D','C E G B D','C D E G'], c:1,
-      why:'Triad plus the 9th, with no 7th: C E G D. Adding a B♭ would make it C9, a dominant chord.' },
+    { q:'Which of these has a 9th but no 7th?', a:['C9','Cmaj9','Cadd9','Cm9'], c:2,
+      why:'“add” means add this one note and nothing else, so Cadd9 is C E G plus D. The other three all include a 7th as well — that is what the bare number means in a chord name.' },
     { q:'Which extension usually clashes on a major chord?', a:['9th','11th','13th','6th'], c:1,
       why:'The natural 11th sits a semitone above the major 3rd. On major chords producers use ♯11 instead, or move to a sus/m11 sound.' },
     { q:'Which note do you drop first when a big chord gets muddy?', a:['Root','3rd','5th','7th'], c:2,
       why:'The 5th carries the least information. The 3rd and 7th define the chord’s quality and function, so they stay.' }
   ],
   init:ctx => {
-    let type = 'maj', rootless = false, no5 = false;
-    const root = 53;
+    let type = ctx.recall('type') || 'maj', rootless = false, no5 = false;
+    const root = 53, RN = 'F';
+    ctx.v.spelling(T.keyMap(RN, 'major'));
     const draw = () => {
-      let ns = T.chordNotes(root, type).slice();
-      if (no5) ns = ns.filter(n => (n - root) % 12 !== 7);
-      if (rootless) ns = ns.filter(n => n !== root);
+      let pairs = T.chordNotes(root, type).map((n, i) => [n, T.spellChord(RN, type)[i]]);
+      if (no5) pairs = pairs.filter(pr => (pr[0] - root) % 12 !== 7);
+      if (rootless) pairs = pairs.filter(pr => pr[0] !== root);
+      let ns = pairs.map(pr => pr[0]);
+      const spelt = pairs.map(pr => pr[1]);
       ctx.v.clear().marks(ns.filter(n => n <= 72), 'chord').apply().clearExtras();
       if (!rootless) ctx.v.mark(root, 'root').apply();
       ctx.v.stack(ns.filter(n => n <= 74));
-      ctx.v.tag(T.name(root) + T.CHORDS[type].sym + (rootless ? '  (rootless)' : ''), 0,
+      ctx.v.tag(T.chordName(RN, type) + (rootless ? '  (rootless)' : ''), 0,
         1.6 + ns.length * 1.05);
-      ctx.read(T.name(root) + T.CHORDS[type].sym + '  ·  ' + T.CHORDS[type].label +
-        '\n' + ns.map(n => T.name(n)).join(' ') +
-        '\nintervals ' + ns.map(n => n - root).join(' ') +
-        (no5 ? '\n5th omitted' : ''));
+      ctx.read(T.chordName(RN, type) + '  \u00B7  ' + T.CHORDS[type].label +
+        '\n' + spelt.join(' ') +
+        '\nsemitones from the root: ' + ns.map(n => n - root).join(' ') +
+        (no5 ? '\n5th omitted' : '') + (rootless ? '\nroot left to the bass' : ''));
       if (rootless) A.note(root - 12, 2.4, { gain:.7 });
       A.chord(ns, 2.6, { spread:.05 });
     };
-    ctx.show = v => { type = v; draw(); };
+    ctx.show = v => { type = v; ctx.keep('type', v); draw(); };
     ctx.rootless = v => { rootless = v; draw(); };
     ctx.no5 = v => { no5 = v; draw(); };
-    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
+    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN, 'major') + T.oct(m)); });
     draw();
   }
 });
@@ -2740,32 +3115,40 @@ LESSONS.push({
       why:'“sus” replaces the 3rd, “add” keeps it. That’s why add9 still sounds major while sus2 sounds open and undecided.' }
   ],
   init:ctx => {
-    let type = 'sus4';
-    const root = 57;
-    const notesOf = t => t === '7sus4' ? [root, root + 5, root + 7, root + 10] : T.chordNotes(root, t);
-    const draw = (t, label) => {
-      const ns = notesOf(t || type);
+    let type = ctx.recall('type') || 'sus4';
+    const root = 57, RN = 'A';                     /* A, spelled as A major */
+    ctx.v.spelling(T.keyMap(RN, 'major'));
+    const SPEC = {
+      sus4:   { notes:[0,5,7],    name:'Asus4',   spell:['A','D','E'] },
+      sus2:   { notes:[0,2,7],    name:'Asus2',   spell:['A','B','E'] },
+      '7sus4':{ notes:[0,5,7,10], name:'A7sus4',  spell:['A','D','E','G'] },
+      maj:    { notes:[0,4,7],    name:'A major', spell:['A','C\u266F','E'], third:'C\u266F' },
+      min:    { notes:[0,3,7],    name:'A minor', spell:['A','C','E'],       third:'C' }
+    };
+    /* One draw path for both states: each chord carries its own name, so a
+       resolved chord can never still be labelled a suspension. */
+    const draw = t => {
+      const spec = SPEC[t] || SPEC.sus4, ns = spec.notes.map(n => root + n);
       ctx.v.clear().marks(ns.filter(n => n <= 72), 'chord').mark(root, 'root').apply().clearExtras();
       ctx.v.stack(ns);
-      ctx.v.tag(T.name(root) + (label || (T.CHORDS[type] ? T.CHORDS[type].sym : '7sus4')), 0, 1.6 + ns.length * 1.05);
-      ctx.read(T.name(root) + (label || (T.CHORDS[type] ? T.CHORDS[type].sym : '7sus4')) +
-        '\n' + ns.map(n => T.name(n)).join(' ') +
-        '\n' + (label ? 'resolved — the 3rd is back' : 'no 3rd · no major or minor'));
+      ctx.v.tag(spec.name, 0, 1.6 + ns.length * 1.05);
+      ctx.read(spec.name + '\n' + spec.spell.join(' ') + '\n' +
+        (spec.third
+          ? 'the 3rd is back: ' + spec.third + ' \u2014 that is what makes it ' +
+            (t === 'maj' ? 'major' : 'minor')
+          : 'no 3rd \u00B7 neither major nor minor'));
       A.chord(ns, 2.2, { spread:.05 });
     };
-    ctx.show = v => { type = v; draw(); };
-    ctx.resolve = q => {
-      draw();
-      ctx.later(() => draw(q, T.CHORDS[q].sym), 1200);
-    };
+    ctx.show = v => { type = v; ctx.keep('type', v); draw(v); };
+    ctx.resolve = q => { draw(type); ctx.later(() => draw(q), 1200); };
     ctx.loop = () => {
       for (let i = 0; i < 4; i++) {
-        ctx.later(() => draw(), i * 2000);
-        ctx.later(() => draw('maj', ''), i * 2000 + 1500);
+        ctx.later(() => draw(type), i * 2000);
+        ctx.later(() => draw('maj'), i * 2000 + 1500);
       }
     };
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
-    draw();
+    draw(type);
   }
 });
 
@@ -2817,8 +3200,9 @@ LESSONS.push({
       ctx.v.clear().marks(notes.filter(x => x <= 72), 'chord').mark(notes[0], 'root').apply().clearExtras();
       ctx.v.stack(notes.filter(x => x <= 74));
       ctx.v.tag(label, 0, 1.6 + notes.length * 1.05);
-      ctx.read(label + '\n' + notes.map(x => T.name(x)).join(' ') +
-        '\nbass note: ' + T.name(notes[0]));
+      const K = x => T.inKey(x, 'C', 'major');
+      ctx.read(label + '\n' + notes.map(K).join(' ') +
+        '\nbass note: ' + K(notes[0]));
       A.chord(notes, 2.1, { spread:.05 });
     };
     ctx.inv = v => {
@@ -2837,7 +3221,8 @@ LESSONS.push({
         draw(ns, labels[i] + (smooth ? '  ·  voice-led' : '  ·  root position'));
       }, i * 1000));
     };
-    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
+    ctx.v.spelling(T.keyMap('C', 'major'));
+    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, 'C', 'major') + T.oct(m)); });
     ctx.inv(0);
   }
 });
@@ -2852,7 +3237,7 @@ LESSONS.push({
     { p:'<span class="k">G7</span> = G B D F. Look at B and F: 6 semitones apart — a <b>tritone</b>. That interval is unstable, and in this chord both of its notes have somewhere to go: B wants to rise a semitone to C, F wants to fall a semitone to E. Release them and you land on C major. That’s why <b>V7 → I</b> is the strongest resolution in tonal music.' },
     { p:'Producers use that pull deliberately: sit on the V7 at the end of a 4-bar loop and the loop yanks itself back to bar 1. Secondary dominants take it further — make <em>any</em> chord a dominant 7th and it will pull toward the chord a 5th below it. <span class="k">A7 → Dm</span> works in C major even though A7 isn’t in the key.' },
     { h:'Diminished: symmetrical, homeless, useful' },
-    { p:'<b>dim7</b> = 0 3 6 9 — four notes, every gap a minor 3rd. Because it’s perfectly symmetrical it belongs to no key, so it can slot in anywhere. Its main jobs:' },
+    { p:'<b>dim7</b> = 0 3 6 9 — four notes, every gap a minor 3rd. It does belong to keys: B–D–F–A♭ is <b>vii°7 of C minor</b>, straight out of the harmonic minor scale. What its symmetry buys you is <em>ambiguity</em> — the same four pitches can be re-spelled and heard as the vii°7 of four different minor keys, so it is unusually easy to pivot with. That is not the same as “fits anywhere”: it still has to lead somewhere your ear accepts. Its main jobs:' },
     { keys:[
       '<b>Passing chord</b> — put a dim7 between two chords a tone apart to walk the bass chromatically.',
       '<b>Leading tone chord</b> — vii°7 resolving to i is a darker, tighter V7.',
@@ -2878,33 +3263,40 @@ LESSONS.push({
       why:'D♭7 — a tritone away from G7, and sharing the same tritone (B/C♭ and F). Same tension, chromatic bass movement.' }
   ],
   init:ctx => {
+    /* Each demo carries its own spelling, because the right letter depends on
+       the chord, not on the pitch class. */
     const D = {
-      v7:   { a:[55,59,62,65], b:[48,52,55,60], la:'G7', lb:'C  ·  resolved',
-              note:'B→C and F→E, one semitone each' },
-      dim:  { a:[59,62,65,68], b:[48,51,55,60], la:'Bdim7', lb:'Cm  ·  resolved',
-              note:'most voices move by a single semitone' },
-      aug:  { a:[48,52,56], b:[45,48,52], la:'Caug', lb:'Am  ·  resolved',
-              note:'G♯ pulls up to A — a one-beat pivot' },
-      sub:  { a:[49,53,56,59], b:[48,52,55,60], la:'D♭7', lb:'C  ·  resolved',
-              note:'same tritone as G7, bass slides down a semitone' },
-      sec:  { a:[57,61,64,67], b:[50,53,57,62], la:'A7', lb:'Dm  ·  resolved',
-              note:'a dominant built on degree 2 — pulls to Dm, not C' }
+      v7:   { a:[55,59,62,65], b:[48,52,55,60], la:'G7', lb:'C  \u00B7  resolved',
+              sa:['G','B','D','F'], sb:['C','E','G','C'],
+              note:'B\u2192C and F\u2192E, one semitone each' },
+      dim:  { a:[59,62,65,68], b:[48,51,55,60], la:'Bdim7', lb:'Cm  \u00B7  resolved',
+              sa:['B','D','F','A\u266D'], sb:['C','E\u266D','G','C'],
+              note:'vii\u00B07 of C minor \u2014 three voices move by one semitone' },
+      aug:  { a:[48,52,56], b:[45,48,52], la:'Caug', lb:'Am  \u00B7  resolved',
+              sa:['C','E','G\u266F'], sb:['A','C','E'],
+              note:'G\u266F pulls up to A \u2014 a one-beat pivot' },
+      sub:  { a:[49,53,56,59], b:[48,52,55,60], la:'D\u266D7', lb:'C  \u00B7  resolved',
+              sa:['D\u266D','F','A\u266D','C\u266D'], sb:['C','E','G','C'],
+              note:'same tritone as G7 (F and C\u266D/B), bass slides down a semitone' },
+      sec:  { a:[57,61,64,67], b:[50,53,57,62], la:'A7', lb:'Dm  \u00B7  resolved',
+              sa:['A','C\u266F','E','G'], sb:['D','F','A','D'],
+              note:'a dominant built on degree 2 \u2014 pulls to Dm, not C' }
     };
-    let cur = 'v7';
-    const paint = (ns, label, extra) => {
+    let cur = ctx.recall('demo') || 'v7';
+    const paint = (ns, spelt, label, extra) => {
       ctx.v.clear().marks(ns.filter(n => n <= 72), 'chord').mark(ns[0], 'root').apply().clearExtras();
       ctx.v.tag(label, 0, 3.4);
-      ctx.read(label + '\n' + ns.map(n => T.name(n)).join(' ') + (extra ? '\n' + extra : ''));
+      ctx.read(label + '\n' + spelt.join(' ') + (extra ? '\n' + extra : ''));
       A.chord(ns, 2, { spread:.05 });
     };
     ctx.demo = k => {
-      cur = k; const d = D[k];
-      paint(d.a, d.la + '  ·  tension', d.note);
-      ctx.later(() => paint(d.b, d.lb), 1500);
+      cur = k; ctx.keep('demo', k); const d = D[k];
+      paint(d.a, d.sa, d.la + '  \u00B7  tension', d.note);
+      ctx.later(() => paint(d.b, d.sb, d.lb), 1500);
     };
-    ctx.hold = () => { const d = D[cur]; paint(d.a, d.la + '  ·  unresolved', d.note); };
+    ctx.hold = () => { const d = D[cur]; paint(d.a, d.sa, d.la + '  \u00B7  unresolved', d.note); };
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
-    ctx.demo('v7');
+    ctx.demo(cur);
   }
 });
 
@@ -2953,7 +3345,7 @@ LESSONS.push({
       why:'G B D — major, because the raised 7th (B) is now the chord’s 3rd. Add F and you get G7, the strongest way home.' }
   ],
   init:ctx => {
-    const root = 48; let type = 'minor';
+    const root = 48; let type = ctx.recall('type') || 'minor';
     const paint = () => {
       const ns = T.scaleNotes(root, type).concat(T.scaleNotes(root + 12, type)).filter(n => n <= 72);
       ctx.v.clear().marks(ns, 'scale').mark(root, 'root').mark(root + 12, 'root').apply().clearExtras();
@@ -2961,13 +3353,14 @@ LESSONS.push({
       const gaps = st.map((s, i) => i ? st[i] - st[i - 1] : null).slice(1).concat([12 - st[st.length - 1]]);
       const big = gaps.indexOf(3);
       if (type === 'harmonicMinor') ctx.v.mark(root + 11, 'target').mark(root + 8, 'extra').apply();
-      ctx.v.tag(T.name(root) + ' ' + T.SCALES[type].label, 0, 3.3);
-      ctx.read(T.SCALES[type].label + '\n' + st.join(' ') +
+      ctx.v.spelling(T.keyMap('C', type));
+      ctx.v.tag('C ' + T.SCALES[type].label, 0, 3.3);
+      ctx.read(T.SCALES[type].label + '\n' + T.spellScale('C', type).join(' ') + '\n' + st.join(' ') +
         '\nsteps ' + gaps.join(' ') +
         (big >= 0 ? '\naugmented 2nd between degrees ' + (big + 1) + ' and ' + (big + 2) : '') +
         '\n' + T.SCALES[type].mood);
     };
-    ctx.setScale = v => { type = v; paint(); ctx.run(); };
+    ctx.setScale = v => { type = v; ctx.keep('type', v); paint(); ctx.run(); };
     ctx.run = () => {
       const ns = T.scaleNotes(root, type).concat([root + 12]);
       ns.forEach((m, i) => ctx.later(() => { A.note(m, .45); ctx.v.press(m); }, i * 200));
@@ -2975,20 +3368,22 @@ LESSONS.push({
     ctx.cadence = () => {
       const V = type === 'minor' ? [55,58,62] : [55,59,62,65];
       A.chord(V, 1.4, { spread:.05 });
-      ctx.read((type === 'minor' ? 'Gm  ·  weak v' : 'G7  ·  strong V') + '\n' + V.map(n => T.name(n)).join(' '));
+      ctx.read((type === 'minor' ? 'Gm  \u00B7  weak v' : 'G7  \u00B7  strong V') + '\n' +
+        (type === 'minor' ? ['G','B\u266D','D'] : ['G','B','D','F']).join(' '));
       ctx.v.clear().marks(V, 'chord').apply();
       ctx.later(() => {
         const i = [48,51,55,60];
         A.chord(i, 2, { spread:.05 });
         ctx.v.clear().marks(i, 'chord').mark(48, 'root').apply();
-        ctx.read('Cm  ·  home' + (type === 'minor' ? '\nnotice how softly it lands' : '\nthat is a real resolution'));
+        ctx.read('Cm  \u00B7  home\nC E\u266D G' +
+          (type === 'minor' ? '\nnotice how softly it lands' : '\nthat is a real resolution'));
       }, 1400);
     };
     ctx.dim = () => {
       const d = [59,62,65,68];
       A.chord(d, 1.4, { spread:.04 });
       ctx.v.clear().marks(d, 'chord').apply();
-      ctx.read('Bdim7  ·  vii°7\nB D F A♭ — all minor 3rds');
+      ctx.read('Bdim7  \u00B7  vii\u00B07 of C minor\nB D F A\u266D \u2014 all minor 3rds');
       ctx.later(() => {
         A.chord([48,51,55,60], 2, { spread:.05 });
         ctx.v.clear().marks([48,51,55,60], 'chord').mark(48, 'root').apply();
@@ -3022,7 +3417,7 @@ LESSONS.push({
     { h:'Chromatic bass moves' },
     { p:'Some outside chords exist only to walk the bass. A <b>dim7 passing chord</b> between two diatonic chords a tone apart, or a <b>tritone sub</b> to slide into the tonic from a semitone above — these are bass-line decisions that happen to make interesting harmony.' },
     { note:{ h:'The one rule',
-      p:'Borrow for <em>one or two bars</em>, then come home. An outside chord is an event. If everything is borrowed, nothing is surprising — and you’ve just changed key without meaning to.' } },
+      p:'An outside chord works by contrast, so it usually lands best as an event — a bar or two, then home. That is a tendency to test, not a law: whole styles (a lot of gospel, film music and jazz) stay chromatic for long stretches and still sound rooted. The real test is whether you can still hear where home is. If you cannot, you have changed key rather than borrowed.' } },
     { try:{ h:'Borrow something', p:'Each option plays a plain diatonic loop, then the same loop with one chord swapped for an outside one. Listen for the bar that grabs you.',
       build:ctx => [
         UI.chips([{label:'IV → iv (sad IV)',value:'iv'},{label:'♭VI lift',value:'bVI'},
@@ -3040,29 +3435,37 @@ LESSONS.push({
       why:'They work by contrast. A borrowed chord surrounded by diatonic ones is an event; borrow everything and you’ve simply modulated.' }
   ],
   init:ctx => {
+    const CH = {
+      C:  { n:[48,52,55], s:['C','E','G'] },          F:  { n:[53,57,60], s:['F','A','C'] },
+      G:  { n:[55,59,62], s:['G','B','D'] },          Fm: { n:[53,56,60], s:['F','A\u266D','C'] },
+      Ab: { n:[44,48,51], s:['A\u266D','C','E\u266D'] }, Bb: { n:[46,50,53], s:['B\u266D','D','F'] },
+      A7: { n:[57,61,64,67], s:['A','C\u266F','E','G'] }, Dm: { n:[50,53,57], s:['D','F','A'] },
+      Db: { n:[49,53,56], s:['D\u266D','F','A\u266D'] }
+    };
     const P = {
-      plain: { seq:[[48,52,55],[53,57,60],[55,59,62],[48,52,55]], lab:['C','F','G','C'] },
-      iv:    { seq:[[48,52,55],[53,57,60],[53,56,60],[48,52,55]], lab:['C','F','Fm  ← borrowed','C'] },
-      bVI:   { seq:[[48,52,55],[44,48,51],[53,57,60],[55,59,62]], lab:['C','A♭  ← ♭VI','F','G'] },
-      bVII:  { seq:[[48,52,55],[46,50,53],[53,57,60],[48,52,55]], lab:['C','B♭  ← ♭VII','F','C'] },
-      sec:   { seq:[[48,52,55],[57,61,64,67],[50,53,57],[55,59,62]], lab:['C','A7  ← V7/ii','Dm','G'] },
-      bII:   { seq:[[48,52,55],[49,53,56],[55,59,62],[48,52,55]], lab:['C','D♭  ← ♭II','G','C'] }
+      plain: { ch:['C','F','G','C'],    lab:['C','F','G','C'] },
+      iv:    { ch:['C','F','Fm','C'],   lab:['C','F','Fm  \u2190 borrowed','C'] },
+      bVI:   { ch:['C','Ab','F','G'],   lab:['C','A\u266D  \u2190 \u266DVI','F','G'] },
+      bVII:  { ch:['C','Bb','F','C'],   lab:['C','B\u266D  \u2190 \u266DVII','F','C'] },
+      sec:   { ch:['C','A7','Dm','G'],  lab:['C','A7  \u2190 V7/ii','Dm','G'] },
+      bII:   { ch:['C','Db','G','C'],   lab:['C','D\u266D  \u2190 \u266DII','G','C'] }
     };
     const run = k => {
       const p = P[k];
-      p.seq.forEach((ns, i) => ctx.later(() => {
-        const out = /←/.test(p.lab[i]);
-        ctx.v.clear().marks(ns, out ? 'root' : 'chord').apply().clearExtras();
+      ctx.keep('demo', k);
+      p.ch.forEach((name, i) => ctx.later(() => {
+        const c = CH[name], out = /\u2190/.test(p.lab[i]);
+        ctx.v.clear().marks(c.n, out ? 'root' : 'chord').apply().clearExtras();
         ctx.v.tag(p.lab[i], 0, 3.4, out ? '#F2B33D' : null);
-        ctx.read(p.lab[i] + '\n' + ns.map(n => T.name(n)).join(' ') +
-          (out ? '\noutside the key — that is the point' : ''));
-        A.chord(ns, 1.15, { spread:.05 });
+        ctx.read(p.lab[i] + '\n' + c.s.join(' ') +
+          (out ? '\noutside the key \u2014 that is the point' : ''));
+        A.chord(c.n, 1.15, { spread:.05 });
       }, i * 1000));
     };
     ctx.demo = k => run(k);
     ctx.plain = () => run('plain');
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
-    run('iv');
+    run(ctx.recall('demo') || 'iv');
   }
 });
 
@@ -3085,11 +3488,13 @@ LESSONS.push({
     { p:'Two keys next to each other on the wheel share <b>six of their seven notes</b>. That’s the whole practical payoff:' },
     { keys:[
       'The keys either side of yours are your <b>IV</b> and <b>V</b> — the two most useful chords after the tonic.',
-      'Your position plus its two neighbours, plus the three relative minors underneath, give you <b>six chords guaranteed to work together</b>. That is a complete songwriting palette.',
+      'Your position plus its two neighbours, plus the three relative minors underneath them, give you <b>six chords guaranteed to work together</b> — a complete songwriting palette.',
+      'Read the inner ring carefully: each minor is the relative minor of the tile <em>above</em> it, so from your key they come out as <b>ii</b> (under IV), <b>vi</b> (under I) and <b>iii</b> (under V). In C: Dm, Am, Em.',
       'To change key smoothly, move one step round the wheel. Only one note changes, so the listener follows you.',
       'To change key dramatically, jump across the wheel. A tritone away shares almost nothing — instant lift or shock.' ] },
     { h:'Reading it as a chord chooser' },
-    { p:'Pick any key on the outer ring. The chords in that key are: the key itself (<b>I</b>), its anticlockwise neighbour (<b>IV</b>), its clockwise neighbour (<b>V</b>), and the three minors sitting under those three positions (<b>vi</b>, <b>ii</b>, <b>iii</b>). Cover those six and you have the diatonic set without doing any maths.' },
+    { p:'Pick any key on the outer ring. The chords in that key are: the key itself (<b>I</b>), its anticlockwise neighbour (<b>IV</b>), its clockwise neighbour (<b>V</b>), and the minors underneath those same three tiles — which come out as <b>ii</b> under IV, <b>vi</b> under I and <b>iii</b> under V. In C major that is C, F, G, Dm, Am, Em. Six of the seven diatonic chords, with no maths.' },
+    { small:'The seventh, vii° (Bdim in C), has no tile of its own — it is the one chord the wheel does not show you.' },
     { note:{ h:'Key signatures, quickly',
       p:'Clockwise from C: G has 1♯, D has 2♯, A 3♯, E 4♯, B 5♯, F♯ 6♯. Anticlockwise: F has 1♭, B♭ 2♭, E♭ 3♭, A♭ 4♭, D♭ 5♭. Producers rarely write notation, but DAW key-detection plugins and sample packs label things this way, so it pays to recognise them.' } },
     { try:{ h:'Use the wheel', p:'Tap any outer tile. The lab lights up that key’s neighbours and relative minor, then plays its six-chord palette so you hear that it works.',
@@ -3114,10 +3519,13 @@ LESSONS.push({
       const iv = (i + 11) % 12, v = (i + 1) % 12;
       ctx.v.select(i).roles({ ['M' + iv]:'extra', ['M' + v]:'chord',
         ['m' + i]:'target', ['m' + iv]:'scale', ['m' + v]:'scale' }).links([iv, v]);
+      /* The minor sitting under a tile is the relative minor of THAT key, so
+         reading left to right the inner ring gives ii (under IV), vi (under I)
+         and iii (under V) of the selected key. */
       ctx.read(T.KEY_LABEL[i] + ' major  ·  ' + T.SIGNATURE[i] +
-        '\nIV ' + T.KEY_LABEL[iv] + '   V ' + T.KEY_LABEL[v] +
-        '\nrelative minor ' + T.MINOR_LABEL[i] +
-        '\nii ' + T.MINOR_LABEL[v] + '   iii ' + T.MINOR_LABEL[(i + 2) % 12]);
+        '\nIV ' + T.KEY_LABEL[iv] + '    V ' + T.KEY_LABEL[v] +
+        '\nii ' + T.MINOR_LABEL[iv] + '   iii ' + T.MINOR_LABEL[v] +
+        '\nvi ' + T.MINOR_LABEL[i] + '  (relative minor)');
       ctx.cur = { i, pcRoot };
     };
     ctx.palette = () => {
@@ -3127,11 +3535,14 @@ LESSONS.push({
         { d:6, q:'min', lab:'vi' }, { d:2, q:'min', lab:'ii' }, { d:3, q:'min', lab:'iii' }
       ];
       const dia = T.diatonic(base, 'major');
+      const KR = T.MAJ_ROOT[T.CIRCLE[i]];
       chords.forEach((c, k) => ctx.later(() => {
         const ch = dia[c.d - 1];
+        const cr = T.inKey(ch.root, KR, 'major');
         A.chord(ch.notes, 1.1, { spread:.05 });
-        ctx.read(c.lab + '  ·  ' + T.name(ch.root) + T.CHORDS[ch.quality].sym +
-          '\nin ' + T.KEY_LABEL[i] + ' major');
+        ctx.read(c.lab + '  \u00B7  ' + T.chordName(cr, ch.quality) +
+          '\n' + T.spellChord(cr, ch.quality).join(' ') +
+          '\nin ' + KR + ' major');
       }, k * 850));
     };
     ctx.step = n => {
@@ -3144,6 +3555,7 @@ LESSONS.push({
         '\n' + T.SIGNATURE[i]);
     };
     ctx.v.onTile((i, ring) => {
+      ctx.keep('key', i);
       if (ring === 'maj') {
         setKey(i);
         A.chord(T.chordNotes(48 + T.CIRCLE[i], 'maj'), 1.6, { spread:.05 });
@@ -3153,7 +3565,7 @@ LESSONS.push({
           '\nsame seven notes, different home');
       }
     });
-    setKey(0);
+    setKey(ctx.recall('key') || 0);
   }
 });
 
@@ -3178,7 +3590,7 @@ LESSONS.push({
     { p:'Split your phrase in two. Bars 1–2 ask a question — end it on an unstable note, hanging. Bars 3–4 answer it — end on the tonic or the 3rd. That question/answer pair is a <b>period</b>, and it’s the reason 4- and 8-bar phrases feel complete rather than merely long.' },
     { note:{ h:'Space is a note',
       p:'Beginner melodies are too busy. A rest lets the previous note land and gives the vocal or the drums room. Try deleting a third of your notes — the melody usually gets better, and more of the ones you kept get heard.' } },
-    { try:{ h:'Write a shape', p:'Tap the 3D roll to add or remove notes — only scale notes are available, so nothing will clash. Then use the tools to vary what you wrote.',
+    { try:{ h:'Write a shape', p:'Tap the 3D roll to add or remove notes. The rows are the notes of C minor, so everything you write stays in the key — which is not the same as agreeing with a chord underneath (that is lesson 20). Then use the tools to vary what you wrote.',
       build:ctx => [
         UI.btn('Give me a motif', () => ctx.motif()),
         UI.btn('Repeat it', () => ctx.repeat()),
@@ -3206,7 +3618,9 @@ LESSONS.push({
       const rhythm = [[0,2,4,6],[0,3,4,7],[0,1,3,6],[0,2,3,7]][Math.floor(Math.random() * 4)];
       const ns = shape.map((s, i) => ({ step:rhythm[i], midi:pitch(start + s), len: i === 3 ? 2 : 1 }));
       ctx.v.setNotes(ns);
-      ctx.read('motif: ' + ns.map(n => T.name(n.midi)).join(' ') + '\nfour notes, half a bar');
+      ctx.keep('notes', ns.slice());
+      ctx.read('motif: ' + ns.map(n => T.inKey(n.midi, 'C', 'minor')).join(' ') +
+        '\nfour notes, half a bar');
       ctx.play();
     };
     ctx.repeat = () => {
@@ -3251,14 +3665,18 @@ LESSONS.push({
         sch(ctx, t, () => ctx.v.playhead(step));
       } });
     };
-    ctx.v.onCell((s, m, added) => { if (added) A.note(m, .6); });
+    ctx.v.onCell((s, m, added) => {
+      if (added) A.note(m, .6);
+      ctx.keep('notes', ctx.v.notes.slice());
+    });
     ctx.stage(
       UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
       UI.slider('Tempo', 60, 150, bpm, 1, v => { bpm = v; ctx.transport.bpm = v; }, v => v + ' BPM'),
       UI.toggle('Contour ribbon', v => ctx.v.contour(v), true)
     );
-    ctx.read('C minor roll\ntap cells to write · only scale notes shown');
-    ctx.motif();
+    ctx.read('C minor roll\ntap cells to write \u00B7 only scale notes shown');
+    const kept = ctx.recall('notes');
+    if (kept && kept.length) ctx.v.setNotes(kept); else ctx.motif();
   }
 });
 
@@ -3298,10 +3716,14 @@ LESSONS.push({
   ],
   init:ctx => {
     const bed = [
-      { step:0,  len:4, notes:[48,51,55,58], label:'Cm7' },
-      { step:4,  len:4, notes:[44,48,51,55], label:'A♭maj7' },
-      { step:8,  len:4, notes:[46,50,53,56], label:'B♭7' },
-      { step:12, len:4, notes:[48,51,55,58], label:'Cm7' }
+      { step:0,  len:4, notes:[48,51,55,58], label:'Cm7',
+        spell:['C','E\u266D','G','B\u266D'] },
+      { step:4,  len:4, notes:[44,48,51,55], label:'A\u266Dmaj7',
+        spell:['A\u266D','C','E\u266D','G'] },
+      { step:8,  len:4, notes:[46,50,53,56], label:'B\u266D7',
+        spell:['B\u266D','D','F','A\u266D'] },
+      { step:12, len:4, notes:[48,51,55,58], label:'Cm7',
+        spell:['C','E\u266D','G','B\u266D'] }
     ];
     let bpm = 88, which = 'safe';
     const M = {
@@ -3317,7 +3739,7 @@ LESSONS.push({
       return pcs.indexOf(T.pc(m)) >= 0 ? 'chord' : 'tension';
     };
     ctx.load = k => {
-      which = k;
+      which = k; ctx.keep('which', k);
       ctx.v.setNotes(M[k].map(([step, midi, len]) => ({ step, midi, len, role:role(step, midi) })));
       const hits = M[k].filter(([s, m]) => role(s, m) === 'chord').length;
       ctx.read({ safe:'chord tones only — safe, a little plain',
@@ -3332,7 +3754,7 @@ LESSONS.push({
       ctx.stop(); ctx.v.playhead(-1);
       bed.forEach((b, i) => ctx.later(() => {
         A.chord(b.notes, 1.4, { spread:.05 });
-        ctx.read(b.label + '\n' + b.notes.map(n => T.name(n)).join(' '));
+        ctx.read(b.label + '\n' + b.spell.join(' '));
       }, i * 1150));
     };
     ctx.play = () => {
@@ -3350,14 +3772,14 @@ LESSONS.push({
       if (!added) return;
       A.note(m + 12, .7);
       const r = role(s, m), c = chordAt(s);
-      ctx.read(T.name(m) + ' over ' + (c ? c.label : '—') + '\n' +
+      ctx.read(T.inKey(m, 'C', 'minor') + ' over ' + (c ? c.label : '\u2014') + '\n' +
         (r === 'chord' ? 'chord tone — safe landing' : 'non-chord tone — motion, keep moving'));
     });
     ctx.stage(
       UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
       UI.slider('Tempo', 60, 140, bpm, 1, v => { bpm = v; ctx.transport.bpm = v; }, v => v + ' BPM')
     );
-    ctx.load('safe');
+    ctx.load(ctx.recall('which') || 'safe');
   }
 });
 
@@ -3397,15 +3819,17 @@ LESSONS.push({
       why:'Numerals are the grammar of a progression. The same numerals in another key with different voicings is a new piece of music built on a proven shape.' }
   ],
   init:ctx => {
-    const KEYS = [{ n:'A minor', root:57 }, { n:'C minor', root:48 }, { n:'D minor', root:50 },
-                  { n:'F♯ minor', root:54 }, { n:'G minor', root:55 }];
+    const KEYS = [{ n:'A minor', root:57, rn:'A' }, { n:'C minor', root:48, rn:'C' },
+                  { n:'D minor', root:50, rn:'D' }, { n:'F\u266F minor', root:54, rn:'F\u266F' },
+                  { n:'G minor', root:55, rn:'G' }];
     const PROGS = [[1,6,3,7],[1,4,6,5],[1,7,6,7],[1,6,7,1],[1,3,4,5],[1,5,6,4]];
     let cur = { key:KEYS[0], prog:PROGS[0], bpm:84, notes:[] };
     const build = () => {
       const root = cur.key.root, dia = T.diatonic(root, 'minor');
       const bed = cur.prog.map((d, i) => {
         const c = dia[d - 1];
-        return { step:i * 4, len:4, notes:c.seventh, label:T.name(c.root) + T.CHORDS[c.q7].sym,
+        const cr = T.inKey(c.root, cur.key.rn, 'minor');
+        return { step:i * 4, len:4, notes:c.seventh, label:T.chordName(cr, c.q7),
                  num:T.roman(c.degree, c.q7) };
       });
       ctx.v.setScale(root + 12, 'minor', 2).setChords(bed);
@@ -3433,6 +3857,7 @@ LESSONS.push({
       ctx.read(cur.key.n + '  ·  ' + cur.bpm + ' BPM\n' +
         bed.map(b => b.num).join(' – ') + '\n' + bed.map(b => b.label).join(' ') +
         '\none reference, one key, go');
+      ctx.keep('cur', { key:cur.key, prog:cur.prog.slice(), bpm:cur.bpm, notes:cur.notes.slice() });
       ctx.play();
     };
     ctx.reharm = () => {
@@ -3482,8 +3907,16 @@ LESSONS.push({
     ctx.stage(
       UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } })
     );
-    build(); motif();
-    ctx.read('press generate\nconstraints first, notes second');
+    const back = ctx.recall('cur');
+    if (back) {
+      cur = { key:back.key, prog:back.prog.slice(), bpm:back.bpm, notes:back.notes.slice() };
+      ctx.transport.bpm = cur.bpm;
+      build(); ctx.v.setNotes(cur.notes);
+      ctx.read(cur.key.n + '  \u00B7  ' + cur.bpm + ' BPM\n' + ctx.bed.map(b => b.num).join(' \u2013 '));
+    } else {
+      build(); motif();
+      ctx.read('press generate\nconstraints first, notes second');
+    }
   }
 });
 
@@ -3501,6 +3934,8 @@ LESSONS.push({
       '<b>Progression</b> — hear four chords and name the numerals.',
       '<b>Scale</b> — identify major, minor, harmonic minor, and the modes.',
       '<b>Degree</b> — a key is established, then one note plays; name its scale degree. This is the skill that lets you transcribe melodies.' ] },
+    { h:'Easy and hard' },
+    { p:'In easy mode the questions stay in a comfortable register and use a small set of answers. <b>Hard mode</b> moves the root around all twelve notes, widens the register by an octave, adds the seventh-chord family, inversions, the remaining modes, and compound intervals. Work in easy until you are consistently right, then switch — the point is to recognise the <em>relationship</em>, not one memorised shape in one position.' },
     { h:'Sing it, then answer' },
     { p:'The fastest ear-training shortcut is physical: hum the two notes before you answer. Your voice knows intervals before your brain names them, and matching pitch forces you to actually hear the distance instead of guessing from timbre.' },
     { note:{ h:'A useful frustration',
@@ -3514,72 +3949,105 @@ LESSONS.push({
           UI.chips([{label:'Interval',value:'ivl'},{label:'Chord quality',value:'chord'},
                     {label:'Progression',value:'prog'},{label:'Scale',value:'scale'},
                     {label:'Scale degree',value:'deg'}], v => ctx.setDrill(v), 0),
-          UI.row(UI.btn('🔊 Listen', () => ctx.playQ(), { primary:true }),
-                 UI.btn('↻ Replay', () => ctx.replay()),
-                 UI.btn('Next question', () => ctx.next())),
+          UI.row(UI.btn('\uD83D\uDD0A Listen', () => ctx.playQ(), { primary:true }),
+                 UI.btn('\u21BB Replay', () => ctx.replay()),
+                 UI.btn('Next question', () => ctx.next()),
+                 UI.toggle('Hard mode', v => ctx.setHard(v))),
           box);
         ctx.answers = box;
         return wrap;
       } } }
   ],
   init:ctx => {
-    let drill = 'ivl', q = null, score = { right:0, total:0 };
+    let drill = ctx.recall('drill') || 'ivl', q = null, hard = !!ctx.recall('hard');
+    let score = ctx.recall('score') || { right:0, total:0 };
     const say = extra => ctx.read('score ' + score.right + '/' + score.total +
-      (extra ? '\n' + extra : '\nlisten, then answer'));
+      '  \u00B7  ' + (hard ? 'hard' : 'easy') + (extra ? '\n' + extra : '\nlisten, then answer'));
+    const rnd = a => a[Math.floor(Math.random() * a.length)];
+    /* Roots move around so you learn the sound, not one fixed shape.
+       Hard mode widens the register and adds inversions and voicings. */
+    const EASY_ROOTS = [48, 53, 55, 57, 60];
+    const ALL_ROOTS = [48,49,50,51,52,53,54,55,56,57,58,59];
+    const pickRoot = () => hard
+      ? Math.min(66, rnd(ALL_ROOTS) + rnd([0, 0, 12]))
+      : rnd(EASY_ROOTS);
 
     const DRILLS = {
       ivl: () => {
-        const n = [1,2,3,4,5,6,7,8,9,10,11,12][Math.floor(Math.random() * 12)];
-        return { notes:[[60], [60 + n]], answer:T.ivl(n).label,
-          options:T.IVL.slice(1, 13).map(i => i.label),
-          show:() => ctx.v.clear().mark(60, 'root').mark(60 + n, 'target').apply()
-            .clearExtras().arc(60, 60 + n, T.ivl(n).short),
-          why:n + ' semitones' };
+        const base = pickRoot();
+        const n = hard ? rnd([1,2,3,4,5,6,7,8,9,10,11,12,13,14]) : rnd([3,4,5,7,8,9,12]);
+        const rn = T.MAJ_ROOT[T.pc(base)];
+        return { notes:[[base], [base + n]], answer:T.ivl(n).label,
+          options:T.IVL.slice(1, hard ? 15 : 13).map(i => i.label),
+          show:() => {
+            ctx.v.clear().mark(base, 'root').mark(Math.min(base + n, 72), 'target').apply().clearExtras();
+            if (base + n <= 72) ctx.v.arc(base, base + n, T.ivl(n).short);
+          },
+          why:rn + ' up to ' + T.spellIvl(rn, n) + '  \u00B7  ' + n + ' semitones' };
       },
       chord: () => {
-        const types = ['maj','min','dim','aug','maj7','min7','dom7','m7b5'];
-        const t = types[Math.floor(Math.random() * types.length)];
-        const ns = T.chordNotes(57, t);
+        const root = pickRoot();
+        const types = hard
+          ? ['maj','min','dim','aug','maj7','min7','dom7','m7b5','dim7','minMaj7']
+          : ['maj','min','dim','aug'];
+        const t = rnd(types);
+        let ns = T.chordNotes(root, t);
+        if (hard && Math.random() < 0.4) ns = T.invert(ns, 1 + Math.floor(Math.random() * 2));
+        const rn = T.MAJ_ROOT[T.pc(root)];
         return { notes:[ns], answer:T.CHORDS[t].label,
           options:types.map(x => T.CHORDS[x].label),
-          show:() => ctx.v.clear().marks(ns.filter(x => x <= 72), 'chord').mark(57, 'root').apply()
-            .clearExtras().stack(ns.filter(x => x <= 74)),
-          why:'A' + T.CHORDS[t].sym + '  ·  ' + T.CHORDS[t].steps.join(' ') };
+          show:() => ctx.v.clear().marks(ns.filter(x => x <= 72), 'chord').mark(ns[0], 'root')
+            .apply().clearExtras().stack(ns.filter(x => x <= 74)),
+          why:T.chordName(rn, t) + '  \u00B7  ' + T.spellChord(rn, t).join(' ') +
+            (ns[0] !== root ? '  (inverted)' : '') };
       },
       prog: () => {
         const opts = [[1,5,6,4],[1,6,4,5],[6,4,1,5],[1,4,5,1],[1,7,6,7]];
-        const p = opts[Math.floor(Math.random() * opts.length)];
+        const p = rnd(opts);
         const kind = Math.random() < 0.5 ? 'major' : 'minor';
-        const dia = T.diatonic(48, kind);
+        const root = hard ? rnd([48,50,53,55,57]) : 48;
+        const rn = T.rootFor(root, kind);
+        const dia = T.diatonic(root, kind);
         const chords = p.map(d => dia[d - 1]);
         return { notes:chords.map(c => c.notes), spaced:true,
-          answer:p.map(d => T.roman(d, dia[d - 1].quality)).join(' – '),
-          options:opts.map(o => o.map(d => T.roman(d, dia[d - 1].quality)).join(' – ')),
+          answer:p.map(d => T.roman(d, dia[d - 1].quality)).join(' \u2013 '),
+          options:opts.map(o => o.map(d => T.roman(d, dia[d - 1].quality)).join(' \u2013 ')),
           show:() => {
             ctx.v.clear().marks(chords[0].notes, 'chord').apply().clearExtras();
-            ctx.v.tag(chords.map(c => T.name(c.root) + T.CHORDS[c.quality].sym).join(' '), 0, 3.4);
+            ctx.v.tag(chords.map(c => T.chordName(T.inKey(c.root, rn, kind), c.quality)).join(' '), 0, 3.4);
           },
-          why:'in C ' + kind + ': ' + chords.map(c => T.name(c.root) + T.CHORDS[c.quality].sym).join(' ') };
+          why:'in ' + rn + ' ' + kind + ': ' +
+            chords.map(c => T.chordName(T.inKey(c.root, rn, kind), c.quality)).join(' ') };
       },
       scale: () => {
-        const keys = ['major','minor','harmonicMinor','dorian','phrygian','lydian','mixolydian','minorPent'];
-        const k = keys[Math.floor(Math.random() * keys.length)];
-        const ns = T.scaleNotes(57, k).concat([57 + 12]);
+        const keys = hard
+          ? ['major','minor','harmonicMinor','melodicMinor','dorian','phrygian','lydian','mixolydian','locrian','minorPent','blues']
+          : ['major','minor','harmonicMinor','minorPent'];
+        const k = rnd(keys);
+        const root = pickRoot();
+        const rn = T.rootFor(root, k);
+        const ns = T.scaleNotes(root, k).concat([root + 12]);
         return { notes:ns.map(n => [n]), spaced:true, answer:T.SCALES[k].label,
           options:keys.map(x => T.SCALES[x].label),
-          show:() => ctx.v.clear().marks(ns.filter(n => n <= 72), 'scale').mark(57, 'root').apply().clearExtras(),
-          why:T.SCALES[k].steps.join(' ') + '  ·  ' + T.SCALES[k].mood };
+          show:() => ctx.v.clear().marks(ns.filter(n => n <= 72), 'scale').mark(root, 'root')
+            .apply().clearExtras().spelling(T.keyMap(rn, k)),
+          why:rn + ' ' + T.SCALES[k].label + '  \u00B7  ' + T.spellScale(rn, k).join(' ') };
       },
       deg: () => {
+        const root = hard ? rnd([48,50,53,55,57,60]) : 60;
         const d = 1 + Math.floor(Math.random() * 7);
         const step = T.SCALES.major.steps[d - 1];
-        const target = 60 + step;
-        return { notes:[[60,64,67], [67,71,74], [60,64,67], [target]], spaced:true,
+        const target = root + step + (hard && Math.random() < 0.3 ? 12 : 0);
+        const rn = T.MAJ_ROOT[T.pc(root)];
+        const dia = T.diatonic(root, 'major');
+        return { notes:[dia[0].notes, dia[4].notes, dia[0].notes, [target]], spaced:true,
           answer:'degree ' + d,
           options:[1,2,3,4,5,6,7].map(x => 'degree ' + x),
-          show:() => ctx.v.clear().marks(T.scaleNotes(60, 'major'), 'ghost')
-            .mark(60, 'root').mark(target, 'target').apply().clearExtras(),
-          why:'the key was C major; the note was ' + T.name(target) };
+          show:() => ctx.v.clear().marks(T.scaleNotes(root, 'major').filter(n => n <= 72), 'ghost')
+            .mark(root, 'root').mark(Math.min(target, 72), 'target').apply().clearExtras()
+            .spelling(T.keyMap(rn, 'major')),
+          why:'the key was ' + rn + ' major; the note was ' +
+            T.inKey(target, rn, 'major') + ' \u2014 degree ' + d };
       }
     };
 
@@ -3596,6 +4064,8 @@ LESSONS.push({
           score.total++;
           const ok = o === q.answer;
           if (ok) score.right++;
+          ctx.keep('score', score);
+          ctx.score(ok);
           Array.from(ctx.answers.children).forEach(c => {
             if (c.textContent === q.answer) c.style.borderColor = '#4FD1A5';
             if (c === b && !ok) c.style.borderColor = '#E23E57';
@@ -3624,7 +4094,8 @@ LESSONS.push({
       say('new question — press listen');
       ctx.playQ();
     };
-    ctx.setDrill = v => { drill = v; ctx.next(); };
+    ctx.setDrill = v => { drill = v; ctx.keep('drill', v); ctx.next(); };
+    ctx.setHard = v => { hard = v; ctx.keep('hard', v); ctx.next(); };
     ctx.v.onKey(m => { A.note(m, .9); });
     q = DRILLS.ivl();
     ctx.later(() => renderAnswers(), 30);
@@ -3844,6 +4315,7 @@ intervals:{
     { keys:[
       'The <b>3rd</b> is the happy/sad switch. <b>4</b> = happy (major). <b>3</b> = sad (minor). One key of difference changes the whole song.',
       'The <b>5th</b> (7) is the strong one. It sounds so agreeable it barely has an opinion, which is why big loud chords and 808 basslines lean on it.' ] },
+    { small:'About “happy” and “sad”: those are what these gaps usually feel like in pop music, not a law of nature. A sad-sounding gap in a fast, loud, major-key song can feel triumphant. Use the words to recognise the sound, then trust your ears about what it means in <em>your</em> track.' },
     { h:'Step 4 · Why names have two words' },
     { p:'A name like “major 3rd” has a <b>number</b> (3rd, 5th, 7th) and a <b>quality</b> (major, minor, perfect). The number counts letter names, so a 3rd can come in two sizes — major (4) or minor (3). The word <b>perfect</b> is only used for 4ths, 5ths, octaves and unisons, because they only come in one normal size.' },
     { h:'Step 5 · Comfy notes and leaning notes' },
@@ -3884,7 +4356,9 @@ scales:{
     { p:'The <b>natural minor</b> scale walks <span class="k a">T S T T S T T</span>, or <span class="k">0 2 3 5 7 8 10</span>. Compared to major, the <b>3rd, 6th and 7th</b> are each one key lower. That lower 3rd is the whole difference between happy and serious.' },
     { p:'Here is the shortcut that saves hours: every major scale has a <b>relative minor</b> that uses <em>exactly the same notes</em>, starting from note number 6. C major and A minor are the same seven white keys. Nothing moved — only which note feels like home.' },
     { h:'Step 4 · The beginner’s cheat scale' },
-    { p:'A <b>pentatonic</b> scale is a normal scale with the two most argumentative notes taken out, leaving five. With five notes it is very hard to sound wrong. If your tunes keep clashing, write them in minor pentatonic first and add the other notes back one at a time.' },
+    { p:'A <b>pentatonic</b> scale is a normal scale with the two most argumentative notes taken out, leaving five. Fewer notes means fewer ways to fight the chords, which is why so many hooks live here. If your tunes keep clashing, write them in minor pentatonic first and add the other notes back one at a time.' },
+    { note:{ h:'One thing to be careful about',
+      p:'Staying inside the scale keeps you in the <b>key</b>. It does <em>not</em> promise that every note will suit the <b>chord</b> playing underneath at that moment. F is in C major, but hold it over a C chord and it rubs against the E right below it. Lesson 20 is all about that, so do not be surprised when a “correct” note still sounds wrong — it is not you making a mistake.' } },
     { table:{ head:['Scale','Numbers','From C','Good for'],
       rows:[
         ['Major','0 2 4 5 7 9 11','C D E F G A B','pop, house, gospel'],
@@ -3967,7 +4441,7 @@ chords:{
         ['Minor','0 3 7','sad, settled'],
         ['Diminished','0 3 6','tense, unstable'],
         ['Augmented','0 4 8','strange, floating'] ] } },
-    { p:'Look carefully: major and minor <em>both</em> have the 7. Only the middle note moves, by one key. One key is the entire difference between a happy chord and a heartbroken one.' },
+    { p:'Look carefully: major and minor <em>both</em> have the 7. Only the middle note moves, by one key — that is the whole difference. People call it happy versus sad, and often it does feel like that, but it is a tendency and not a rule: there is plenty of joyful minor music and plenty of miserable major music. What the middle note definitely changes is the <b>colour</b>.' },
     { h:'Step 3 · Every scale hands you seven chords' },
     { p:'Do the skipping trick starting from each note of the scale and you get the seven chords that already fit that key. In a major key they always come out in this order:' },
     { p:'<span class="k v">1 major · 2 minor · 3 minor · 4 major · 5 major · 6 minor · 7 diminished</span>' },
@@ -3998,7 +4472,8 @@ progressions:{
     { keys:[
       '<b>Home</b> (chords I, vi, iii) — resting. Nothing needs to happen next.',
       '<b>Away</b> (chords IV, ii) — moving, but calm. You have left home, no panic.',
-      '<b>Wobbly</b> (chords V, vii°) — tension. It really wants to fall back home.' ] },
+      '<b>Wobbly</b> (chords V, vii°) — tension. It really wants to fall back home, because it contains the note right below home (the <em>leading note</em>), which leans upward.' ] },
+    { small:'Careful with one thing you will read elsewhere: people say the V chord “contains a tritone”. The plain three-note V does not — G B D has no tritone. You only get one when you add the 7th and make it G7 (the B and the F are 6 semitones apart). That is why V7 pulls even harder than V.' },
     { p:'A progression is just a walk through those three states. The classic shape is <b>home → away → wobbly → home</b>, and it is underneath thousands of songs.' },
     { h:'Step 2 · Chords with the same job can swap' },
     { p:'Once you know the job, you can trade one chord for another that does the same job — swap I for vi, or IV for ii — and the story still works. That is how you make a loop sound different without breaking it.' },
@@ -4012,14 +4487,16 @@ progressions:{
         ['i–VI–III–VII','Cm A♭ E♭ B♭','big minor — trap, drill, film'],
         ['i–iv–i–V','Cm Fm Cm G','dark and cinematic'],
         ['i–VII–VI–VII','Cm B♭ A♭ B♭','vamp used in reggaetón'] ] } },
-    { h:'Step 4 · The last two chords decide how it feels to stop' },
-    { p:'The final pair of a phrase is called a <b>cadence</b>:' },
+    { h:'Step 4 · How a phrase stops' },
+    { p:'The ending of a phrase is called a <b>cadence</b>. There are four you will meet:' },
     { keys:[
-      '<b>V → I</b> — a full stop. Completely finished.',
-      '<b>IV → I</b> — a gentle landing, like an “amen”.',
-      '<b>V → vi</b>, or ending on <b>V</b> — a comma. Keep going.' ] },
+      '<b>V → I</b> — a full stop. Completely finished. (Called <em>authentic</em>, or <em>perfect</em>.)',
+      '<b>IV → I</b> — a soft landing, like an “amen”. (Called <em>plagal</em>.)',
+      'Stopping <b>on V</b> — a comma. It leaves a question hanging. (Called <em>half</em>, or <em>imperfect</em>.)',
+      '<b>V → vi</b> — a surprise. You expect the full stop and get a different chord instead. (Called <em>deceptive</em>, or <em>interrupted</em>.)' ] },
+    { small:'Two sets of names exist for the same four things, because British and American theory books label them differently. Learn the sound; read whichever label your book uses.' },
     { note:{ h:'Loops do not want an ending',
-      p:'Modern music loops 4 or 8 bars forever, so you do not want a full stop — you want a chord that throws you back to bar 1. Make the <em>last</em> chord the wobbly one (V, or VII, or IV) and the loop pulls itself around.' } },
+      p:'Modern music loops 4 or 8 bars forever, so a full stop is often not what you want — a wobbly last chord (V, or VII, or IV) throws you back to bar 1. Try it both ways and listen: ending on home makes each pass feel complete, ending on the wobbly chord makes it circle. Neither is a rule.' } },
     { try:{ h:'Four slots, your choice', p:'Load a famous progression, then change any slot to another number. You will hear straight away which swaps keep the story and which break it.', use:true } },
     { keys:[
       'Three jobs: home, away, wobbly.',
@@ -4141,6 +4618,7 @@ extensions:{
       '<span class="k">Cadd9</span> = the plain three-note chord plus the 9th, with <b>no 7th</b> (C E G D). Open and poppy.',
       '<span class="k">C9</span> = a dominant 7th chord plus the 9th (C E G B♭ D). Full, funky, and restless because the 7 is in there.' ] },
     { p:'Beginners often type “9” when they mean “add9”, then wonder why everything sounds unfinished.' },
+    { small:'You may also see <span class="k">add2</span>. It is the same note as the 9th, and some people use the two names to say <em>where</em> they put it: low and next to the root (add2) or high above the 5th (add9). Chord names are a convention, not a rule book, so both turn up.' },
     { p:'One more easy win: <span class="k">6/9</span> (C E G A D) — a major chord with no 7th at all, just the 6th and the 9th. It sounds finished and expensive at the same time, which is why so much neo-soul ends on it.' },
     { h:'Step 3 · You must leave notes out' },
     { p:'A full 13th chord has seven notes. Play them all down low and you get mud. Real players <b>leave notes out</b>. Keep:' },
@@ -4161,8 +4639,8 @@ extensions:{
       'Rootless voicings let the bass carry the bottom note.' ] }
   ],
   quiz:[
-    { q:'Cadd9 contains…', a:['C E G B♭ D','C E G D','C E G B D','C D E G'], c:1,
-      why:'The plain chord plus the 9th and no 7th. Adding a B♭ would turn it into C9.' },
+    { q:'Which one has a 9th added but no 7th?', a:['C9','Cmaj9','Cadd9','Cm9'], c:2,
+      why:'“add” means add just that one note. The other three all include a 7th too — that is what the bare number 9 means in a chord name.' },
     { q:'Which note do you remove first when a big chord turns muddy?', a:['The root','The 3rd','The 5th','The 7th'], c:2,
       why:'The 5th says the least. The 3rd and 7th are what make the chord itself.' }
   ]
@@ -4253,7 +4731,7 @@ inversions:{
     { h:'Step 2 · Borrowed engines (secondary dominants)' },
     { p:'You can build a dominant 7th on <em>any</em> note, and it will pull toward the chord a 5th below it. So <span class="k">A7</span> pulls into <b>Dm</b>, even in the key of C where A7 does not officially live. Instant strong arrival, wherever you want one.' },
     { h:'Step 3 · Diminished — the chord with no home' },
-    { p:'<b>dim7</b> is 0 3 6 9: four notes with the exact same gap between each one. Because it is perfectly even, it does not belong to any key, so it fits almost anywhere. Its three jobs:' },
+    { p:'<b>dim7</b> is 0 3 6 9: four notes with exactly the same gap between each one. It <em>does</em> belong to keys — B D F A♭ is the vii°7 chord of C minor. What being perfectly even gives you is <b>ambiguity</b>: the same four notes can be read as that chord in four different minor keys, so it is unusually easy to swivel through. That is not quite the same as “fits anywhere” — it still has to lead somewhere your ear believes. Its three jobs:' },
     { keys:[
       '<b>Passing chord</b> — slip one between two chords a tone apart so the bass walks smoothly.',
       '<b>Leading chord</b> — vii°7 falling into the home chord: a darker, tighter version of V7.',
@@ -4337,8 +4815,8 @@ borrowed:{
     { p:'Any chord in your key can have its <em>own</em> dominant 7th placed in front of it, even though that chord is not in the key. Want to arrive at Dm more strongly? Put <b>A7</b> just before it. Musicians write that <span class="k v">V7/ii</span> and say “five of two”. You get a surprise note, a strong arrival, and you never leave the key.' },
     { h:'Step 4 · Chords that exist only for the bass' },
     { p:'Some outside chords are really bass-line decisions: a <b>dim7</b> slotted between two chords so the bass can walk by single keys, or a <b>tritone sub</b> so you slide into home from one key above. Interesting harmony happens as a side effect.' },
-    { note:{ h:'The one rule',
-      p:'Borrow for <em>one or two bars</em>, then come home. An outside chord is an <b>event</b>. If everything is borrowed, nothing is surprising — and you have quietly changed key without meaning to.' } },
+    { note:{ h:'A good habit, not a rule',
+      p:'An outside chord works by contrast, so a bar or two and then home is the safest way to use one. Some styles stay chromatic for much longer and still sound rooted, so treat this as something to test rather than obey. The question to ask is: can you still hear where home is? If you cannot, you have changed key instead of borrowing.' } },
     { try:{ h:'Borrow something', p:'Each button plays a plain loop, then the same loop with one chord swapped for an outside one. Listen for the bar that grabs you.', use:true } },
     { keys:[
       'Modal interchange = take a chord from the same home note’s minor (or another mode).',
@@ -4366,7 +4844,7 @@ circle:{
     { p:'Two keys next to each other on the clock share <b>six of their seven notes</b>. Only one note is different. That one fact is the whole payoff:' },
     { keys:[
       'The keys either side of yours are your <b>IV</b> and <b>V</b> — the two most useful chords after home.',
-      'Your key, its two neighbours, and the three minors underneath them give you <b>six chords guaranteed to fit</b> (I, IV, V, vi, ii, iii). That is a complete songwriting palette, without doing any maths.',
+      'Your key, its two neighbours, and the three minors underneath them give you <b>six chords guaranteed to fit</b>. Each small tile is the relative minor of the big tile above it, so from your key they read as <b>ii</b> (under IV), <b>vi</b> (under I) and <b>iii</b> (under V). In C that is Dm, Am and Em.',
       'To change key smoothly, move <b>one step</b> around the clock. Only one note changes, so listeners follow you easily.',
       'To change key dramatically, <b>jump across</b>. Keys on opposite sides share almost nothing — instant shock or lift.' ] },
     { note:{ h:'Reading key signatures off it',

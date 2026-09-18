@@ -15,6 +15,7 @@ extensions:{
       '<span class="k">Cadd9</span> = the plain three-note chord plus the 9th, with <b>no 7th</b> (C E G D). Open and poppy.',
       '<span class="k">C9</span> = a dominant 7th chord plus the 9th (C E G B♭ D). Full, funky, and restless because the 7 is in there.' ] },
     { p:'Beginners often type “9” when they mean “add9”, then wonder why everything sounds unfinished.' },
+    { small:'You may also see <span class="k">add2</span>. It is the same note as the 9th, and some people use the two names to say <em>where</em> they put it: low and next to the root (add2) or high above the 5th (add9). Chord names are a convention, not a rule book, so both turn up.' },
     { p:'One more easy win: <span class="k">6/9</span> (C E G A D) — a major chord with no 7th at all, just the 6th and the 9th. It sounds finished and expensive at the same time, which is why so much neo-soul ends on it.' },
     { h:'Step 3 · You must leave notes out' },
     { p:'A full 13th chord has seven notes. Play them all down low and you get mud. Real players <b>leave notes out</b>. Keep:' },
@@ -35,8 +36,8 @@ extensions:{
       'Rootless voicings let the bass carry the bottom note.' ] }
   ],
   quiz:[
-    { q:'Cadd9 contains…', a:['C E G B♭ D','C E G D','C E G B D','C D E G'], c:1,
-      why:'The plain chord plus the 9th and no 7th. Adding a B♭ would turn it into C9.' },
+    { q:'Which one has a 9th added but no 7th?', a:['C9','Cmaj9','Cadd9','Cm9'], c:2,
+      why:'“add” means add just that one note. The other three all include a 7th too — that is what the bare number 9 means in a chord name.' },
     { q:'Which note do you remove first when a big chord turns muddy?', a:['The root','The 3rd','The 5th','The 7th'], c:2,
       why:'The 5th says the least. The 3rd and 7th are what make the chord itself.' }
   ]
@@ -127,7 +128,7 @@ inversions:{
     { h:'Step 2 · Borrowed engines (secondary dominants)' },
     { p:'You can build a dominant 7th on <em>any</em> note, and it will pull toward the chord a 5th below it. So <span class="k">A7</span> pulls into <b>Dm</b>, even in the key of C where A7 does not officially live. Instant strong arrival, wherever you want one.' },
     { h:'Step 3 · Diminished — the chord with no home' },
-    { p:'<b>dim7</b> is 0 3 6 9: four notes with the exact same gap between each one. Because it is perfectly even, it does not belong to any key, so it fits almost anywhere. Its three jobs:' },
+    { p:'<b>dim7</b> is 0 3 6 9: four notes with exactly the same gap between each one. It <em>does</em> belong to keys — B D F A♭ is the vii°7 chord of C minor. What being perfectly even gives you is <b>ambiguity</b>: the same four notes can be read as that chord in four different minor keys, so it is unusually easy to swivel through. That is not quite the same as “fits anywhere” — it still has to lead somewhere your ear believes. Its three jobs:' },
     { keys:[
       '<b>Passing chord</b> — slip one between two chords a tone apart so the bass walks smoothly.',
       '<b>Leading chord</b> — vii°7 falling into the home chord: a darker, tighter version of V7.',
@@ -211,8 +212,8 @@ borrowed:{
     { p:'Any chord in your key can have its <em>own</em> dominant 7th placed in front of it, even though that chord is not in the key. Want to arrive at Dm more strongly? Put <b>A7</b> just before it. Musicians write that <span class="k v">V7/ii</span> and say “five of two”. You get a surprise note, a strong arrival, and you never leave the key.' },
     { h:'Step 4 · Chords that exist only for the bass' },
     { p:'Some outside chords are really bass-line decisions: a <b>dim7</b> slotted between two chords so the bass can walk by single keys, or a <b>tritone sub</b> so you slide into home from one key above. Interesting harmony happens as a side effect.' },
-    { note:{ h:'The one rule',
-      p:'Borrow for <em>one or two bars</em>, then come home. An outside chord is an <b>event</b>. If everything is borrowed, nothing is surprising — and you have quietly changed key without meaning to.' } },
+    { note:{ h:'A good habit, not a rule',
+      p:'An outside chord works by contrast, so a bar or two and then home is the safest way to use one. Some styles stay chromatic for much longer and still sound rooted, so treat this as something to test rather than obey. The question to ask is: can you still hear where home is? If you cannot, you have changed key instead of borrowing.' } },
     { try:{ h:'Borrow something', p:'Each button plays a plain loop, then the same loop with one chord swapped for an outside one. Listen for the bar that grabs you.', use:true } },
     { keys:[
       'Modal interchange = take a chord from the same home note’s minor (or another mode).',
@@ -240,7 +241,7 @@ circle:{
     { p:'Two keys next to each other on the clock share <b>six of their seven notes</b>. Only one note is different. That one fact is the whole payoff:' },
     { keys:[
       'The keys either side of yours are your <b>IV</b> and <b>V</b> — the two most useful chords after home.',
-      'Your key, its two neighbours, and the three minors underneath them give you <b>six chords guaranteed to fit</b> (I, IV, V, vi, ii, iii). That is a complete songwriting palette, without doing any maths.',
+      'Your key, its two neighbours, and the three minors underneath them give you <b>six chords guaranteed to fit</b>. Each small tile is the relative minor of the big tile above it, so from your key they read as <b>ii</b> (under IV), <b>vi</b> (under I) and <b>iii</b> (under V). In C that is Dm, Am and Em.',
       'To change key smoothly, move <b>one step</b> around the clock. Only one note changes, so listeners follow you easily.',
       'To change key dramatically, <b>jump across</b>. Keys on opposite sides share almost nothing — instant shock or lift.' ] },
     { note:{ h:'Reading key signatures off it',

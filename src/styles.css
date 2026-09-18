@@ -294,3 +294,48 @@ td.hi{color:var(--accent-2)}
   padding:24px;text-align:center;font-family:"Bricolage Grotesque",sans-serif;
   font-size:14px;line-height:1.5;color:var(--muted);
 }
+
+/* drill accuracy, kept visually distinct from "lesson done" */
+#drillBar{background:linear-gradient(90deg,var(--sky),var(--accent))}
+.nav button.review .tick{opacity:1;color:var(--amber);font-weight:700}
+
+/* ── Accessible 2D instrument ──────────────────────────────────
+   A real, focusable control for every key, pad and tile the 3D
+   stage draws. Always in the accessibility tree; opened on demand. */
+.a11y{
+  border-bottom:1px solid var(--line);background:var(--bg-2);
+  font-family:"Bricolage Grotesque",sans-serif;
+}
+.a11y > summary{
+  padding:10px 22px;font-size:12px;font-weight:600;color:var(--accent-2);
+  cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;
+}
+.a11y > summary::-webkit-details-marker{display:none}
+.a11y > summary::before{content:"\2328";font-size:14px}
+.a11y > summary::after{content:"\25BE";margin-left:auto;color:var(--muted)}
+.a11y[open] > summary::after{content:"\25B4"}
+.a11y > summary:hover{color:var(--accent)}
+#a11yBody{padding:4px 22px 18px;max-width:900px}
+.a11y h4{
+  margin:12px 0 7px;font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--muted);font-weight:600;
+}
+.a11y .pads{display:flex;flex-wrap:wrap;gap:5px}
+.a11y .pad{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;min-width:38px;
+  padding:6px 8px;border:1px solid var(--line);border-radius:7px;
+  background:var(--panel);color:var(--text-2);cursor:pointer;
+}
+.a11y .pad:hover{border-color:var(--line-2);color:var(--text)}
+.a11y .pad[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.a11y .pad.black{background:var(--panel-3)}
+.a11y .hint{font-size:12px;color:var(--muted);margin:2px 0 10px;font-family:"Bricolage Grotesque",sans-serif}
+.a11y .notelist{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+@media (max-width:860px){
+  .a11y > summary{padding:10px 16px}
+  #a11yBody{padding:4px 16px 18px}
+}

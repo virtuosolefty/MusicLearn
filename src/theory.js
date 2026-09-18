@@ -15,73 +15,82 @@ const T = (() => {
   const isBlack = m => [1,3,6,8,10].includes(pc(m));
 
   /* Scales — semitones above the root. */
+  /* `deg` is the letter distance of each note from the root: 0 = same letter,
+     1 = the next letter up, and so on. It is what makes correct spelling
+     possible — C minor is C E♭ G, never C D♯ G, because the third of a chord
+     is always two letters above its root. */
   const SCALES = {
-    major:          { label:'Major (Ionian)',   steps:[0,2,4,5,7,9,11], mood:'bright, resolved, pop' },
-    dorian:         { label:'Dorian',           steps:[0,2,3,5,7,9,10], mood:'minor but hopeful, jazzy' },
-    phrygian:       { label:'Phrygian',         steps:[0,1,3,5,7,8,10], mood:'dark, Spanish, trap' },
-    lydian:         { label:'Lydian',           steps:[0,2,4,6,7,9,11], mood:'dreamy, floating' },
-    mixolydian:     { label:'Mixolydian',       steps:[0,2,4,5,7,9,10], mood:'bluesy, funk, rock' },
-    minor:          { label:'Natural minor (Aeolian)', steps:[0,2,3,5,7,8,10], mood:'sad, serious, most rap' },
-    locrian:        { label:'Locrian',          steps:[0,1,3,5,6,8,10], mood:'unstable, rarely a home key' },
-    harmonicMinor:  { label:'Harmonic minor',   steps:[0,2,3,5,7,8,11], mood:'cinematic, ominous, exotic' },
-    melodicMinor:   { label:'Melodic minor',    steps:[0,2,3,5,7,9,11], mood:'smooth minor, jazz' },
-    phrygianDom:    { label:'Phrygian dominant',steps:[0,1,4,5,7,8,10], mood:'Egyptian, dark drill' },
-    majorPent:      { label:'Major pentatonic', steps:[0,2,4,7,9],      mood:'safe, singable' },
-    minorPent:      { label:'Minor pentatonic', steps:[0,3,5,7,10],     mood:'riffs, hooks, blues' },
-    blues:          { label:'Blues',            steps:[0,3,5,6,7,10],   mood:'gritty, vocal' },
-    chromatic:      { label:'Chromatic',        steps:[0,1,2,3,4,5,6,7,8,9,10,11], mood:'every note' }
+    major:          { label:'Major (Ionian)',   steps:[0,2,4,5,7,9,11], deg:[0,1,2,3,4,5,6], mood:'bright, resolved, pop' },
+    dorian:         { label:'Dorian',           steps:[0,2,3,5,7,9,10], deg:[0,1,2,3,4,5,6], mood:'minor but hopeful, jazzy' },
+    phrygian:       { label:'Phrygian',         steps:[0,1,3,5,7,8,10], deg:[0,1,2,3,4,5,6], mood:'dark, Spanish, trap' },
+    lydian:         { label:'Lydian',           steps:[0,2,4,6,7,9,11], deg:[0,1,2,3,4,5,6], mood:'dreamy, floating' },
+    mixolydian:     { label:'Mixolydian',       steps:[0,2,4,5,7,9,10], deg:[0,1,2,3,4,5,6], mood:'bluesy, funk, rock' },
+    minor:          { label:'Natural minor (Aeolian)', steps:[0,2,3,5,7,8,10], deg:[0,1,2,3,4,5,6], mood:'sad, serious, most rap' },
+    locrian:        { label:'Locrian',          steps:[0,1,3,5,6,8,10], deg:[0,1,2,3,4,5,6], mood:'unstable, rarely a home key' },
+    harmonicMinor:  { label:'Harmonic minor',   steps:[0,2,3,5,7,8,11], deg:[0,1,2,3,4,5,6], mood:'cinematic, ominous, exotic' },
+    melodicMinor:   { label:'Melodic minor',    steps:[0,2,3,5,7,9,11], deg:[0,1,2,3,4,5,6], mood:'smooth minor, jazz' },
+    phrygianDom:    { label:'Phrygian dominant',steps:[0,1,4,5,7,8,10], deg:[0,1,2,3,4,5,6], mood:'Egyptian, dark drill' },
+    majorPent:      { label:'Major pentatonic', steps:[0,2,4,7,9], deg:[0,1,2,4,5],      mood:'safe, singable' },
+    minorPent:      { label:'Minor pentatonic', steps:[0,3,5,7,10], deg:[0,2,3,4,6],     mood:'riffs, hooks, blues' },
+    blues:          { label:'Blues',            steps:[0,3,5,6,7,10], deg:[0,2,3,4,4,6],   mood:'gritty, vocal' },
+    chromatic:      { label:'Chromatic',        steps:[0,1,2,3,4,5,6,7,8,9,10,11], deg:[0,0,1,1,2,3,3,4,4,5,5,6], mood:'every note' }
   };
   const MODE_ORDER = ['lydian','major','mixolydian','dorian','minor','phrygian','locrian'];
 
   /* Chords — semitones above the root. */
   const CHORDS = {
-    maj:    { label:'major',            sym:'',        steps:[0,4,7] },
-    min:    { label:'minor',            sym:'m',       steps:[0,3,7] },
-    dim:    { label:'diminished',        sym:'dim',     steps:[0,3,6] },
-    aug:    { label:'augmented',         sym:'aug',     steps:[0,4,8] },
-    sus2:   { label:'suspended 2nd',     sym:'sus2',    steps:[0,2,7] },
-    sus4:   { label:'suspended 4th',     sym:'sus4',    steps:[0,5,7] },
-    maj7:   { label:'major 7th',         sym:'maj7',    steps:[0,4,7,11] },
-    min7:   { label:'minor 7th',         sym:'m7',      steps:[0,3,7,10] },
-    dom7:   { label:'dominant 7th',      sym:'7',       steps:[0,4,7,10] },
-    m7b5:   { label:'half-diminished',   sym:'m7♭5', steps:[0,3,6,10] },
-    dim7:   { label:'diminished 7th',    sym:'dim7',    steps:[0,3,6,9] },
-    minMaj7:{ label:'minor major 7th',   sym:'m(maj7)', steps:[0,3,7,11] },
-    aug7:   { label:'augmented 7th',     sym:'7♯5', steps:[0,4,8,10] },
-    add9:   { label:'added 9th',         sym:'add9',    steps:[0,4,7,14] },
-    maj9:   { label:'major 9th',         sym:'maj9',    steps:[0,4,7,11,14] },
-    min9:   { label:'minor 9th',         sym:'m9',      steps:[0,3,7,10,14] },
-    dom9:   { label:'dominant 9th',      sym:'9',       steps:[0,4,7,10,14] },
-    min11:  { label:'minor 11th',        sym:'m11',     steps:[0,3,7,10,14,17] },
-    maj13:  { label:'major 13th',        sym:'maj13',   steps:[0,4,7,11,14,21] },
-    min6:   { label:'minor 6th',         sym:'m6',      steps:[0,3,7,9] },
-    maj6:   { label:'major 6th',         sym:'6',       steps:[0,4,7,9] },
-    six9:   { label:'six / nine',        sym:'6/9',     steps:[0,4,7,9,14] }
+    maj:    { label:'major',            sym:'',        steps:[0,4,7], deg:[0,2,4] },
+    min:    { label:'minor',            sym:'m',       steps:[0,3,7], deg:[0,2,4] },
+    dim:    { label:'diminished',        sym:'dim',     steps:[0,3,6], deg:[0,2,4] },
+    aug:    { label:'augmented',         sym:'aug',     steps:[0,4,8], deg:[0,2,4] },
+    sus2:   { label:'suspended 2nd',     sym:'sus2',    steps:[0,2,7], deg:[0,1,4] },
+    sus4:   { label:'suspended 4th',     sym:'sus4',    steps:[0,5,7], deg:[0,3,4] },
+    maj7:   { label:'major 7th',         sym:'maj7',    steps:[0,4,7,11], deg:[0,2,4,6] },
+    min7:   { label:'minor 7th',         sym:'m7',      steps:[0,3,7,10], deg:[0,2,4,6] },
+    dom7:   { label:'dominant 7th',      sym:'7',       steps:[0,4,7,10], deg:[0,2,4,6] },
+    m7b5:   { label:'half-diminished',   sym:'m7♭5', steps:[0,3,6,10], deg:[0,2,4,6] },
+    dim7:   { label:'diminished 7th',    sym:'dim7',    steps:[0,3,6,9], deg:[0,2,4,6] },
+    minMaj7:{ label:'minor major 7th',   sym:'m(maj7)', steps:[0,3,7,11], deg:[0,2,4,6] },
+    aug7:   { label:'augmented 7th',     sym:'7♯5', steps:[0,4,8,10], deg:[0,2,4,6] },
+    add9:   { label:'added 9th',         sym:'add9',    steps:[0,4,7,14], deg:[0,2,4,8] },
+    maj9:   { label:'major 9th',         sym:'maj9',    steps:[0,4,7,11,14], deg:[0,2,4,6,8] },
+    min9:   { label:'minor 9th',         sym:'m9',      steps:[0,3,7,10,14], deg:[0,2,4,6,8] },
+    dom9:   { label:'dominant 9th',      sym:'9',       steps:[0,4,7,10,14], deg:[0,2,4,6,8] },
+    min11:  { label:'minor 11th',        sym:'m11',     steps:[0,3,7,10,14,17], deg:[0,2,4,6,8,10] },
+    maj13:  { label:'major 13th',        sym:'maj13',   steps:[0,4,7,11,14,21], deg:[0,2,4,6,8,12] },
+    min6:   { label:'minor 6th',         sym:'m6',      steps:[0,3,7,9], deg:[0,2,4,5] },
+    maj6:   { label:'major 6th',         sym:'6',       steps:[0,4,7,9], deg:[0,2,4,5] },
+    six9:   { label:'six / nine',        sym:'6/9',     steps:[0,4,7,9,14], deg:[0,2,4,5,8] }
   };
 
   /* Intervals, 0–12 semitones, then the compound ones. */
   const IVL = [
-    { n:0,  short:'P1',  label:'unison',          feel:'the same note' },
-    { n:1,  short:'m2',  label:'minor 2nd',       feel:'tense, horror-film' },
-    { n:2,  short:'M2',  label:'major 2nd',       feel:'a step, neutral' },
-    { n:3,  short:'m3',  label:'minor 3rd',       feel:'sad' },
-    { n:4,  short:'M3',  label:'major 3rd',       feel:'happy' },
-    { n:5,  short:'P4',  label:'perfect 4th',     feel:'open, heroic' },
-    { n:6,  short:'TT',  label:'tritone',         feel:'unstable, wants to move' },
-    { n:7,  short:'P5',  label:'perfect 5th',     feel:'strong, hollow, powerful' },
-    { n:8,  short:'m6',  label:'minor 6th',       feel:'longing' },
-    { n:9,  short:'M6',  label:'major 6th',       feel:'warm, sweet' },
-    { n:10, short:'m7',  label:'minor 7th',       feel:'smooth, soulful' },
-    { n:11, short:'M7',  label:'major 7th',       feel:'dreamy, sharp-edged' },
-    { n:12, short:'P8',  label:'octave',          feel:'the same note, higher' },
-    { n:13, short:'m9',  label:'minor 9th',       feel:'crunchy' },
-    { n:14, short:'M9',  label:'major 9th',       feel:'colourful, floaty' },
-    { n:15, short:'m10', label:'minor 10th',      feel:'a wide sad third' },
-    { n:16, short:'M10', label:'major 10th',      feel:'a wide happy third' },
-    { n:17, short:'P11', label:'11th',            feel:'washy, suspended' },
-    { n:21, short:'M13', label:'13th',            feel:'jazzy, plush' }
+    { n:0,  short:'P1',  label:'unison',          feel:'the same note', deg:0 },
+    { n:1,  short:'m2',  label:'minor 2nd',       feel:'tense, horror-film', deg:1 },
+    { n:2,  short:'M2',  label:'major 2nd',       feel:'a step, neutral', deg:1 },
+    { n:3,  short:'m3',  label:'minor 3rd',       feel:'sad', deg:2 },
+    { n:4,  short:'M3',  label:'major 3rd',       feel:'happy', deg:2 },
+    { n:5,  short:'P4',  label:'perfect 4th',     feel:'open, heroic', deg:3 },
+    { n:6,  short:'TT',  label:'tritone',         feel:'unstable, wants to move', deg:3 },
+    { n:7,  short:'P5',  label:'perfect 5th',     feel:'strong, hollow, powerful', deg:4 },
+    { n:8,  short:'m6',  label:'minor 6th',       feel:'longing', deg:5 },
+    { n:9,  short:'M6',  label:'major 6th',       feel:'warm, sweet', deg:5 },
+    { n:10, short:'m7',  label:'minor 7th',       feel:'smooth, soulful', deg:6 },
+    { n:11, short:'M7',  label:'major 7th',       feel:'dreamy, sharp-edged', deg:6 },
+    { n:12, short:'P8',  label:'octave',          feel:'the same note, higher', deg:7 },
+    { n:13, short:'m9',  label:'minor 9th',       feel:'crunchy', deg:8 },
+    { n:14, short:'M9',  label:'major 9th',       feel:'colourful, floaty', deg:8 },
+    { n:15, short:'m10', label:'minor 10th',      feel:'a wide sad third', deg:9 },
+    { n:16, short:'M10', label:'major 10th',      feel:'a wide happy third', deg:9 },
+    { n:17, short:'P11', label:'11th',            feel:'washy, suspended', deg:10 },
+    { n:21, short:'M13', label:'13th',            feel:'jazzy, plush', deg:12 }
   ];
-  const ivl = n => IVL.find(i => i.n === n) || { n, short:n+'st', label:n+' semitones', feel:'' };
+  const ivl = n => IVL.find(i => i.n === n) || { n, short:n+'st', label:n+' semitones', feel:'', deg:(n % 12) };
+  /* the note `semis` above rootName, spelled the way that interval is written */
+  const spellIvl = (rootName, semis) => {
+    const I = ivl(semis);
+    return spellNote(rootName, (I.deg == null ? 0 : I.deg) % 7, semis);
+  };
 
   const scaleNotes = (rootMidi, type) => SCALES[type].steps.map(s => rootMidi + s);
   const chordNotes = (rootMidi, type) => CHORDS[type].steps.map(s => rootMidi + s);
@@ -121,6 +130,68 @@ const T = (() => {
   };
   const chordLabel = (rootMidi, type, flats) => name(rootMidi, flats) + (CHORDS[type] ? CHORDS[type].sym : '');
 
+  /* ── Spelling ───────────────────────────────────────────────────
+     A note's name is a letter plus an accidental, and the letter comes
+     from the interval's *degree*, not from its semitone count. These
+     helpers spell notes inside a chord or a key so that displayed names
+     match what a musician would write.                               */
+  const LETTERS = ['C','D','E','F','G','A','B'];
+  const LETTER_PC = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+  const ACC = { '':0, '\u266F':1, '\u266F\u266F':2, '\u266D':-1, '\u266D\u266D':-2, '#':1, 'b':-1 };
+  const ACC_NAME = { '-2':'\u266D\u266D', '-1':'\u266D', '0':'', '1':'\u266F', '2':'\u266F\u266F' };
+
+  const nameToPc = n => {
+    const l = n[0].toUpperCase(), a = ACC[n.slice(1)] || 0;
+    return pc(LETTER_PC[l] + a);
+  };
+  /* Spell the note `semis` semitones above `rootName`, `letterStep` letters up. */
+  function spellNote(rootName, letterStep, semis) {
+    const rl = rootName[0].toUpperCase();
+    const rootPc = nameToPc(rootName);
+    const tl = LETTERS[(LETTERS.indexOf(rl) + letterStep) % 7];
+    let acc = pc(rootPc + semis) - LETTER_PC[tl];
+    acc = ((acc + 18) % 12) - 6;               // fold into -6..+5
+    if (acc < -2 || acc > 2) return name(rootPc + semis, acc < 0); // give up gracefully
+    return tl + ACC_NAME[String(acc)];
+  }
+  const spellChord = (rootName, type) => {
+    const c = CHORDS[type]; if (!c) return [];
+    const deg = c.deg || c.steps.map((_, i) => i * 2);
+    return c.steps.map((st, i) => spellNote(rootName, deg[i] % 7, st));
+  };
+  const spellScale = (rootName, type) => {
+    const sc = SCALES[type]; if (!sc) return [];
+    const deg = sc.deg || sc.steps.map((_, i) => i);
+    return sc.steps.map((st, i) => spellNote(rootName, deg[i] % 7, st));
+  };
+  const chordName = (rootName, type) => rootName + (CHORDS[type] ? CHORDS[type].sym : '');
+
+  /* pitch class → spelled name, for one key. Notes outside the key fall back
+     to the accidental the key signature already prefers. */
+  const _mapCache = {};
+  function keyMap(rootName, type) {
+    const k = rootName + '|' + type;
+    if (_mapCache[k]) return _mapCache[k];
+    const names = spellScale(rootName, type), sc = SCALES[type];
+    const out = { flats:false };
+    sc.steps.forEach((st, i) => { out[pc(nameToPc(rootName) + st)] = names[i]; });
+    out.flats = names.some(n => n.indexOf('\u266D') >= 0);
+    _mapCache[k] = out;
+    return out;
+  }
+  /* Name one MIDI note as it would be written in this key. */
+  const inKey = (midi, rootName, type) => {
+    const m = keyMap(rootName || 'C', type || 'major');
+    return m[pc(midi)] || name(midi, m.flats);
+  };
+  /* Conventional key names, so we always spell from a real key root. */
+  const MAJ_ROOT = ['C','D\u266D','D','E\u266D','E','F','F\u266F','G','A\u266D','A','B\u266D','B'];
+  const MIN_ROOT = ['C','C\u266F','D','E\u266D','E','F','F\u266F','G','G\u266F','A','B\u266D','B'];
+  const rootName = (midiOrPc, minorish) =>
+    (minorish ? MIN_ROOT : MAJ_ROOT)[pc(midiOrPc)];
+  const MINOR_TYPES = ['minor','harmonicMinor','melodicMinor','minorPent','dorian','phrygian','locrian','blues','phrygianDom'];
+  const rootFor = (midiOrPc, type) => rootName(midiOrPc, MINOR_TYPES.indexOf(type) >= 0);
+
   /* Circle of fifths, clockwise from C. */
   const CIRCLE = [0,7,2,9,4,11,6,1,8,3,10,5];
   const KEY_LABEL = ['C','G','D','A','E','B','F♯','D♭','A♭','E♭','B♭','F'];
@@ -134,6 +205,8 @@ const T = (() => {
   };
 
   return { SHARP, FLAT, PRETTY, pc, oct, name, fullName, freq, isBlack,
+           LETTERS, nameToPc, spellNote, spellChord, spellScale, chordName,
+           keyMap, inKey, rootName, rootFor, MAJ_ROOT, MIN_ROOT, spellIvl,
            SCALES, MODE_ORDER, CHORDS, IVL, ivl, scaleNotes, chordNotes,
            diatonic, roman, ROMAN, chordLabel, CIRCLE, KEY_LABEL, MINOR_LABEL,
            SIGNATURE, invert, qualityOf };

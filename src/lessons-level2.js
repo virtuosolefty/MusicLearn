@@ -50,10 +50,11 @@ LESSONS.push({
       const hi = base + n + (wide ? 12 : 0);
       ctx.v.clear().mark(base, 'root').mark(Math.min(hi, 72), 'chord').apply().clearExtras();
       if (hi <= 72) ctx.v.arc(base, hi, T.ivl(n + (wide ? 12 : 0)).short);
-      const I = T.ivl(n + (wide ? 12 : 0)), inv = T.ivl(12 - n);
-      ctx.read(T.name(base) + ' → ' + T.name(hi) + (hi > 72 ? ' (above the keys)' : '') +
-        '\n' + I.label + '  ·  ' + (n + (wide ? 12 : 0)) + ' semis' +
-        '\ninverts to ' + inv.label + '\n' + I.feel);
+      const semis = n + (wide ? 12 : 0);
+      const I = T.ivl(semis), inv = T.ivl(12 - n);
+      ctx.read('C \u2192 ' + T.spellIvl('C', semis) + (hi > 72 ? ' (above the keys)' : '') +
+        '\n' + I.label + '  \u00B7  ' + semis + ' semitones' +
+        '\ninverts to ' + inv.label + ' (' + (12 - n) + ')\n' + I.feel);
       A.note(base, 1.6, { gain:.85 }); A.note(hi, 1.6, { gain:.85 });
     };
     ctx.show = v => { n = v; wide = false; draw(); };
@@ -86,7 +87,7 @@ LESSONS.push({
     { p:'Run the stacking through a major scale and the seventh chords come out in a fixed order: <span class="k v">Imaj7 &nbsp; iim7 &nbsp; iiim7 &nbsp; IVmaj7 &nbsp; V7 &nbsp; vim7 &nbsp; viim7♭5</span>. Notice the <b>V7</b> — the only dominant 7th in the key. It’s the tension chord, and the m7♭5 on degree 7 is the anxious one.' },
     { p:'In natural minor: <span class="k v">im7 &nbsp; iim7♭5 &nbsp; IIImaj7 &nbsp; ivm7 &nbsp; vm7 &nbsp; VImaj7 &nbsp; VII7</span>. That <b>VII7</b> is the sound of a thousand drill loops.' },
     { note:{ h:'Producer move: swap every triad for its 7th',
-      p:'Take a progression you already like and add the 7th to each chord. Nothing about the key or the roman numerals changes, but the loop suddenly sounds expensive. If it gets muddy, drop the 5th — in a 7th chord the 5th is the most disposable note.' } },
+      p:'Take a progression you already like and add the 7th to each chord. Nothing about the key or the roman numerals changes, and the loop usually sounds richer and smoother. It is worth A/B-ing rather than assuming: 7ths soften the push of a V chord and can blur a hook, which is exactly why a lot of punchy pop and dance music stays on plain triads. If it gets muddy, drop the 5th — in a 7th chord the 5th is the most disposable note.' } },
     { try:{ h:'Triad vs 7th, back to back', p:'Pick a quality and A/B it against the plain triad. The floating tiles name every stacked gap.',
       build:ctx => [
         UI.chips([{label:'maj7',value:'maj7'},{label:'m7',value:'min7'},{label:'7 (dominant)',value:'dom7'},
@@ -105,18 +106,19 @@ LESSONS.push({
       why:'Drop the 5th. The root, 3rd and 7th carry the chord’s identity; the 5th mostly adds weight you don’t need.' }
   ],
   init:ctx => {
-    let type = 'maj7';
-    const root = 55;
+    let type = ctx.recall('type') || 'maj7';
+    const root = 55, RN = 'G';
+    ctx.v.spelling(T.keyMap(RN, 'major'));
     const draw = () => {
       const ns = T.chordNotes(root, type);
       ctx.v.clear().marks(ns.filter(n => n <= 72), 'chord').mark(root, 'root').apply().clearExtras();
       ctx.v.stack(ns, { degrees:['root','3rd','5th','7th'] });
-      ctx.v.tag(T.name(root) + T.CHORDS[type].sym, 0, 5.9);
-      ctx.read(T.name(root) + T.CHORDS[type].sym + '  ·  ' + T.CHORDS[type].label +
-        '\n' + ns.map(n => T.name(n)).join(' ') + '\n' + T.CHORDS[type].steps.join(' '));
+      ctx.v.tag(T.chordName(RN, type), 0, 5.9);
+      ctx.read(T.chordName(RN, type) + '  \u00B7  ' + T.CHORDS[type].label +
+        '\n' + T.spellChord(RN, type).join(' ') + '\n' + T.CHORDS[type].steps.join(' '));
       A.chord(ns, 2.4, { spread:.05 });
     };
-    ctx.show = v => { type = v; draw(); };
+    ctx.show = v => { type = v; ctx.keep('type', v); draw(); };
     ctx.compare = () => {
       const tri = type === 'min7' || type === 'minMaj7' ? 'min' : type === 'dom7' || type === 'maj7' ? 'maj' : 'dim';
       A.chord(T.chordNotes(root, tri), 1.3, { spread:.05 });
@@ -126,13 +128,15 @@ LESSONS.push({
     ctx.key = () => {
       T.diatonic(48, 'major').forEach((c, i) => ctx.later(() => {
         ctx.v.clear().marks(c.seventh.filter(n => n <= 72), 'chord').mark(c.root, 'root').apply().clearExtras();
-        ctx.v.tag(T.roman(c.degree, c.q7) + '   ' + T.name(c.root) + T.CHORDS[c.q7].sym, 0, 3.4);
-        ctx.read(T.roman(c.degree, c.q7) + '  ·  ' + T.name(c.root) + T.CHORDS[c.q7].sym +
-          '\n' + T.CHORDS[c.q7].label);
+        const cr = T.inKey(c.root, 'C', 'major');
+        ctx.v.spelling(T.keyMap('C', 'major'));
+        ctx.v.tag(T.roman(c.degree, c.q7) + '   ' + T.chordName(cr, c.q7), 0, 3.4);
+        ctx.read(T.roman(c.degree, c.q7) + '  \u00B7  ' + T.chordName(cr, c.q7) +
+          '\n' + T.spellChord(cr, c.q7).join(' ') + '\n' + T.CHORDS[c.q7].label);
         A.chord(c.seventh, 1.1, { spread:.04 });
       }, i * 950));
     };
-    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
+    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN, 'major') + T.oct(m)); });
     draw();
   }
 });
@@ -166,36 +170,39 @@ LESSONS.push({
       ] } }
   ],
   quiz:[
-    { q:'Cadd9 contains…', a:['C E G B♭ D','C E G D','C E G B D','C D E G'], c:1,
-      why:'Triad plus the 9th, with no 7th: C E G D. Adding a B♭ would make it C9, a dominant chord.' },
+    { q:'Which of these has a 9th but no 7th?', a:['C9','Cmaj9','Cadd9','Cm9'], c:2,
+      why:'“add” means add this one note and nothing else, so Cadd9 is C E G plus D. The other three all include a 7th as well — that is what the bare number means in a chord name.' },
     { q:'Which extension usually clashes on a major chord?', a:['9th','11th','13th','6th'], c:1,
       why:'The natural 11th sits a semitone above the major 3rd. On major chords producers use ♯11 instead, or move to a sus/m11 sound.' },
     { q:'Which note do you drop first when a big chord gets muddy?', a:['Root','3rd','5th','7th'], c:2,
       why:'The 5th carries the least information. The 3rd and 7th define the chord’s quality and function, so they stay.' }
   ],
   init:ctx => {
-    let type = 'maj', rootless = false, no5 = false;
-    const root = 53;
+    let type = ctx.recall('type') || 'maj', rootless = false, no5 = false;
+    const root = 53, RN = 'F';
+    ctx.v.spelling(T.keyMap(RN, 'major'));
     const draw = () => {
-      let ns = T.chordNotes(root, type).slice();
-      if (no5) ns = ns.filter(n => (n - root) % 12 !== 7);
-      if (rootless) ns = ns.filter(n => n !== root);
+      let pairs = T.chordNotes(root, type).map((n, i) => [n, T.spellChord(RN, type)[i]]);
+      if (no5) pairs = pairs.filter(pr => (pr[0] - root) % 12 !== 7);
+      if (rootless) pairs = pairs.filter(pr => pr[0] !== root);
+      let ns = pairs.map(pr => pr[0]);
+      const spelt = pairs.map(pr => pr[1]);
       ctx.v.clear().marks(ns.filter(n => n <= 72), 'chord').apply().clearExtras();
       if (!rootless) ctx.v.mark(root, 'root').apply();
       ctx.v.stack(ns.filter(n => n <= 74));
-      ctx.v.tag(T.name(root) + T.CHORDS[type].sym + (rootless ? '  (rootless)' : ''), 0,
+      ctx.v.tag(T.chordName(RN, type) + (rootless ? '  (rootless)' : ''), 0,
         1.6 + ns.length * 1.05);
-      ctx.read(T.name(root) + T.CHORDS[type].sym + '  ·  ' + T.CHORDS[type].label +
-        '\n' + ns.map(n => T.name(n)).join(' ') +
-        '\nintervals ' + ns.map(n => n - root).join(' ') +
-        (no5 ? '\n5th omitted' : ''));
+      ctx.read(T.chordName(RN, type) + '  \u00B7  ' + T.CHORDS[type].label +
+        '\n' + spelt.join(' ') +
+        '\nsemitones from the root: ' + ns.map(n => n - root).join(' ') +
+        (no5 ? '\n5th omitted' : '') + (rootless ? '\nroot left to the bass' : ''));
       if (rootless) A.note(root - 12, 2.4, { gain:.7 });
       A.chord(ns, 2.6, { spread:.05 });
     };
-    ctx.show = v => { type = v; draw(); };
+    ctx.show = v => { type = v; ctx.keep('type', v); draw(); };
     ctx.rootless = v => { rootless = v; draw(); };
     ctx.no5 = v => { no5 = v; draw(); };
-    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
+    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN, 'major') + T.oct(m)); });
     draw();
   }
 });
@@ -240,32 +247,40 @@ LESSONS.push({
       why:'“sus” replaces the 3rd, “add” keeps it. That’s why add9 still sounds major while sus2 sounds open and undecided.' }
   ],
   init:ctx => {
-    let type = 'sus4';
-    const root = 57;
-    const notesOf = t => t === '7sus4' ? [root, root + 5, root + 7, root + 10] : T.chordNotes(root, t);
-    const draw = (t, label) => {
-      const ns = notesOf(t || type);
+    let type = ctx.recall('type') || 'sus4';
+    const root = 57, RN = 'A';                     /* A, spelled as A major */
+    ctx.v.spelling(T.keyMap(RN, 'major'));
+    const SPEC = {
+      sus4:   { notes:[0,5,7],    name:'Asus4',   spell:['A','D','E'] },
+      sus2:   { notes:[0,2,7],    name:'Asus2',   spell:['A','B','E'] },
+      '7sus4':{ notes:[0,5,7,10], name:'A7sus4',  spell:['A','D','E','G'] },
+      maj:    { notes:[0,4,7],    name:'A major', spell:['A','C\u266F','E'], third:'C\u266F' },
+      min:    { notes:[0,3,7],    name:'A minor', spell:['A','C','E'],       third:'C' }
+    };
+    /* One draw path for both states: each chord carries its own name, so a
+       resolved chord can never still be labelled a suspension. */
+    const draw = t => {
+      const spec = SPEC[t] || SPEC.sus4, ns = spec.notes.map(n => root + n);
       ctx.v.clear().marks(ns.filter(n => n <= 72), 'chord').mark(root, 'root').apply().clearExtras();
       ctx.v.stack(ns);
-      ctx.v.tag(T.name(root) + (label || (T.CHORDS[type] ? T.CHORDS[type].sym : '7sus4')), 0, 1.6 + ns.length * 1.05);
-      ctx.read(T.name(root) + (label || (T.CHORDS[type] ? T.CHORDS[type].sym : '7sus4')) +
-        '\n' + ns.map(n => T.name(n)).join(' ') +
-        '\n' + (label ? 'resolved — the 3rd is back' : 'no 3rd · no major or minor'));
+      ctx.v.tag(spec.name, 0, 1.6 + ns.length * 1.05);
+      ctx.read(spec.name + '\n' + spec.spell.join(' ') + '\n' +
+        (spec.third
+          ? 'the 3rd is back: ' + spec.third + ' \u2014 that is what makes it ' +
+            (t === 'maj' ? 'major' : 'minor')
+          : 'no 3rd \u00B7 neither major nor minor'));
       A.chord(ns, 2.2, { spread:.05 });
     };
-    ctx.show = v => { type = v; draw(); };
-    ctx.resolve = q => {
-      draw();
-      ctx.later(() => draw(q, T.CHORDS[q].sym), 1200);
-    };
+    ctx.show = v => { type = v; ctx.keep('type', v); draw(v); };
+    ctx.resolve = q => { draw(type); ctx.later(() => draw(q), 1200); };
     ctx.loop = () => {
       for (let i = 0; i < 4; i++) {
-        ctx.later(() => draw(), i * 2000);
-        ctx.later(() => draw('maj', ''), i * 2000 + 1500);
+        ctx.later(() => draw(type), i * 2000);
+        ctx.later(() => draw('maj'), i * 2000 + 1500);
       }
     };
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
-    draw();
+    draw(type);
   }
 });
 
@@ -317,8 +332,9 @@ LESSONS.push({
       ctx.v.clear().marks(notes.filter(x => x <= 72), 'chord').mark(notes[0], 'root').apply().clearExtras();
       ctx.v.stack(notes.filter(x => x <= 74));
       ctx.v.tag(label, 0, 1.6 + notes.length * 1.05);
-      ctx.read(label + '\n' + notes.map(x => T.name(x)).join(' ') +
-        '\nbass note: ' + T.name(notes[0]));
+      const K = x => T.inKey(x, 'C', 'major');
+      ctx.read(label + '\n' + notes.map(K).join(' ') +
+        '\nbass note: ' + K(notes[0]));
       A.chord(notes, 2.1, { spread:.05 });
     };
     ctx.inv = v => {
@@ -337,7 +353,8 @@ LESSONS.push({
         draw(ns, labels[i] + (smooth ? '  ·  voice-led' : '  ·  root position'));
       }, i * 1000));
     };
-    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
+    ctx.v.spelling(T.keyMap('C', 'major'));
+    ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, 'C', 'major') + T.oct(m)); });
     ctx.inv(0);
   }
 });
@@ -352,7 +369,7 @@ LESSONS.push({
     { p:'<span class="k">G7</span> = G B D F. Look at B and F: 6 semitones apart — a <b>tritone</b>. That interval is unstable, and in this chord both of its notes have somewhere to go: B wants to rise a semitone to C, F wants to fall a semitone to E. Release them and you land on C major. That’s why <b>V7 → I</b> is the strongest resolution in tonal music.' },
     { p:'Producers use that pull deliberately: sit on the V7 at the end of a 4-bar loop and the loop yanks itself back to bar 1. Secondary dominants take it further — make <em>any</em> chord a dominant 7th and it will pull toward the chord a 5th below it. <span class="k">A7 → Dm</span> works in C major even though A7 isn’t in the key.' },
     { h:'Diminished: symmetrical, homeless, useful' },
-    { p:'<b>dim7</b> = 0 3 6 9 — four notes, every gap a minor 3rd. Because it’s perfectly symmetrical it belongs to no key, so it can slot in anywhere. Its main jobs:' },
+    { p:'<b>dim7</b> = 0 3 6 9 — four notes, every gap a minor 3rd. It does belong to keys: B–D–F–A♭ is <b>vii°7 of C minor</b>, straight out of the harmonic minor scale. What its symmetry buys you is <em>ambiguity</em> — the same four pitches can be re-spelled and heard as the vii°7 of four different minor keys, so it is unusually easy to pivot with. That is not the same as “fits anywhere”: it still has to lead somewhere your ear accepts. Its main jobs:' },
     { keys:[
       '<b>Passing chord</b> — put a dim7 between two chords a tone apart to walk the bass chromatically.',
       '<b>Leading tone chord</b> — vii°7 resolving to i is a darker, tighter V7.',
@@ -378,33 +395,40 @@ LESSONS.push({
       why:'D♭7 — a tritone away from G7, and sharing the same tritone (B/C♭ and F). Same tension, chromatic bass movement.' }
   ],
   init:ctx => {
+    /* Each demo carries its own spelling, because the right letter depends on
+       the chord, not on the pitch class. */
     const D = {
-      v7:   { a:[55,59,62,65], b:[48,52,55,60], la:'G7', lb:'C  ·  resolved',
-              note:'B→C and F→E, one semitone each' },
-      dim:  { a:[59,62,65,68], b:[48,51,55,60], la:'Bdim7', lb:'Cm  ·  resolved',
-              note:'most voices move by a single semitone' },
-      aug:  { a:[48,52,56], b:[45,48,52], la:'Caug', lb:'Am  ·  resolved',
-              note:'G♯ pulls up to A — a one-beat pivot' },
-      sub:  { a:[49,53,56,59], b:[48,52,55,60], la:'D♭7', lb:'C  ·  resolved',
-              note:'same tritone as G7, bass slides down a semitone' },
-      sec:  { a:[57,61,64,67], b:[50,53,57,62], la:'A7', lb:'Dm  ·  resolved',
-              note:'a dominant built on degree 2 — pulls to Dm, not C' }
+      v7:   { a:[55,59,62,65], b:[48,52,55,60], la:'G7', lb:'C  \u00B7  resolved',
+              sa:['G','B','D','F'], sb:['C','E','G','C'],
+              note:'B\u2192C and F\u2192E, one semitone each' },
+      dim:  { a:[59,62,65,68], b:[48,51,55,60], la:'Bdim7', lb:'Cm  \u00B7  resolved',
+              sa:['B','D','F','A\u266D'], sb:['C','E\u266D','G','C'],
+              note:'vii\u00B07 of C minor \u2014 three voices move by one semitone' },
+      aug:  { a:[48,52,56], b:[45,48,52], la:'Caug', lb:'Am  \u00B7  resolved',
+              sa:['C','E','G\u266F'], sb:['A','C','E'],
+              note:'G\u266F pulls up to A \u2014 a one-beat pivot' },
+      sub:  { a:[49,53,56,59], b:[48,52,55,60], la:'D\u266D7', lb:'C  \u00B7  resolved',
+              sa:['D\u266D','F','A\u266D','C\u266D'], sb:['C','E','G','C'],
+              note:'same tritone as G7 (F and C\u266D/B), bass slides down a semitone' },
+      sec:  { a:[57,61,64,67], b:[50,53,57,62], la:'A7', lb:'Dm  \u00B7  resolved',
+              sa:['A','C\u266F','E','G'], sb:['D','F','A','D'],
+              note:'a dominant built on degree 2 \u2014 pulls to Dm, not C' }
     };
-    let cur = 'v7';
-    const paint = (ns, label, extra) => {
+    let cur = ctx.recall('demo') || 'v7';
+    const paint = (ns, spelt, label, extra) => {
       ctx.v.clear().marks(ns.filter(n => n <= 72), 'chord').mark(ns[0], 'root').apply().clearExtras();
       ctx.v.tag(label, 0, 3.4);
-      ctx.read(label + '\n' + ns.map(n => T.name(n)).join(' ') + (extra ? '\n' + extra : ''));
+      ctx.read(label + '\n' + spelt.join(' ') + (extra ? '\n' + extra : ''));
       A.chord(ns, 2, { spread:.05 });
     };
     ctx.demo = k => {
-      cur = k; const d = D[k];
-      paint(d.a, d.la + '  ·  tension', d.note);
-      ctx.later(() => paint(d.b, d.lb), 1500);
+      cur = k; ctx.keep('demo', k); const d = D[k];
+      paint(d.a, d.sa, d.la + '  \u00B7  tension', d.note);
+      ctx.later(() => paint(d.b, d.sb, d.lb), 1500);
     };
-    ctx.hold = () => { const d = D[cur]; paint(d.a, d.la + '  ·  unresolved', d.note); };
+    ctx.hold = () => { const d = D[cur]; paint(d.a, d.sa, d.la + '  \u00B7  unresolved', d.note); };
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
-    ctx.demo('v7');
+    ctx.demo(cur);
   }
 });
 
@@ -453,7 +477,7 @@ LESSONS.push({
       why:'G B D — major, because the raised 7th (B) is now the chord’s 3rd. Add F and you get G7, the strongest way home.' }
   ],
   init:ctx => {
-    const root = 48; let type = 'minor';
+    const root = 48; let type = ctx.recall('type') || 'minor';
     const paint = () => {
       const ns = T.scaleNotes(root, type).concat(T.scaleNotes(root + 12, type)).filter(n => n <= 72);
       ctx.v.clear().marks(ns, 'scale').mark(root, 'root').mark(root + 12, 'root').apply().clearExtras();
@@ -461,13 +485,14 @@ LESSONS.push({
       const gaps = st.map((s, i) => i ? st[i] - st[i - 1] : null).slice(1).concat([12 - st[st.length - 1]]);
       const big = gaps.indexOf(3);
       if (type === 'harmonicMinor') ctx.v.mark(root + 11, 'target').mark(root + 8, 'extra').apply();
-      ctx.v.tag(T.name(root) + ' ' + T.SCALES[type].label, 0, 3.3);
-      ctx.read(T.SCALES[type].label + '\n' + st.join(' ') +
+      ctx.v.spelling(T.keyMap('C', type));
+      ctx.v.tag('C ' + T.SCALES[type].label, 0, 3.3);
+      ctx.read(T.SCALES[type].label + '\n' + T.spellScale('C', type).join(' ') + '\n' + st.join(' ') +
         '\nsteps ' + gaps.join(' ') +
         (big >= 0 ? '\naugmented 2nd between degrees ' + (big + 1) + ' and ' + (big + 2) : '') +
         '\n' + T.SCALES[type].mood);
     };
-    ctx.setScale = v => { type = v; paint(); ctx.run(); };
+    ctx.setScale = v => { type = v; ctx.keep('type', v); paint(); ctx.run(); };
     ctx.run = () => {
       const ns = T.scaleNotes(root, type).concat([root + 12]);
       ns.forEach((m, i) => ctx.later(() => { A.note(m, .45); ctx.v.press(m); }, i * 200));
@@ -475,20 +500,22 @@ LESSONS.push({
     ctx.cadence = () => {
       const V = type === 'minor' ? [55,58,62] : [55,59,62,65];
       A.chord(V, 1.4, { spread:.05 });
-      ctx.read((type === 'minor' ? 'Gm  ·  weak v' : 'G7  ·  strong V') + '\n' + V.map(n => T.name(n)).join(' '));
+      ctx.read((type === 'minor' ? 'Gm  \u00B7  weak v' : 'G7  \u00B7  strong V') + '\n' +
+        (type === 'minor' ? ['G','B\u266D','D'] : ['G','B','D','F']).join(' '));
       ctx.v.clear().marks(V, 'chord').apply();
       ctx.later(() => {
         const i = [48,51,55,60];
         A.chord(i, 2, { spread:.05 });
         ctx.v.clear().marks(i, 'chord').mark(48, 'root').apply();
-        ctx.read('Cm  ·  home' + (type === 'minor' ? '\nnotice how softly it lands' : '\nthat is a real resolution'));
+        ctx.read('Cm  \u00B7  home\nC E\u266D G' +
+          (type === 'minor' ? '\nnotice how softly it lands' : '\nthat is a real resolution'));
       }, 1400);
     };
     ctx.dim = () => {
       const d = [59,62,65,68];
       A.chord(d, 1.4, { spread:.04 });
       ctx.v.clear().marks(d, 'chord').apply();
-      ctx.read('Bdim7  ·  vii°7\nB D F A♭ — all minor 3rds');
+      ctx.read('Bdim7  \u00B7  vii\u00B07 of C minor\nB D F A\u266D \u2014 all minor 3rds');
       ctx.later(() => {
         A.chord([48,51,55,60], 2, { spread:.05 });
         ctx.v.clear().marks([48,51,55,60], 'chord').mark(48, 'root').apply();
@@ -522,7 +549,7 @@ LESSONS.push({
     { h:'Chromatic bass moves' },
     { p:'Some outside chords exist only to walk the bass. A <b>dim7 passing chord</b> between two diatonic chords a tone apart, or a <b>tritone sub</b> to slide into the tonic from a semitone above — these are bass-line decisions that happen to make interesting harmony.' },
     { note:{ h:'The one rule',
-      p:'Borrow for <em>one or two bars</em>, then come home. An outside chord is an event. If everything is borrowed, nothing is surprising — and you’ve just changed key without meaning to.' } },
+      p:'An outside chord works by contrast, so it usually lands best as an event — a bar or two, then home. That is a tendency to test, not a law: whole styles (a lot of gospel, film music and jazz) stay chromatic for long stretches and still sound rooted. The real test is whether you can still hear where home is. If you cannot, you have changed key rather than borrowed.' } },
     { try:{ h:'Borrow something', p:'Each option plays a plain diatonic loop, then the same loop with one chord swapped for an outside one. Listen for the bar that grabs you.',
       build:ctx => [
         UI.chips([{label:'IV → iv (sad IV)',value:'iv'},{label:'♭VI lift',value:'bVI'},
@@ -540,28 +567,36 @@ LESSONS.push({
       why:'They work by contrast. A borrowed chord surrounded by diatonic ones is an event; borrow everything and you’ve simply modulated.' }
   ],
   init:ctx => {
+    const CH = {
+      C:  { n:[48,52,55], s:['C','E','G'] },          F:  { n:[53,57,60], s:['F','A','C'] },
+      G:  { n:[55,59,62], s:['G','B','D'] },          Fm: { n:[53,56,60], s:['F','A\u266D','C'] },
+      Ab: { n:[44,48,51], s:['A\u266D','C','E\u266D'] }, Bb: { n:[46,50,53], s:['B\u266D','D','F'] },
+      A7: { n:[57,61,64,67], s:['A','C\u266F','E','G'] }, Dm: { n:[50,53,57], s:['D','F','A'] },
+      Db: { n:[49,53,56], s:['D\u266D','F','A\u266D'] }
+    };
     const P = {
-      plain: { seq:[[48,52,55],[53,57,60],[55,59,62],[48,52,55]], lab:['C','F','G','C'] },
-      iv:    { seq:[[48,52,55],[53,57,60],[53,56,60],[48,52,55]], lab:['C','F','Fm  ← borrowed','C'] },
-      bVI:   { seq:[[48,52,55],[44,48,51],[53,57,60],[55,59,62]], lab:['C','A♭  ← ♭VI','F','G'] },
-      bVII:  { seq:[[48,52,55],[46,50,53],[53,57,60],[48,52,55]], lab:['C','B♭  ← ♭VII','F','C'] },
-      sec:   { seq:[[48,52,55],[57,61,64,67],[50,53,57],[55,59,62]], lab:['C','A7  ← V7/ii','Dm','G'] },
-      bII:   { seq:[[48,52,55],[49,53,56],[55,59,62],[48,52,55]], lab:['C','D♭  ← ♭II','G','C'] }
+      plain: { ch:['C','F','G','C'],    lab:['C','F','G','C'] },
+      iv:    { ch:['C','F','Fm','C'],   lab:['C','F','Fm  \u2190 borrowed','C'] },
+      bVI:   { ch:['C','Ab','F','G'],   lab:['C','A\u266D  \u2190 \u266DVI','F','G'] },
+      bVII:  { ch:['C','Bb','F','C'],   lab:['C','B\u266D  \u2190 \u266DVII','F','C'] },
+      sec:   { ch:['C','A7','Dm','G'],  lab:['C','A7  \u2190 V7/ii','Dm','G'] },
+      bII:   { ch:['C','Db','G','C'],   lab:['C','D\u266D  \u2190 \u266DII','G','C'] }
     };
     const run = k => {
       const p = P[k];
-      p.seq.forEach((ns, i) => ctx.later(() => {
-        const out = /←/.test(p.lab[i]);
-        ctx.v.clear().marks(ns, out ? 'root' : 'chord').apply().clearExtras();
+      ctx.keep('demo', k);
+      p.ch.forEach((name, i) => ctx.later(() => {
+        const c = CH[name], out = /\u2190/.test(p.lab[i]);
+        ctx.v.clear().marks(c.n, out ? 'root' : 'chord').apply().clearExtras();
         ctx.v.tag(p.lab[i], 0, 3.4, out ? '#F2B33D' : null);
-        ctx.read(p.lab[i] + '\n' + ns.map(n => T.name(n)).join(' ') +
-          (out ? '\noutside the key — that is the point' : ''));
-        A.chord(ns, 1.15, { spread:.05 });
+        ctx.read(p.lab[i] + '\n' + c.s.join(' ') +
+          (out ? '\noutside the key \u2014 that is the point' : ''));
+        A.chord(c.n, 1.15, { spread:.05 });
       }, i * 1000));
     };
     ctx.demo = k => run(k);
     ctx.plain = () => run('plain');
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.fullName(m)); });
-    run('iv');
+    run(ctx.recall('demo') || 'iv');
   }
 });

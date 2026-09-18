@@ -229,6 +229,11 @@ const V = (() => {
     const marks = new Map();     // midi -> role
     const extras = new THREE.Group(); g.add(extras);
     let onKeyCb = null, labelMap = null, labelMode = cfg.labels;
+    let spell = cfg.spell || null;          /* pc -> spelled name */
+    /* a spelled name when the key supplies one, otherwise the accidental that
+       key signature prefers — so a button and the readout never disagree */
+    const nameOf = m => (spell && spell[T.pc(m)]) ||
+      T.name(m, spell ? !!spell.flats : cfg.flats);
 
     let wi = 0; const whites = [];
     for (let m = cfg.lo; m <= cfg.hi; m++) if (!T.isBlack(m)) whites.push(m);
@@ -267,9 +272,9 @@ const V = (() => {
         const ink = inkOn(keyCol);
         let txt = null, col = ink;
         if (labelMode === 'names') {
-          if (k.white || role) txt = T.name(m, cfg.flats);
+          if (k.white || role) txt = nameOf(m);
           if (T.pc(m) === 0) {
-            txt = T.name(m, cfg.flats) + T.oct(m);
+            txt = nameOf(m) + T.oct(m);
             col = ink === '#FFFFFF' ? '#FFE2A8' : '#8A5A10';
           }
         } else if (labelMode === 'map') {
@@ -299,8 +304,24 @@ const V = (() => {
       onPick(hit) {
         const m = hit.object.userData.midi;
         if (m == null) return;
-        api.press(m);
-        if (onKeyCb) onKeyCb(m);
+        api.tap(m);
+      },
+      /* the one place a key press happens, whether from the canvas or a button */
+      tap(m) { api.press(m); if (onKeyCb) onKeyCb(m); return api; },
+      a11y() {
+        const items = [];
+        keys.forEach((k, m) => {
+          const role = marks.get(m);
+          items.push({
+            label:nameOf(m) + T.oct(m),
+            aria:nameOf(m) + T.oct(m) + ', ' + (k.white ? 'white key' : 'black key') +
+              (role ? ', highlighted as ' + role : ''),
+            pressed:!!role,
+            act:() => api.tap(m)
+          });
+        });
+        items.sort((a, b) => 0);
+        return { title:'Piano keys', groups:[{ name:'Keys, low to high', items }] };
       },
       onKey(cb) { onKeyCb = cb; return api; },
       press(m, dur) {
@@ -317,6 +338,9 @@ const V = (() => {
       apply() { paint(); return api; },
       labelMode(mode, map) { labelMode = mode; labelMap = map || null; drawLabels(); return api; },
       flats(v) { cfg.flats = v; drawLabels(); return api; },
+      /* pass {pitchClass: 'E\u266D', …} so labels read the way the key is written */
+      spelling(map) { spell = map || null; drawLabels(); return api; },
+      nameOf,
       clearExtras() { disposeDeep(extras); return api; },
       /* an arc from key a to key b, with a dot per semitone stepped through */
       arc(a, b, text, opt) {
@@ -354,7 +378,7 @@ const V = (() => {
             mat(col, { emissive:col, emissiveIntensity:0.34, roughness:0.35 }));
           tile.position.set(x, y, 1.9); extras.add(tile);
           const gap = i > 0 ? midis[i] - midis[i - 1] : 0;
-          const nm = label(T.name(m, cfg.flats) +
+          const nm = label(nameOf(m) +
             (opt.degrees && opt.degrees[i] ? ' ' + opt.degrees[i] : '') +
             (gap ? '  +' + gap : ''), { h:0.46, color:C.labOn, weight:700 });
           nm.position.set(x, y + 0.02, 2.3); extras.add(nm);
@@ -445,8 +469,25 @@ const V = (() => {
       get pickables() { return [].concat.apply([], cells); },
       onPick(hit) {
         const { lane, step } = hit.object.userData;
-        api.toggle(lane, step);
-        if (onCellCb) onCellCb(lane, step, state[lane][step]);
+        api.tapCell(lane, step);
+      },
+      tapCell(l, s) {
+        api.toggle(l, s);
+        if (onCellCb) onCellCb(l, s, state[l][s]);
+        return api;
+      },
+      a11y() {
+        return { title:'Step grid',
+          groups:cfg.lanes.map((ln, l) => ({
+            name:ln.name + ' \u00B7 ' + S + ' steps',
+            items:state[l].map((v, st) => ({
+              label:String(st + 1),
+              aria:ln.name + ', step ' + (st + 1) + ' of ' + S +
+                ', beat ' + (Math.floor(st / cfg.group) + 1) + (v ? ', on' : ', off'),
+              pressed:!!v,
+              act:() => api.tapCell(l, st)
+            }))
+          })) };
       },
       onCell(cb) { onCellCb = cb; return api; },
       toggle(l, s) { state[l][s] = state[l][s] ? 0 : 1; paint(); return api; },
@@ -531,9 +572,25 @@ const V = (() => {
       get pickables() { return outer.concat(inner); },
       onPick(hit) {
         const { idx, ring } = hit.object.userData;
+        api.tapTile(idx, ring);
+      },
+      tapTile(idx, ring) {
         if (ring === 'maj') sel = idx;
         paint();
         if (onTileCb) onTileCb(idx, ring);
+        return api;
+      },
+      a11y() {
+        const mk = (ring, labels) => labels.map((lab, i) => ({
+          label:lab,
+          aria:lab + (ring === 'maj' ? ' major' : ' minor') + ', position ' + (i + 1) +
+            ' on the circle' + (ring === 'maj' && i === sel ? ', selected' : ''),
+          pressed:ring === 'maj' && i === sel,
+          act:() => api.tapTile(i, ring)
+        }));
+        return { title:'Circle of fifths',
+          groups:[{ name:'Major keys, clockwise from C', items:mk('maj', T.KEY_LABEL) },
+                  { name:'Relative minors', items:mk('min', T.MINOR_LABEL) }] };
       },
       onTile(cb) { onTileCb = cb; return api; },
       select(i) { sel = i; paint(); return api; },
@@ -665,6 +722,22 @@ const V = (() => {
         if (onCellCb) onCellCb(s, midi, i < 0);
       },
       onCell(cb) { onCellCb = cb; return api; },
+      tapCell(step, midi) {
+        const i = noteList.findIndex(n => n.step === step && n.midi === midi);
+        if (i >= 0) noteList.splice(i, 1); else noteList.push({ step, midi, len:1 });
+        drawNotes();
+        if (onCellCb) onCellCb(step, midi, i < 0);
+        return api;
+      },
+      a11y() {
+        return { title:'Piano roll', form:{
+          steps:S, rows:rows.slice(),
+          rowLabel:m => T.name(m) + T.oct(m),
+          has:(step, midi) => noteList.some(n => n.step === step && n.midi === midi),
+          toggle:(step, midi) => api.tapCell(step, midi),
+          list:() => noteList.slice().sort((a, b) => a.step - b.step || a.midi - b.midi)
+        } };
+      },
       get notes() { return noteList; },
       setNotes(list) { noteList = (list || []).slice(); drawNotes(); return api; },
       clearNotes() { noteList = []; drawNotes(); return api; },
@@ -732,7 +805,8 @@ const V = (() => {
     if (lightFill) { lightFill.color.setHex(C.fillC); lightFill.intensity = C.fillI; }
     if (lightRim) { lightRim.color.setHex(C.accent); lightRim.intensity = C.rimI; }
   }
-  return { mount, set, label, setTheme, get C() { return C; }, get ROLE() { return ROLE; },
+  const a11y = () => (current && current.a11y) ? current.a11y() : null;
+  return { mount, set, label, setTheme, a11y, get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
            get orbit() { return orb; }, resize };
 })();

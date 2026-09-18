@@ -141,8 +141,21 @@ const APP = (() => {
     const n = Object.keys(done).filter(k => done[k]).length;
     $('#progTxt').textContent = n + ' / ' + LESSONS.length;
     $('#progBar').style.width = (100 * n / LESSONS.length) + '%';
+    let right = 0, total = 0;
+    LESSONS.forEach(L => { const t = drillTally(L.id); right += t.right; total += t.total; });
+    const dt = $('#drillTxt');
+    if (dt) dt.textContent = total ? right + ' / ' + total + ' right' : 'not started';
+    const db = $('#drillBar');
+    if (db) db.style.width = (total ? 100 * right / total : 0) + '%';
     document.querySelectorAll('#nav button').forEach(b => {
       b.classList.toggle('done', !!done[b.dataset.id]);
+      const t = drillTally(b.dataset.id);
+      b.classList.toggle('review', t.wrong.length > 0);
+      const tk = b.querySelector('.tick');
+      if (tk) tk.textContent = t.wrong.length ? '!' : '\u2713';
+      b.title = t.total
+        ? t.right + ' of ' + t.total + ' drill answers right' + (t.wrong.length ? ' \u00B7 worth revisiting' : '')
+        : '';
     });
   }
 
@@ -166,6 +179,28 @@ const APP = (() => {
     });
   }
 
+  /* Scratch space per lesson, kept for the life of the session so that
+     switching reading level or theme does not throw away a pattern or a
+     progression the learner built. */
+  const kept = {};
+  const keep = (id, k, v) => { (kept[id] = kept[id] || {})[k] = v; };
+  const recall = (id, k) => (kept[id] || {})[k];
+
+  /* Drill accuracy, tracked separately from "lesson done". First answer on
+     each question counts; a lesson can be retried to clear its record. */
+  const DKEY = 'rbx-theory-drills-v1';
+  let drills = {};
+  function loadDrills() {
+    try { drills = JSON.parse(localStorage.getItem(DKEY) || '{}') || {}; } catch (e) { drills = {}; }
+  }
+  function saveDrills() { try { localStorage.setItem(DKEY, JSON.stringify(drills)); } catch (e) {} }
+  function drillTally(id) {
+    const rec = drills[id] || {};
+    const ks = Object.keys(rec);
+    return { total:ks.length, right:ks.filter(k => rec[k]).length,
+             wrong:ks.filter(k => !rec[k]).map(Number) };
+  }
+
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
   const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
@@ -185,8 +220,18 @@ const APP = (() => {
       hint: t => { $('#stageHint').textContent = t; },
       stage: (...kids) => { kids.forEach(k => k && $('#stageCtl').appendChild(k)); },
       seq: opts => { transport.stop(); transport.start(opts); },
-      stop: () => { transport.stop(); }
+      stop: () => { transport.stop(); },
+      keep: (k, v) => keep(L.id, k, v),
+      recall: k => recall(L.id, k),
+      /* ear-training results feed the same accuracy tally as the quizzes */
+      score: ok => {
+        const rec = drills[L.id] = drills[L.id] || {};
+        rec['d' + Object.keys(rec).filter(x => x[0] === 'd').length] = !!ok;
+        saveDrills(); progress();
+      }
     };
+
+    buildA11y(ctx);
 
     /* ── prose ── */
     const S = (mode === 'simple' && L.simple) ? L.simple : null;
@@ -275,7 +320,13 @@ const APP = (() => {
     /* ── quiz ── */
     {
       const q = UI.el('div', 'quiz');
-      if (quiz && quiz.length) q.appendChild(UI.html('h3', null, 'Check yourself'));
+      if (quiz && quiz.length) {
+        const t = drillTally(L.id);
+        q.appendChild(UI.html('h3', null, 'Check yourself' +
+          (t.total ? ' \u00B7 <span style="color:var(--muted)">' + t.right + '/' + t.total +
+            ' right so far</span>' : '')));
+      }
+      const rec = drills[L.id] = drills[L.id] || {};
       (quiz || []).forEach((Q, qi) => {
         const box = UI.el('div', 'q');
         box.appendChild(UI.html('p', 'qt', '<span class="qn">Q' + (qi + 1) + '</span>' + Q.q));
@@ -291,6 +342,9 @@ const APP = (() => {
             });
             if (ai !== Q.c) b.classList.add('wrong');
             why.hidden = false;
+            if (rec[qi] === undefined) {      /* only the first answer is scored */
+              rec[qi] = (ai === Q.c); saveDrills(); progress();
+            }
             if (Q.hear) { A.resume(); Q.hear(); }
           });
           opts.appendChild(b);
@@ -337,6 +391,72 @@ const APP = (() => {
     try { location.hash = L.id; } catch (e) {}
   }
 
+  /* Mirror the 3D instrument as real buttons: operable by keyboard, named for
+     screen readers, and legible for anyone who finds the perspective labels
+     small. The canvas itself is marked decorative. */
+  function buildA11y(ctx) {
+    const body = $('#a11yBody'), sum = $('#a11ySum');
+    if (!body) return;
+    body.innerHTML = '';
+    const d = V.a11y && V.a11y();
+    if (!d) {
+      body.appendChild(UI.html('p', 'hint', 'This lesson has no instrument to operate.'));
+      return;
+    }
+    if (sum) sum.textContent = d.title + ' \u2014 buttons (keyboard and screen-reader friendly)';
+    body.appendChild(UI.html('p', 'hint',
+      'These do exactly what tapping the 3D stage does. Tab to move, Enter or Space to play. ' +
+      'Results are announced in the readout above the lesson.'));
+
+    (d.groups || []).forEach(g => {
+      body.appendChild(UI.html('h4', null, g.name));
+      const row = UI.el('div', 'pads');
+      g.items.forEach(it => {
+        const b = UI.el('button', 'pad' + (/black/.test(it.aria || '') ? ' black' : ''), it.label);
+        b.type = 'button';
+        b.setAttribute('aria-label', it.aria || it.label);
+        if (it.pressed != null) b.setAttribute('aria-pressed', it.pressed ? 'true' : 'false');
+        b.addEventListener('click', () => {
+          A.resume(); it.act();
+          if (it.pressed != null) {
+            const now = b.getAttribute('aria-pressed') === 'true';
+            b.setAttribute('aria-pressed', now ? 'false' : 'true');
+          }
+        });
+        row.appendChild(b);
+      });
+      body.appendChild(row);
+    });
+
+    /* the piano roll gets a compact add/remove form instead of 240 buttons */
+    if (d.form) {
+      const f = d.form;
+      body.appendChild(UI.html('h4', null, 'Write a note'));
+      const stepSel = UI.select('Step', Array.from({ length:f.steps }, (_, i) =>
+        ({ label:'step ' + (i + 1), value:i })), () => {}, 0);
+      const rowSel = UI.select('Note', f.rows.map(m =>
+        ({ label:f.rowLabel(m), value:m })), () => {}, f.rows[0]);
+      const act = UI.btn('Add or remove', () => {
+        const st = Number(stepSel.el.value), md = Number(rowSel.el.value);
+        f.toggle(st, md);
+        buildA11y(ctx);
+      }, { primary:true });
+      body.appendChild(UI.row(stepSel, rowSel, act));
+      const list = f.list();
+      body.appendChild(UI.html('h4', null, 'Notes on the roll (' + list.length + ')'));
+      const wrap = UI.el('div', 'notelist');
+      if (!list.length) wrap.appendChild(UI.html('span', 'hint', 'empty'));
+      list.forEach(n => {
+        const b = UI.el('button', 'pad', f.rowLabel(n.midi) + ' @' + (n.step + 1));
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Remove ' + f.rowLabel(n.midi) + ' at step ' + (n.step + 1));
+        b.addEventListener('click', () => { A.resume(); f.toggle(n.step, n.midi); buildA11y(ctx); });
+        wrap.appendChild(b);
+      });
+      body.appendChild(wrap);
+    }
+  }
+
   function go(i) {
     idx = Math.max(0, Math.min(LESSONS.length - 1, i));
     render();
@@ -361,7 +481,7 @@ const APP = (() => {
     } else {
       V.mount(document.querySelector('#gl'));
     }
-    load(); loadMode(); applyTheme(); buildNav();
+    load(); loadMode(); loadDrills(); applyTheme(); buildNav();
     const hash = (location.hash || '').replace('#', '');
     const at = LESSONS.findIndex(l => l.id === hash);
     idx = at >= 0 ? at : 0;

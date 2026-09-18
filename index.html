@@ -26,8 +26,10 @@
       </div>
     </div>
     <div class="prog">
-      <div class="prog-row"><span>Progress</span><span class="mono" id="progTxt">0 / 22</span></div>
+      <div class="prog-row"><span>Lessons</span><span class="mono" id="progTxt">0 / 22</span></div>
       <div class="prog-bar"><i id="progBar"></i></div>
+      <div class="prog-row" style="margin-top:11px"><span>Drills</span><span class="mono" id="drillTxt">not started</span></div>
+      <div class="prog-bar"><i id="drillBar"></i></div>
     </div>
     <nav class="nav" id="nav" aria-label="Lessons"></nav>
   </aside>
@@ -35,10 +37,10 @@
 
   <main id="main">
     <section class="stage" id="stage">
-      <canvas id="gl"></canvas>
+      <canvas id="gl" aria-hidden="true"></canvas>
       <div class="hud">
         <span class="tag" id="hudTag">Rhythm</span>
-        <div class="readout mono" id="readout">ready</div>
+        <div class="readout mono" id="readout" role="status" aria-live="polite">ready</div>
       </div>
       <div class="stage-foot">
         <button class="b menu-btn" id="menuBtn" aria-expanded="false">☰ Lessons</button>
@@ -46,6 +48,10 @@
         <span class="hint" id="stageHint"></span>
       </div>
     </section>
+    <details class="a11y" id="a11y">
+      <summary id="a11ySum">Instrument controls (keyboard and screen-reader friendly)</summary>
+      <div id="a11yBody"></div>
+    </details>
     <article class="console" id="console"></article>
   </main>
 </div>
