@@ -230,8 +230,13 @@ const APP = (() => {
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
   const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
+  /* things to undo before the page is rebuilt — a practice round that has
+     borrowed a drum lane puts it back here rather than saving it by accident */
+  let leaving = [];
   function render() {
     const L = LESSONS[idx];
+    leaving.forEach(fn => { try { fn(); } catch (e) {} });
+    leaving = [];
     clearTimers(); transport.stop();
     $('#hudTag').textContent = L.tag;
     $('#stageCtl').innerHTML = '';
@@ -252,6 +257,7 @@ const APP = (() => {
       /* lessons call this after changing the instrument behind the panel's back
          — a preset, or a view swapped for one with a different step count */
       syncA11y: () => syncA11y(ctx),
+      onLeave: fn => leaving.push(fn),
       /* ear-training results feed the same accuracy tally as the quizzes */
       score: ok => {
         const rec = drills[L.id] = drills[L.id] || {};
@@ -343,6 +349,17 @@ const APP = (() => {
         (Array.isArray(made) ? made : [made]).forEach(k => k && host.appendChild(k));
       }
     });
+
+    /* ── practice: hear it, name it, build it ── */
+    if (L.practice && typeof PRACTICE !== 'undefined') {
+      const p = UI.el('div', 'panel try practice-panel');
+      p.appendChild(UI.html('h4', null, L.practice.h || 'Practise it'));
+      p.appendChild(UI.html('p', null, L.practice.p ||
+        'One round takes a minute: listen, say what it was, then build the same thing ' +
+        'on the instrument above. Getting it wrong here is what puts it in your review list.'));
+      p.appendChild(PRACTICE.build(ctx, L.practice));
+      w.appendChild(p);
+    }
 
     /* ── quiz ── */
     {
@@ -578,7 +595,9 @@ const APP = (() => {
     } else {
       V.mount(document.querySelector('#gl'));
     }
-    load(); loadMode(); loadDrills(); applyTheme(); buildNav();
+    load(); loadMode(); loadDrills(); applyTheme();
+    if (typeof PRACTICE !== 'undefined') PRACTICE.plan(LESSONS);
+    buildNav();
     const hash = (location.hash || '').replace('#', '');
     const at = LESSONS.findIndex(l => l.id === hash);
     idx = at >= 0 ? at : 0;

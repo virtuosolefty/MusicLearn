@@ -93,6 +93,7 @@ function recorder() {
 /* ── load the app modules against those stand-ins ── */
 const theory = read('src/theory.js');
 const uiSrc = read('src/ui.js');
+const practiceSrc = read('src/practice.js');
 const lessonSrc = ['src/lessons-level1.js','src/lessons-level2.js','src/lessons-level3.js',
                    'src/simple-level1.js','src/simple-level2.js'].map(read).join('\n');
 
@@ -115,9 +116,11 @@ const Vmock = { set:(kind, cfg) => {
 
 const sandbox = new Function('A', 'V', 'document', 'window', 'localStorage',
   theory.replace(/^const A = \(\(\)[\s\S]*$/m, '') + '\n' +
-  uiSrc + '\n' + lessonSrc + '\nreturn { LESSONS, UI, T, APP };');
-const { LESSONS, UI, T, APP } = sandbox(Amock, Vmock, global.document, global.window,
-                                        global.localStorage);
+  uiSrc + '\n' + practiceSrc + '\n' + lessonSrc +
+  '\nreturn { LESSONS, UI, T, APP, PRACTICE };');
+const { LESSONS, UI, T, APP, PRACTICE } = sandbox(Amock, Vmock, global.document, global.window,
+                                                  global.localStorage);
+PRACTICE.plan(LESSONS);
 
 /* a lesson context, backed by a store that survives a "re-render" the way the
    app's own per-lesson scratch space does */
@@ -310,6 +313,64 @@ head('Teaching claims');
      'it turns into G major, with G7 named as the separate step');
   ok(/Add the 7th of the chord on top — F — and you get <b>G7<\/b>/.test(text),
      'and adding F is what makes it G7');
+}
+
+/* ═══ 7. practice rounds are answerable and stay on the keyboard ═══ */
+head('Practice rounds');
+{
+  const ids = Object.keys(PRACTICE.PLAN);
+  ok(ids.length > 0, 'some lessons carry a practice round');
+  ids.forEach(id => {
+    const L = lesson(id);
+    ok(!!L, id + ': the plan names a real lesson');
+    if (!L) return;
+    ok(!!L.practice, id + ': the plan is attached to the lesson');
+    const cfg = PRACTICE.PLAN[id];
+    const lo = (L.stage.cfg && L.stage.cfg.lo) || 48;
+    const hi = (L.stage.cfg && L.stage.cfg.hi) || 72;
+    const onKeys = L.stage.view === 'keys';
+    let bad = 0, unanswerable = 0, unnamed = 0, offGrid = 0;
+    for (let i = 0; i < 200; i++) {
+      const q = PRACTICE.MAKERS[cfg.kind](cfg);
+      if (q.options.indexOf(q.answer) < 0) unanswerable++;
+      if (!q.concept || !q.label) unnamed++;
+      const heard = [].concat.apply([], q.notes || []);
+      const shown = (q.build && q.build.expect) || [];
+      if (onKeys) {
+        const all = heard.concat(q.build.mode === 'keys' ? shown : [], [q.build.from]);
+        if (all.some(m => m < lo || m > hi)) bad++;
+      }
+      if (q.build.mode === 'grid') {
+        const steps = (L.stage.cfg && L.stage.cfg.steps) || 16;
+        if (shown.length !== steps) offGrid++;
+        if (!shown.some(v => v)) offGrid++;       /* an empty answer is not a pattern */
+      }
+    }
+    eq(unanswerable, 0, id + ': the right answer is always among the options');
+    eq(unnamed, 0, id + ': every round records a named concept');
+    if (onKeys) eq(bad, 0, id + ': every note it plays or asks for fits the keyboard (' + lo + '-' + hi + ')');
+    if (!onKeys) eq(offGrid, 0, id + ': every pattern fits the grid');
+  });
+  /* the build step must be satisfiable by the notes it names */
+  const ivl = PRACTICE.MAKERS.interval({ pool:[12], roots:[60] });
+  eq(ivl.build.expect.join(','), '60,72', 'an octave asks for two different keys');
+  ok(ivl.build.exact, 'and is judged on the keys, not the note names');
+
+  /* the record: right and wrong accumulate, and improvement is visible */
+  PRACTICE.clear();
+  PRACTICE.record('intervals', 'interval', '3', 'minor 3rd', false);
+  PRACTICE.record('intervals', 'interval', '3', 'minor 3rd', false);
+  eq(PRACTICE.misses().length, 1, 'a missed concept shows up for review');
+  PRACTICE.record('intervals', 'interval', '3', 'minor 3rd', true);
+  PRACTICE.record('intervals', 'interval', '3', 'minor 3rd', true);
+  eq(PRACTICE.misses().length, 1, 'two right answers is not yet enough to retire it');
+  PRACTICE.record('intervals', 'interval', '3', 'minor 3rd', true);
+  eq(PRACTICE.misses().length, 0, 'three in a row retires it from the review list');
+  const e = PRACTICE.forLesson('intervals')[0];
+  eq(e.right + '/' + e.wrong, '3/2', 'the tally is kept');
+  const t = PRACTICE.trend(e);
+  ok(t && t.to > t.from, 'and the trend shows it improving (' + t.from + '% → ' + t.to + '%)');
+  PRACTICE.clear();
 }
 
 console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));

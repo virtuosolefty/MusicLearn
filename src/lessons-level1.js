@@ -58,6 +58,7 @@ LESSONS.push({
       ctx.keep('pattern', ctx.v.state.map(r => r.slice()));
       ctx.syncA11y();
     };
+    ctx.saveInstrument = sync;
     ctx.preset = kind => {
       ctx.v.clearAll();
       if (kind === 'classic') CLASSIC.forEach((row, l) => ctx.v.pattern(l, row));

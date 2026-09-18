@@ -229,6 +229,7 @@ const V = (() => {
     const marks = new Map();     // midi -> role
     const extras = new THREE.Group(); g.add(extras);
     let onKeyCb = null, labelMap = null, labelMode = cfg.labels;
+    const taps = [];
     let spell = cfg.spell || null;          /* pc -> spelled name */
     /* a spelled name when the key supplies one, otherwise the accidental that
        key signature prefers — so a button and the readout never disagree */
@@ -307,7 +308,10 @@ const V = (() => {
         api.tap(m);
       },
       /* the one place a key press happens, whether from the canvas or a button */
-      tap(m) { api.press(m); if (onKeyCb) onKeyCb(m); return api; },
+      tap(m) { api.press(m); if (onKeyCb) onKeyCb(m); taps.forEach(f => f(m)); return api; },
+      /* an extra listener, for anything watching alongside the lesson's own */
+      listen(cb) { taps.push(cb); return api; },
+      unlisten(cb) { const i = taps.indexOf(cb); if (i >= 0) taps.splice(i, 1); return api; },
       a11y() {
         const items = [];
         keys.forEach((k, m) => {
@@ -407,6 +411,7 @@ const V = (() => {
     const cells = [];            // [lane][step] = mesh
     const state = [];            // [lane][step] = 0|1|2(accent)
     let onCellCb = null, head = -1, heights = null;
+    const taps = [];
     const S = cfg.steps, L = cfg.lanes.length;
     const sx = 1.02, sz = 1.25, x0 = -(S - 1) * sx / 2, z0 = -(L - 1) * sz / 2;
     const laneCol = [C.accent, C.sky, C.amber, C.mint, C.violet];
@@ -474,8 +479,11 @@ const V = (() => {
       tapCell(l, s) {
         api.toggle(l, s);
         if (onCellCb) onCellCb(l, s, state[l][s]);
+        taps.forEach(f => f(l, s, state[l][s]));
         return api;
       },
+      listen(cb) { taps.push(cb); return api; },
+      unlisten(cb) { const i = taps.indexOf(cb); if (i >= 0) taps.splice(i, 1); return api; },
       a11y() {
         return { title:'Step grid',
           groups:cfg.lanes.map((ln, l) => ({
@@ -628,6 +636,7 @@ const V = (() => {
     const ribbon = new THREE.Group(); g.add(ribbon);
     const S = cfg.steps, sx = 0.95, sz = 0.78;
     let rows = [], noteList = [], onCellCb = null, chords = [];
+    const taps = [];
 
     function buildRows() {
       rows = [];
@@ -720,13 +729,17 @@ const V = (() => {
         if (i >= 0) noteList.splice(i, 1); else noteList.push({ step:s, midi, len:1 });
         drawNotes();
         if (onCellCb) onCellCb(s, midi, i < 0);
+        taps.forEach(f => f(s, midi, i < 0));
       },
       onCell(cb) { onCellCb = cb; return api; },
+      listen(cb) { taps.push(cb); return api; },
+      unlisten(cb) { const i = taps.indexOf(cb); if (i >= 0) taps.splice(i, 1); return api; },
       tapCell(step, midi) {
         const i = noteList.findIndex(n => n.step === step && n.midi === midi);
         if (i >= 0) noteList.splice(i, 1); else noteList.push({ step, midi, len:1 });
         drawNotes();
         if (onCellCb) onCellCb(step, midi, i < 0);
+        taps.forEach(f => f(step, midi, i < 0));
         return api;
       },
       a11y() {

@@ -249,6 +249,16 @@ td.hi{color:var(--accent-2)}
 .why{margin:11px 0 0;font-size:14.5px;color:var(--text-2);border-left:2px solid var(--accent);padding-left:11px}
 .why[hidden]{display:none!important}
 
+/* practice: hear it, name it, build it */
+.practice{display:grid;gap:10px}
+.practice > .ctl{margin:0}
+.practice > .ctl:empty{display:none}
+.practice .small{margin:0;font-size:14.5px;color:var(--text-2)}
+.practice .chip.right{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-2)}
+.practice .chip.wrong{background:var(--flag-soft);border-color:var(--flag);color:var(--flag)}
+.practice .chip:disabled{cursor:default}
+.practice .val{min-width:0}
+
 .pager{display:flex;justify-content:space-between;gap:12px;margin-top:34px;border-top:1px solid var(--line);padding-top:20px}
 .pager button{flex:1;min-width:0}
 .pager .lab{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:2px}
