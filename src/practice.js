@@ -62,11 +62,25 @@ const PRACTICE = (() => {
   /* Each returns: concept + label (what to record), answer + options (the
      identify step), notes (what to play), and a build step described in the
      instrument's own terms. */
+  const RHYTHMS = [
+    { concept:'four', label:'four on the floor', row:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0] },
+    { concept:'boombap', label:'boom bap (1 and the & of 2)', row:[1,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,0] },
+    { concept:'offbeat', label:'every offbeat', row:[0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0] },
+    { concept:'dembow', label:'dembow (3+3+2)', row:[1,0,0,1, 0,0,1,0, 0,1,0,0, 1,0,0,0] }
+  ];
+  /* a pinned concept has to be one of the options, even if the lesson that
+     taught it is not the one whose pool we are drawing from */
+  const withOnly = (pool, only) =>
+    (only == null || pool.indexOf(only) >= 0) ? pool : pool.concat([only]);
+
+  /* `only` pins which concept comes up — that is how the review asks again
+     about the exact thing you missed, with fresh notes. The options still come
+     from the whole pool, or the question would answer itself. */
   const MAKERS = {
     /* two notes, name the gap, then play it back from a given root */
-    interval(cfg) {
-      const pool = cfg.pool || [3,4,5,7,8,9,12];
-      const n = rnd(pool);
+    interval(cfg, only) {
+      const pool = withOnly(cfg.pool || [3,4,5,7,8,9,12], only == null ? null : Number(only));
+      const n = only == null ? rnd(pool) : Number(only);
       const base = rnd(cfg.roots || [55, 57, 60, 62]);
       const rn = T.MAJ_ROOT[T.pc(base)];
       const I = T.ivl(n);
@@ -80,9 +94,9 @@ const PRACTICE = (() => {
       };
     },
     /* a chord, name its quality, then stack it yourself */
-    chord(cfg) {
-      const pool = cfg.pool || ['maj','min','dim','aug'];
-      const t = rnd(pool);
+    chord(cfg, only) {
+      const pool = withOnly(cfg.pool || ['maj','min','dim','aug'], only);
+      const t = only || rnd(pool);
       const root = rnd(cfg.roots || [55, 57, 60]);
       const rn = T.MAJ_ROOT[T.pc(root)];
       const ns = T.chordNotes(root, t);
@@ -98,9 +112,9 @@ const PRACTICE = (() => {
       };
     },
     /* a scale, name it, then walk it up */
-    scale(cfg) {
-      const pool = cfg.pool || ['major','minor','harmonicMinor','minorPent'];
-      const k = rnd(pool);
+    scale(cfg, only) {
+      const pool = withOnly(cfg.pool || ['major','minor','harmonicMinor','minorPent'], only);
+      const k = only || rnd(pool);
       const root = rnd(cfg.roots || [55, 57, 60]);
       const rn = T.rootFor(root, k);
       const ns = T.scaleNotes(root, k).concat([root + 12]);
@@ -115,10 +129,10 @@ const PRACTICE = (() => {
       };
     },
     /* one note against a key centre, name the degree, then find it */
-    degree(cfg) {
+    degree(cfg, only) {
       const root = cfg.root || 60;
       const type = cfg.type || 'major';
-      const d = 1 + Math.floor(Math.random() * 7);
+      const d = only ? Number(String(only).replace('deg', '')) : 1 + Math.floor(Math.random() * 7);
       const rn = T.rootFor(root, type);
       const target = root + T.SCALES[type].steps[d - 1];
       const dia = T.diatonic(root, type);
@@ -133,11 +147,15 @@ const PRACTICE = (() => {
       };
     },
     /* four chords, name the numerals, then tap the four roots in order */
-    progression(cfg) {
-      const pool = cfg.pool || [[1,5,6,4],[6,4,1,5],[1,4,5,1],[2,5,1,1]];
-      const p = rnd(pool);
+    progression(cfg, only) {
+      const base = cfg.pool || [[1,5,6,4],[6,4,1,5],[1,4,5,1],[2,5,1,1]];
+      const pool = only && !base.some(x => x.join('') === only)
+        ? base.concat([String(only).split('').map(Number)]) : base;
+      const p = only ? pool.filter(x => x.join('') === only)[0] : rnd(pool);
       const type = cfg.type || 'major';
-      const root = cfg.root || 48;
+      /* the same numerals in a different key every time — which is the whole
+         reason numerals exist, and what makes a review round a fresh example */
+      const root = rnd(cfg.roots || [cfg.root || 48]);
       const rn = T.rootFor(root, type);
       const dia = T.diatonic(root, type);
       const nameOf = seq => seq.map(d => T.roman(d, dia[d - 1].quality)).join(' – ');
@@ -153,14 +171,9 @@ const PRACTICE = (() => {
       };
     },
     /* a one-bar drum pattern, name it, then place it on the grid */
-    rhythm(cfg) {
-      const pats = cfg.pool || [
-        { concept:'four', label:'four on the floor', row:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0] },
-        { concept:'boombap', label:'boom bap (1 and the & of 2)', row:[1,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,0] },
-        { concept:'offbeat', label:'every offbeat', row:[0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0] },
-        { concept:'dembow', label:'dembow (3+3+2)', row:[1,0,0,1, 0,0,1,0, 0,1,0,0, 1,0,0,0] }
-      ];
-      const p = rnd(pats);
+    rhythm(cfg, only) {
+      const pats = cfg.pool || RHYTHMS;
+      const p = (only && pats.filter(x => x.concept === only)[0]) || rnd(pats);
       const lane = cfg.lane == null ? 0 : cfg.lane;
       return {
         concept:p.concept, label:p.label,
@@ -176,11 +189,21 @@ const PRACTICE = (() => {
   };
 
   /* ── the flow on the page ──────────────────────────────────── */
+  /* A review queue turns entries from the log back into questions: same
+     concept, fresh notes, and the instrument the concept belongs on. */
+  function queued(entry) {
+    const base = PLAN[entry.lesson] || {};
+    return { kind:entry.kind || base.kind, only:entry.concept, lesson:entry.lesson,
+             pool:base.pool, roots:base.roots, root:base.root, type:base.type,
+             lane:base.lane, laneName:base.laneName, sound:base.sound };
+  }
+
   function build(ctx, cfg) {
-    const kind = cfg.kind;
-    const maker = MAKERS[kind];
+    const queue = cfg.queue ? cfg.queue.slice() : null;
     const wrap = UI.el('div', 'practice');
-    if (!maker) return wrap;
+    let at = 0, cur = cfg;
+    const maker = () => MAKERS[cur.kind];
+    if (queue ? !queue.length : !MAKERS[cfg.kind]) return wrap;
 
     let q = null, stage = 'hear', tapped = [], listener = null, identifiedOk = null;
     /* the learner's own beat, put back the moment the exercise is over — a
@@ -272,8 +295,9 @@ const PRACTICE = (() => {
       stage = 'done';
       builder.innerHTML = '';
       const ok = identifiedOk && builtOk;
-      record(ctx.L.id, kind, q.concept, q.label, ok);
+      record(cur.lesson || ctx.L.id, cur.kind, q.concept, q.label, ok);
       if (ctx.score) ctx.score(ok);
+      if (cfg.onResult) cfg.onResult(ok, q, cur);
       verdict.hidden = false;
       verdict.innerHTML =
         (identifiedOk ? '✓ named it' : '✗ named it') + ' · ' +
@@ -287,8 +311,11 @@ const PRACTICE = (() => {
       say(ok ? '<b>Both right.</b> That is the one that sticks.'
              : '<b>Worth another go.</b> The bit you missed is now in your review list.');
       controls.innerHTML = '';
-      controls.append(UI.btn('↻ Another', () => reset(), { primary:true }),
-                      UI.btn('🔊 Hear it again', () => playQ()));
+      const more = !queue || at < queue.length;
+      controls.append(
+        UI.btn(queue ? (more ? 'Next →' : 'Finish') : '↻ Another',
+          () => reset(), { primary:true }),
+        UI.btn('🔊 Hear it again', () => playQ()));
     }
 
     const hint = () => {
@@ -324,14 +351,22 @@ const PRACTICE = (() => {
     function reset() {
       stopListening();
       giveLaneBack();
-      q = maker(cfg);
+      if (queue) {
+        if (at >= queue.length) { if (cfg.onDone) cfg.onDone(); return; }
+        cur = queued(queue[at++]);
+        if (cfg.onStage) cfg.onStage(cur);       /* the concept's own instrument */
+      }
+      if (!maker()) { if (cfg.onDone) cfg.onDone(); return; }
+      q = maker()(cur, cur.only);
       stage = 'hear';
       identifiedOk = null;
       tapped = [];
       answers.innerHTML = ''; builder.innerHTML = '';
       verdict.hidden = true;
       controls.innerHTML = '';
-      say('Listen first — you only need your ears for this part.');
+      say(queue ? 'Listen first — <b>' + at + ' of ' + queue.length + '</b>: ' +
+                  (cur.only ? 'the one you missed, with different notes.' : '')
+                : 'Listen first — you only need your ears for this part.');
       const hear = UI.btn('🔊 Hear it', () => {
         playQ();
         if (stage === 'hear') ctx.later(() => showAnswers(), 300);
@@ -358,7 +393,7 @@ const PRACTICE = (() => {
     scales:      { kind:'scale', pool:['major','minor','majorPent','minorPent','blues'], roots:[55,57,60] },
     modes:       { kind:'scale', pool:T.MODE_ORDER, roots:[55,57,60] },
     chords:      { kind:'chord', pool:['maj','min','dim','aug'], roots:[55,57,60] },
-    progressions:{ kind:'progression', root:48, type:'major',
+    progressions:{ kind:'progression', roots:[48,50,52,53], type:'major',
                    pool:[[1,5,6,4],[6,4,1,5],[1,4,5,1],[2,5,1,1],[1,6,4,5]] },
     'adv-intervals': { kind:'interval', pool:[1,2,3,4,5,6,7,8,9,10,11,12], roots:[55,57,60] },
     sevenths:    { kind:'chord', pool:['maj7','min7','dom7','m7b5','dim7','minMaj7'], roots:[55,57,60] },
@@ -371,5 +406,6 @@ const PRACTICE = (() => {
   const plan = lessons => lessons.forEach(L => { if (PLAN[L.id]) L.practice = PLAN[L.id]; });
 
   return { build, record, misses, forLesson, entries, trend, clear, MAKERS, plan, PLAN,
+           queued, RHYTHMS,
            get log() { return log; } };
 })();

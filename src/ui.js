@@ -153,6 +153,14 @@ const APP = (() => {
     if (dt) dt.textContent = total ? right + ' / ' + total + ' right' : 'not started';
     const db = $('#drillBar');
     if (db) db.style.width = (total ? 100 * right / total : 0) + '%';
+    const rb = $('#reviewBtn');
+    if (rb && typeof PRACTICE !== 'undefined') {
+      const n = PRACTICE.misses().length;
+      rb.hidden = !n && !PRACTICE.entries().length;
+      rb.textContent = n ? '↻ Review ' + n + (n === 1 ? ' miss' : ' misses')
+                         : '↻ Review · all clear';
+      rb.classList.toggle('primary', n > 0);
+    }
     document.querySelectorAll('#nav button').forEach(b => {
       b.classList.toggle('done', !!done[b.dataset.id]);
       const t = drillTally(b.dataset.id);
@@ -233,8 +241,9 @@ const APP = (() => {
   /* things to undo before the page is rebuilt — a practice round that has
      borrowed a drum lane puts it back here rather than saving it by accident */
   let leaving = [];
-  function render() {
-    const L = LESSONS[idx];
+  /* Reset the stage and hand back the object every lesson — and the review —
+     talks to it through. */
+  function openStage(L) {
     leaving.forEach(fn => { try { fn(); } catch (e) {} });
     leaving = [];
     clearTimers(); transport.stop();
@@ -244,7 +253,6 @@ const APP = (() => {
     $('#readout').textContent = 'loading…';
 
     const v = V.set(L.stage.view, L.stage.cfg || {});
-
     const ctx = {
       v, L, T, A, UI, transport, later,
       read: t => { $('#readout').textContent = t; },
@@ -265,6 +273,12 @@ const APP = (() => {
         saveDrills(); progress();
       }
     };
+    return ctx;
+  }
+
+  function render() {
+    const L = LESSONS[idx];
+    const ctx = openStage(L);
 
     /* ── prose ── */
     const S = (mode === 'simple' && L.simple) ? L.simple : null;
@@ -571,10 +585,103 @@ const APP = (() => {
     host.appendChild(wrap);
   }
 
+  /* ── Review: the concepts you have missed, asked again with fresh notes ──
+     A concept leaves this list after three right answers in a row, so the page
+     empties as the gaps close rather than nagging forever. */
+  function renderReview() {
+    const due = PRACTICE.misses();
+    const L = { id:'review', title:'Review', tag:'Review',
+                hint:'Your misses, with different notes each time',
+                stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } } };
+    const ctx = openStage(L);
+    ctx.read(due.length ? due.length + ' to revisit' : 'nothing to revisit');
+    progress();
+
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap');
+    w.appendChild(UI.html('div', 'crumb', '<b>Review</b> &nbsp;·&nbsp; what you have missed'));
+    w.appendChild(UI.html('h2', null, 'Come back to the hard bits'));
+
+    if (!due.length) {
+      w.appendChild(UI.html('p', 'lede', PRACTICE.entries().length
+        ? 'Nothing is waiting. Everything you have missed has since come back right ' +
+          'three times in a row, which is the point at which it counts as learned.'
+        : 'Nothing here yet. Play a practice round at the bottom of any lesson — ' +
+          'whatever you get wrong turns up on this page with different notes.'));
+      const back = UI.btn('Go to a lesson →', () => go(idx), { primary:true });
+      w.appendChild(UI.row(back));
+      const past = PRACTICE.entries();
+      if (past.length) w.appendChild(scoreTable(past, 'Everything you have practised'));
+      art.appendChild(w);
+      return;
+    }
+
+    w.appendChild(UI.html('p', 'lede',
+      'These are the ideas you have got wrong at least once. Each round below asks the ' +
+      'same question with different notes — the thing you are learning is the relationship, ' +
+      'not one shape in one place.'));
+    w.appendChild(scoreTable(due, 'Waiting for you'));
+
+    const p = UI.el('div', 'panel try practice-panel');
+    p.appendChild(UI.html('h4', null, 'Work through them'));
+    const host = UI.el('div');
+    p.appendChild(host);
+    w.appendChild(p);
+    art.appendChild(w);
+
+    host.appendChild(PRACTICE.build(ctx, {
+      queue:due,
+      /* each concept belongs to an instrument — put that one on the stage */
+      onStage: cur => {
+        const owner = LESSONS.filter(x => x.id === cur.lesson)[0];
+        if (!owner) return;
+        const want = owner.stage.view, cfg = owner.stage.cfg || {};
+        ctx.v = V.set(want, cfg);
+        ctx.hint(owner.hint || '');
+        $('#hudTag').textContent = owner.title;
+        if (want === 'grid') ctx.v.clearAll();
+        ctx.syncA11y();
+      },
+      onDone: () => { renderReview(); }
+    }));
+  }
+
+  /* what each concept's record looks like, and whether it is getting better */
+  function scoreTable(list, heading) {
+    const box = UI.el('div', 'panel');
+    box.appendChild(UI.html('h4', null, heading));
+    const tw = UI.el('div', 'tablewrap'), t = UI.el('table');
+    const hd = UI.el('thead'), hr = UI.el('tr');
+    ['What', 'From', 'Right', 'Wrong', 'Recent', 'Trend'].forEach(h =>
+      hr.appendChild(UI.html('th', null, h)));
+    hd.appendChild(hr); t.appendChild(hd);
+    const tb = UI.el('tbody');
+    list.forEach(e => {
+      const owner = LESSONS.filter(x => x.id === e.lesson)[0];
+      const tr = UI.el('tr');
+      const tn = PRACTICE.trend(e);
+      const cells = [
+        e.label,
+        owner ? owner.title : e.lesson,
+        String(e.right), String(e.wrong),
+        (e.runs || []).slice(-6).map(x => x ? '✓' : '✗').join(' ') || '—',
+        tn ? (tn.from + '% → ' + tn.to + '%') : '—'
+      ];
+      cells.forEach((c, i) => tr.appendChild(UI.html('td', i === 0 ? 'hi' : null, c)));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); tw.appendChild(t); box.appendChild(tw);
+    return box;
+  }
+
   function go(i) {
+    reviewing = false;
     idx = Math.max(0, Math.min(LESSONS.length - 1, i));
     render();
   }
+  let reviewing = false;
+  function openReview() { reviewing = true; renderReview(); closeRail(); }
   const closeRail = () => {
     $('#rail').dataset.open = 'false';
     $('#scrim').dataset.open = 'false';
@@ -610,6 +717,8 @@ const APP = (() => {
       $('#menuBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
     });
     $('#scrim').addEventListener('click', closeRail);
+    const rb = $('#reviewBtn');
+    if (rb) rb.addEventListener('click', () => { A.resume(); openReview(); });
     document.addEventListener('keydown', e => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
       if (e.key === 'ArrowRight' && e.altKey) go(idx + 1);

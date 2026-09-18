@@ -373,5 +373,53 @@ head('Practice rounds');
   PRACTICE.clear();
 }
 
+/* ═══ 8. review asks the same concept again, with different notes ═══ */
+head('Mistake review');
+{
+  PRACTICE.clear();
+  const missed = [
+    { lesson:'intervals', kind:'interval', concept:'3', label:'minor 3rd' },
+    { lesson:'chords', kind:'chord', concept:'dim', label:'diminished' },
+    { lesson:'modes', kind:'scale', concept:'dorian', label:'Dorian' },
+    { lesson:'grid', kind:'rhythm', concept:'dembow', label:'dembow (3+3+2)' },
+    { lesson:'progressions', kind:'progression', concept:'6415', label:'vi – IV – I – V' }
+  ];
+  missed.forEach(m => PRACTICE.record(m.lesson, m.kind, m.concept, m.label, false));
+  const due = PRACTICE.misses();
+  eq(due.length, missed.length, 'every missed concept is queued for review');
+
+  due.forEach(e => {
+    const cfg = PRACTICE.queued(e);
+    const seen = {};
+    let wrongConcept = 0, missingOption = 0;
+    for (let i = 0; i < 60; i++) {
+      const q = PRACTICE.MAKERS[cfg.kind](cfg, cfg.only);
+      if (String(q.concept) !== String(e.concept)) wrongConcept++;
+      if (q.options.indexOf(q.answer) < 0) missingOption++;
+      seen[JSON.stringify(q.notes || q.pattern)] = 1;
+    }
+    eq(wrongConcept, 0, e.label + ': review asks about that exact concept');
+    eq(missingOption, 0, e.label + ': and it is still one of several options');
+    /* rhythms are a fixed pattern; anything pitched should move around */
+    if (cfg.kind !== 'rhythm') {
+      ok(Object.keys(seen).length > 1,
+         e.label + ': with different notes each time (' + Object.keys(seen).length + ' variants)');
+    }
+    ok(q_options_plural(cfg, e), e.label + ': the answer is not the only choice offered');
+  });
+
+  function q_options_plural(cfg, e) {
+    const q = PRACTICE.MAKERS[cfg.kind](cfg, cfg.only);
+    return q.options.length > 1;
+  }
+
+  /* a concept the lesson's own pool does not contain is still reviewable */
+  const odd = PRACTICE.queued({ lesson:'chords', kind:'chord', concept:'min7', label:'minor 7th' });
+  const q = PRACTICE.MAKERS.chord(odd, odd.only);
+  eq(q.concept, 'min7', 'a concept outside the lesson pool can still be asked');
+  ok(q.options.indexOf(q.answer) >= 0, 'and it is added to the options');
+  PRACTICE.clear();
+}
+
 console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));
 process.exit(fail ? 1 : 0);
