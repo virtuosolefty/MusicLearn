@@ -173,15 +173,24 @@ const APP = (() => {
     });
   }
 
+  /* the sidebar is the curriculum: stages, in the order they are taught */
+  const partName = L => (typeof CURRICULUM !== 'undefined' && L.part)
+    ? CURRICULUM.part(L.part).name
+    : 'Level ' + L.level;
   function buildNav() {
     const nav = $('#nav');
     nav.innerHTML = '';
-    let lvl = null;
+    let seen = null;
     LESSONS.forEach((L, i) => {
-      if (L.level !== lvl) {
-        lvl = L.level;
+      const key = L.part || L.level;
+      if (key !== seen) {
+        seen = key;
+        const st = (typeof CURRICULUM !== 'undefined' && L.part) ? CURRICULUM.part(L.part) : null;
         const h = UI.el('div', 'lvl');
-        h.innerHTML = '<b>Level ' + lvl + '</b> · ' + ['Fundamentals','Harmony','Pro moves'][lvl - 1];
+        h.innerHTML = st
+          ? '<b>' + (CURRICULUM.partIndex(L.part) + 1) + '</b> · ' + st.name
+          : '<b>Level ' + L.level + '</b>';
+        if (st) h.title = st.blurb;
         nav.appendChild(h);
       }
       const b = UI.el('button');
@@ -216,7 +225,7 @@ const APP = (() => {
   /* Identity of a quiz question: its text plus its options. Two questions that
      read identically in both modes share one record; different ones never do. */
   function qKey(Q) {
-    const s = String(Q.q) + ' ' + (Q.a || []).join(' ');
+    const s = String(Q.q) + '\u0000' + (Q.a || []).join('\u0000');
     let h = 5381;
     for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
     return 'q' + h.toString(36);
@@ -316,7 +325,7 @@ const APP = (() => {
     w.appendChild(bar);
 
     const crumb = UI.html('div', 'crumb',
-      '<b>Level ' + L.level + '</b> &nbsp;·&nbsp; Lesson ' + (idx + 1) + ' of ' + LESSONS.length +
+      '<b>' + partName(L) + '</b> &nbsp;·&nbsp; Lesson ' + (idx + 1) + ' of ' + LESSONS.length +
       ' &nbsp;·&nbsp; ' + L.tag);
     w.appendChild(crumb);
     w.appendChild(UI.html('h2', null, L.title));
@@ -836,5 +845,15 @@ const APP = (() => {
     new ResizeObserver(() => { if (V.resize) V.resize(); fitFlat(); })
       .observe(document.querySelector('#stage'));
   }
-  return { boot, go, qKey, get idx() { return idx; } };
+  /* called when the local server hands over a record after the app booted */
+  function rehydrate() {
+    load(); loadMode(); loadDrills(); loadTheme();
+    applyTheme(); progress(); render();
+    const el = $('#synced');
+    if (el && typeof SYNC !== 'undefined' && SYNC.on) {
+      el.hidden = false;
+      el.textContent = 'Saving to your local server' + (SYNC.user ? ' \u00B7 ' + SYNC.user.name : '');
+    }
+  }
+  return { boot, go, qKey, rehydrate, get idx() { return idx; } };
 })();

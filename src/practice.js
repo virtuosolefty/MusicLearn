@@ -31,6 +31,10 @@ const PRACTICE = (() => {
     if (e.runs.length > 12) e.runs = e.runs.slice(-12);
     e.seen = Date.now();
     save();
+    /* the server, when there is one, keeps mastery and the review schedule */
+    if (typeof SYNC !== 'undefined' && SYNC.on) {
+      SYNC.attempt({ lesson:lessonId, kind, concept, label, ok:!!ok });
+    }
     return e;
   }
   const entries = () => Object.keys(log).map(k => log[k]);
@@ -401,7 +405,12 @@ const PRACTICE = (() => {
     suspensions: { kind:'chord', pool:['sus2','sus4','maj','min'], roots:[55,57,60] },
     'dom-dim-aug': { kind:'chord', pool:['dom7','dim7','aug','m7b5'], roots:[55,57,60] },
     'harmonic-minor': { kind:'scale', pool:['minor','harmonicMinor','melodicMinor','phrygianDom'],
-                        roots:[55,57,60] }
+                        roots:[55,57,60] },
+    /* bass moves: the distances a bassline actually walks */
+    bassline:    { kind:'interval', pool:[0,5,7,12], roots:[40,43,45],
+                   p:'Root, 4th, 5th, octave \u2014 four distances, and most basslines are made of them.' },
+    velocity:    { kind:'rhythm', lane:2, laneName:'hat', sound:'hat',
+                   p:'Name the pattern, then place it. Velocity is what you bring to it afterwards.' }
   };
   const plan = lessons => lessons.forEach(L => { if (PLAN[L.id]) L.practice = PLAN[L.id]; });
 

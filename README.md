@@ -1,6 +1,6 @@
 # MusicLearn — Producer Theory Lab
 
-An interactive music theory course for producers. Twenty-two lessons, each attached to an
+An interactive music theory course for producers. Twenty-six lessons, each attached to an
 instrument you can play, with every sound generated live in the browser. No build step, no
 framework, no dependencies to install — it is one HTML file, a stylesheet, and eleven scripts.
 
@@ -51,15 +51,26 @@ contrasts with that key.
 
 ## Curriculum
 
-**Level 1 · Fundamentals** — The Grid · Strong and Weak Beats · Simple and Compound Meter ·
-The Piano Roll · Intervals · Scales · Modes · Building Chords · Progressions That Work
+The path is built around making music, not around theory's own internal order: chords, a
+bassline and a tune arrive before modes and extensions, and there is a capstone where the four
+layers meet. `src/curriculum.js` holds the whole journey in one screen — change the order there,
+never in a lesson.
 
-**Level 2 · Harmony** — Advanced Intervals · Seventh Chords · Chord Extensions · Suspensions ·
-Inversions and Voicing · Dominant, Diminished, Augmented · Harmonic Minor · Borrowed and
-Chromatic Chords
+| Stage | Lessons |
+| --- | --- |
+| **1 · Start Making Music** | The Grid · Strong and Weak Beats · Simple and Compound Meter · The Piano Roll |
+| **2 · Notes & Keys** | Intervals · Scales |
+| **3 · Build Your First Track** | Building Chords · Progressions That Work · **Basslines** · Melody Craft |
+| **4 · Make It Musical** | Melody Over Chords · **Velocity and Groove** |
+| **5 · Finish an 8-Bar Idea** | **Build an 8-Bar Idea** · **Song Structure** |
+| **6 · Harmony Toolkit** | Inversions and Voicing · Seventh Chords · Suspensions · Chord Extensions |
+| **7 · Advanced Producer Theory** | Modes · Advanced Intervals · Harmonic Minor · Dominant, Diminished, Augmented · Borrowed and Chromatic Chords · The Circle of Fifths |
+| **8 · Ear & Production Skills** | A Cure for Beat-Block · Challenges |
 
-**Level 3 · Pro moves** — The Circle of Fifths · Melody Craft · Melody Over Chords ·
-A Cure for Beat-Block · Challenges (ear-training drills)
+The four chapters in bold are new: the bassline and arrangement material the course was missing,
+velocity and groove as a first-class topic rather than a footnote, and a capstone that checks
+your eight bars against a real list and exports the whole loop — drums, bass, chords and your
+melody — as a MIDI file.
 
 Progress is remembered per browser, and each lesson ends with self-check questions that explain
 the answer either way.
@@ -130,12 +141,56 @@ node build.js --artifact   # → dist/artifact.html     body-only, for claude.ai
 `dist/musiclearn.html` is committed so you can grab the whole app as one file; the artifact
 variant is generated on demand and not tracked.
 
+## Optional: keep your progress with the local server
+
+The app is happy with no backend at all — everything falls back to `localStorage`. Run the
+server when you want progress, mastery and saved ideas to outlive a cleared browser, or to be
+shared between browsers on the same machine.
+
+```bash
+npm start            # or: node server/index.js   →  http://localhost:8787
+```
+
+No dependencies and nothing to install: it is `server/index.js` plus `server/store.js`, and the
+whole database is a readable JSON file at `server/data/musiclearn.json`.
+
+Open `http://localhost:8787` and the sidebar says *Saving to your local server*. Nothing else
+changes. Wipe your browser storage, reload, and your lessons, drill answers and preferences come
+back.
+
+**Entities** — the model a real backend would need, already in place:
+
+| Entity | What it holds |
+| --- | --- |
+| `User` | who is learning (no auth: it is localhost) |
+| `Skill` | one thing worth knowing — an interval, a chord type, a scale degree |
+| `Attempt` | one answer, right or wrong, with when and how long it took |
+| `SkillMastery` | accuracy, recent form and recency, rolled into one 0–1 number |
+| `ReviewSchedule` | when that skill is next due — right answers push it out, a wrong one brings it back to today |
+| `Project` | something you made and kept |
+| `Session` | one row per day practised, which is what a streak is |
+
+**API** — `GET /api/health`, `GET|POST /api/users`, `PUT /api/users/:id`,
+`GET /api/profile/:id`, `PUT /api/progress/:id`, `POST /api/attempts/:id`,
+`GET /api/review/:id`, `GET|POST /api/projects/:id`, `DELETE /api/projects/:id/:projectId`,
+`GET /api/stats/:id`.
+
+**Swapping the storage** — `server/store.js` is one object with one set of methods. A Postgres
+or Supabase version means writing another object with the same methods; nothing above that file
+knows how rows are kept. The two formulas that decide what you practise next (mastery, and the
+review ladder) live there too, documented and unit-tested.
+
 ## Layout
 
 ```
 index.html              the app shell — markup, fonts, script order
 build.js                single-file bundler
-test/check-theory.js    theory and lesson-data assertions across all twelve keys
+server/index.js         optional local server: serves the app and a small JSON API
+server/store.js         storage + the mastery and review formulas (swap this for a database)
+src/sync.js             optional client: mirrors progress to that server, no-ops without it
+src/curriculum.js       the journey — stages and lesson order, in one screen
+test/check-theory.js    theory, curriculum and lesson-data assertions across all twelve keys
+test/check-api.js       the server: every endpoint, plus the mastery and scheduling maths
 test/check-behaviour.js what the lessons DO — mode switches, presets, controls, MIDI, practice
 src/styles.css          design tokens; light palette on :root, dark under the toggle + media query
 src/theory.js           T = pitch/scale/chord maths · A = synth, drum voices, look-ahead clock
@@ -207,8 +262,10 @@ contradicts the notes it plays. Note names are spelled by letter degree, which i
 reads C–E♭–G rather than C–D♯–G.
 
 ```bash
-node test/check-theory.js      # 581 assertions, all twelve keys
-node test/check-behaviour.js   # 656 assertions, what the lessons do
+npm test                      # all three suites
+node test/check-theory.js     # 765 assertions: theory in all twelve keys, plus the curriculum
+node test/check-behaviour.js  # 674 assertions: lesson wiring, practice, review, flat view
+node test/check-api.js        # 43 assertions: the server and its two formulas
 ```
 
 The first covers the engine in every key plus the lesson data (answer indices in range, distinct
@@ -230,7 +287,7 @@ things that break when two parts of the app describe the same thing differently:
 - the MIDI it writes decodes back to the notes, channels and tempo it claims;
 - every ear-training drill records a concept the review knows how to ask again.
 
-All 22 lessons are also walked in a headless browser in both reading levels, both themes and both
+All 26 lessons are also walked in a headless browser in both reading levels, both themes and both
 instrument views, clicking every control and every quiz option.
 
 What it does not cover: pedagogy, lesson ordering and the wording of explanations — this has not
@@ -246,8 +303,10 @@ Honest list of what this is not, so nobody is misled:
 - **Eight lessons have no practice round.** The fourteen whose own instrument can express what
   they teach have one. Meter, inversions, borrowed chords, the circle and the three melody
   lessons do not — their ideas need a build step that has not been designed yet.
-- **The beginner path is harmony-heavy.** Pulse, subdivision, note length and rests come first,
-  but melody and bass writing arrive late — after modes and extensions rather than before them.
+- **Practice does not cover every lesson.** Sixteen of the twenty-six carry a hear-it/name-it/
+  build-it round; the rest end at the quiz.
+- **No spaced review in the browser yet.** The local server computes mastery and next-review
+  dates, but the app does not yet schedule a daily workout from them.
 - **Saved work is per browser.** Ideas and progress live in `localStorage`: no account, no sync,
   and clearing site data clears them. MIDI export is the way to take work with you.
 - **Nothing is scheduled.** The review shows what you have missed, but there is no spacing

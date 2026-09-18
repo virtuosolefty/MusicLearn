@@ -98,7 +98,9 @@ const studioSrc = read('src/studio.js');
 const flatSrc = read('src/flat.js');
 const scenesSrc = read('src/scenes.js');
 const lessonSrc = ['src/lessons-level1.js','src/lessons-level2.js','src/lessons-level3.js',
-                   'src/simple-level1.js','src/simple-level2.js'].map(read).join('\n');
+                   'src/simple-level1.js','src/simple-level2.js',
+                   'src/lessons-production.js','src/simple-production.js',
+                   'src/curriculum.js'].map(read).join('\n');
 
 const heard = [];            /* every pitch the audio engine was asked to play */
 const Amock = {

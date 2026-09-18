@@ -1,0 +1,15 @@
+{
+  "name": "musiclearn",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An interactive music theory course for producers — 3D instruments, live Web Audio, and a practice engine.",
+  "homepage": "https://virtuosolefty.github.io/MusicLearn/",
+  "repository": { "type": "git", "url": "https://github.com/virtuosolefty/MusicLearn.git" },
+  "scripts": {
+    "start": "node server/index.js",
+    "serve": "node server/index.js",
+    "build": "node build.js && node build.js --artifact",
+    "test": "node test/check-theory.js && node test/check-behaviour.js && node test/check-api.js"
+  },
+  "engines": { "node": ">=18" }
+}

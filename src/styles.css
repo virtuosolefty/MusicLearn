@@ -432,3 +432,14 @@ td.hi{color:var(--accent-2)}
   .a11y > summary{padding:10px 16px}
   #a11yBody{padding:4px 16px 18px}
 }
+
+/* shown only when the local server is running */
+.synced{
+  margin-top:10px;font-family:"Bricolage Grotesque",sans-serif;font-size:10.5px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--accent-2);
+  display:flex;align-items:center;gap:6px;
+}
+.synced::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft);
+}

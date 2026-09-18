@@ -21,11 +21,13 @@ global.document = { createElement:() => ({ getContext:() => ({
 const theory = read('src/theory.js');
 const { T } = new Function(theory + '\nreturn { T };')();
 const lessonSrc = ['src/lessons-level1.js','src/lessons-level2.js','src/lessons-level3.js',
-                   'src/simple-level1.js','src/simple-level2.js'].map(read).join('\n');
-const { LESSONS } = new Function(theory + '\n' +
+                   'src/simple-level1.js','src/simple-level2.js',
+                   'src/lessons-production.js','src/simple-production.js',
+                   'src/curriculum.js'].map(read).join('\n');
+const { LESSONS, CURRICULUM } = new Function(theory + '\n' +
   read('src/ui.js').replace(/^const APP[\s\S]*$/m, '') + '\n' +
   'const V = { set:()=>({}), a11y:()=>null, setTheme:()=>{} };\n' +
-  lessonSrc + '\nreturn { LESSONS };')();
+  lessonSrc + '\nreturn { LESSONS, CURRICULUM };')();
 
 let fail = 0, pass = 0;
 const eq = (got, want, label) => {
@@ -92,7 +94,7 @@ Object.keys(T.CHORDS).forEach(k => {
 
 /* ── 5. lesson data integrity ── */
 head('Lesson data');
-ok(LESSONS.length === 22, '22 lessons present');
+ok(LESSONS.length === 26, '26 lessons present');
 const ids = LESSONS.map(l => l.id);
 ok(new Set(ids).size === ids.length, 'lesson ids are unique');
 LESSONS.forEach(L => {
@@ -113,6 +115,33 @@ LESSONS.forEach(L => {
     }
   }));
 });
+
+/* ── 5b. the curriculum path ── */
+head('Curriculum');
+const ids2 = LESSONS.map(l => l.id);
+const journey = [];
+CURRICULUM.STAGES.forEach(s2 => (CURRICULUM.PATH[s2.id] || []).forEach(id => journey.push(id)));
+ok(new Set(journey).size === journey.length, 'no lesson appears twice in the path');
+journey.forEach(id => ok(ids2.indexOf(id) >= 0, 'path entry "' + id + '" is a real lesson'));
+ids2.forEach(id => ok(journey.indexOf(id) >= 0, 'lesson "' + id + '" has a place in the path'));
+eq(LESSONS.length, journey.length, 'every lesson is on the path exactly once');
+/* the journey must actually be in stage order after apply() */
+let last = -1;
+LESSONS.forEach(L => {
+  const i = CURRICULUM.partIndex(L.part);
+  ok(i >= last, L.id + ' does not go backwards through the stages');
+  last = i;
+  ok(L.stage && L.stage.view, L.id + ': still has its 3D stage descriptor');
+});
+/* making music before theory about making music */
+const at = id => ids2.indexOf(id);
+ok(at('chords') < at('sevenths'), 'plain chords come before seventh chords');
+ok(at('bassline') < at('modes'), 'basslines come before modes');
+ok(at('melody') < at('extensions'), 'melody comes before chord extensions');
+ok(at('eightbar') < at('toolkit') || at('eightbar') < at('inversions'),
+   'the capstone comes before the harmony toolkit');
+ok(at('structure') < at('circle'), 'song structure comes before the circle of fifths');
+ok(at('velocity') > at('grid'), 'velocity comes after the grid that it varies');
 
 /* ── 6. no lesson text may claim the plain V triad holds a tritone ── */
 head('Claims');

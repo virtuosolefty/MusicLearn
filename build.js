@@ -28,7 +28,10 @@ const head = html.match(/<head>([\s\S]*?)<\/head>/)[1]
 
 const body = html.match(/<body>([\s\S]*?)<\/body>/)[1]
   .replace(/<script src="src\/[^"]+"><\/script>\s*/g, '')
-  .replace(/<script>APP\.boot\(\);<\/script>/, '<script>\n' + js + '\nAPP.boot();\n</script>')
+  /* the boot block may carry logic of its own (the optional sync step),
+     so keep whatever is in it and put the bundle in front */
+  .replace(/<script>([\s\S]*?APP\.boot\([\s\S]*?)<\/script>/,
+    (m, inner) => '<script>\n' + js + '\n' + inner.trim() + '\n</script>')
   .trim();
 
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });

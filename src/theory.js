@@ -286,32 +286,38 @@ const A = (() => {
   }
 
   /* Percussive click for the metronome / grid. */
-  function click(kind = 'weak', when) {
+  /* `vel` is 0..1 and scales the hit the way MIDI velocity would: quieter,
+     and — because real drums do this — a little duller as it softens. */
+  function click(kind = 'weak', when, vel) {
     if (!resume()) return;
     const t0 = when != null ? when : ctx.currentTime + 0.01;
+    const v = vel == null ? 1 : Math.max(0.04, Math.min(1, vel));
     if (kind === 'kick') {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.frequency.setValueAtTime(155, t0);
       o.frequency.exponentialRampToValueAtTime(48, t0 + 0.11);
-      g.gain.setValueAtTime(0.9, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25);
+      g.gain.setValueAtTime(0.9 * v, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1 + 0.15 * v);
       o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.3); return;
     }
     if (kind === 'snare' || kind === 'hat') {
-      const len = kind === 'snare' ? 0.16 : 0.045;
+      const len = (kind === 'snare' ? 0.16 : 0.045) * (0.55 + 0.45 * v);
       const b = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
       const d = b.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, kind === 'snare' ? 2 : 1.2);
       const s = ctx.createBufferSource(); s.buffer = b;
       const hp = ctx.createBiquadFilter(); hp.type = 'highpass';
       hp.frequency.value = kind === 'snare' ? 1400 : 7000;
-      const g = ctx.createGain(); g.gain.value = kind === 'snare' ? 0.5 : 0.22;
-      s.connect(hp); hp.connect(g); g.connect(master); s.start(t0); return;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+      lp.frequency.value = 2000 + 12000 * v;          /* soft hits lose their top */
+      const g = ctx.createGain(); g.gain.value = (kind === 'snare' ? 0.5 : 0.22) * v;
+      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); s.start(t0); return;
     }
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = 'square';
     o.frequency.value = kind === 'strong' ? 1500 : kind === 'mid' ? 1100 : 820;
-    const v = kind === 'strong' ? 0.3 : kind === 'mid' ? 0.19 : 0.11;
-    g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
+    const amp = (kind === 'strong' ? 0.3 : kind === 'mid' ? 0.19 : 0.11) * v;
+    g.gain.setValueAtTime(amp, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
     o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.06);
   }
 

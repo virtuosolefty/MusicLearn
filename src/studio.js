@@ -55,7 +55,13 @@ const STUDIO = (() => {
     return new Uint8Array(bytes);
   }
 
+  /* The artifact viewer on claude.ai blocks page-initiated downloads, so a
+     link there silently does nothing. Detect it and let the caller say so. */
+  const canDownload = () => {
+    try { return typeof window.claude === 'undefined'; } catch (e) { return true; }
+  };
   function download(bytes, filename) {
+    if (!canDownload()) return false;
     try {
       const blob = new Blob([bytes], { type:'audio/midi' });
       const url = URL.createObjectURL(blob);
@@ -271,6 +277,6 @@ const STUDIO = (() => {
     return wrap;
   }
 
-  return { build, midi, download, notesFrom, history, put, drop, forLesson, DRUM, PPQ,
+  return { build, midi, download, canDownload, notesFrom, history, put, drop, forLesson, DRUM, PPQ,
            get saves() { return saves; } };
 })();

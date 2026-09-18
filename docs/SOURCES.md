@@ -41,6 +41,15 @@ Two further conventions worth stating, because they are common sources of confus
   is always two letters above its root. D♯ is the same key on a keyboard and the wrong name in
   that chord.
 
+## Curriculum shape
+
+The order of the lessons follows the way production courses teach rather than the way theory
+books are organised: make something recognisable early, then widen. The stages, and the decision
+to bring basslines, arrangement and a capstone forward of modes and extensions, follow the
+sequencing used by [Ableton's Learning Music](https://learningmusic.ableton.com/) (beats → notes
+→ chords → basslines → melodies → song structure). The whole path lives in `src/curriculum.js`
+and is asserted by `test/check-theory.js`, so it cannot drift from what the app actually shows.
+
 ## References
 
 Used while writing and correcting these lessons:
@@ -55,7 +64,10 @@ Used while writing and correcting these lessons:
 - [musictheory.net exercises](https://www.musictheory.net/exercises) — the model for
   adjustable-difficulty identification and ear-training drills.
 - [Ableton Learning Music](https://learningmusic.ableton.com/) — the model for short
-  explain-then-try cycles aimed at producers.
+  explain-then-try cycles aimed at producers, and for the order of the curriculum.
+- [Melodics](https://melodics.com/) — the model for deliberate practice: tempo scaling, looping a
+  section, and explicit early/late/missed feedback. Not yet implemented here; see the README's
+  known gaps.
 
 Curriculum shape follows the Red Bow Music *"All The Music Theory A Producer Needs"* syllabus
 (Levels 1–3). None of that course's material is reproduced here; the explanations, examples and
@@ -67,6 +79,15 @@ Found something wrong? Please
 [open an issue](https://github.com/virtuosolefty/MusicLearn/issues/new) with the lesson name,
 what it showed, and what it should show. Corrections to the theory engine are the most valuable,
 because everything the lessons display is derived from it.
+
+### Chapters added after review
+
+| Chapter | Why it was missing |
+|---|---|
+| Basslines | The course taught chords and melody with nothing about the part that names the chord and locks to the kick. |
+| Velocity and Groove | Velocity was mentioned once, in the piano-roll lesson, as a note-property rather than as the thing that separates a programmed beat from a played one. |
+| Build an 8-Bar Idea | Nothing brought drums, bass, chords and melody together, so nobody finished anything. It now checks your eight bars and exports them as MIDI. |
+| Song Structure | Arrangement was absent entirely — the step between a loop and a track. |
 
 ### Corrections already applied
 

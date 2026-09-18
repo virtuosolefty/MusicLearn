@@ -26,11 +26,12 @@
       </div>
     </div>
     <div class="prog">
-      <div class="prog-row"><span>Lessons</span><span class="mono" id="progTxt">0 / 22</span></div>
+      <div class="prog-row"><span>Lessons</span><span class="mono" id="progTxt">0 / 26</span></div>
       <div class="prog-bar"><i id="progBar"></i></div>
       <div class="prog-row" style="margin-top:11px"><span>Drills</span><span class="mono" id="drillTxt">not started</span></div>
       <div class="prog-bar"><i id="drillBar"></i></div>
       <button class="b review-btn" id="reviewBtn" type="button" hidden></button>
+      <div class="synced" id="synced" hidden></div>
     </div>
     <nav class="nav" id="nav" aria-label="Lessons"></nav>
     <div class="rail-foot">
@@ -64,6 +65,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>if(!window.THREE){document.write('<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/scr'+'ipt>')}</script>
+<script src="src/sync.js"></script>
 <script src="src/theory.js"></script>
 <script src="src/scenes.js"></script>
 <script src="src/ui.js"></script>
@@ -75,7 +77,13 @@
 <script src="src/lessons-level3.js"></script>
 <script src="src/simple-level1.js"></script>
 <script src="src/simple-level2.js"></script>
-<script>APP.boot();</script>
+<script src="src/lessons-production.js"></script>
+<script src="src/simple-production.js"></script>
+<script src="src/curriculum.js"></script>
+<script>
+/* the local server, when there is one, hydrates before the app reads storage */
+if (typeof SYNC !== "undefined") SYNC.start(function () { APP.boot(); }); else APP.boot();
+</script>
 
 </body>
 </html>

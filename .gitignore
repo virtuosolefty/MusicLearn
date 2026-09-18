@@ -4,3 +4,6 @@ node_modules/
 
 # only the standalone single-file build is committed
 dist/artifact.html
+
+# the local server's records — one learner's own data, not source
+server/data/

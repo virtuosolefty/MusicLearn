@@ -444,6 +444,17 @@ td.hi{color:var(--accent-2)}
   #a11yBody{padding:4px 16px 18px}
 }
 
+/* shown only when the local server is running */
+.synced{
+  margin-top:10px;font-family:"Bricolage Grotesque",sans-serif;font-size:10.5px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--accent-2);
+  display:flex;align-items:center;gap:6px;
+}
+.synced::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft);
+}
+
 </style>
 </head>
 <body>
@@ -461,11 +472,12 @@ td.hi{color:var(--accent-2)}
       </div>
     </div>
     <div class="prog">
-      <div class="prog-row"><span>Lessons</span><span class="mono" id="progTxt">0 / 22</span></div>
+      <div class="prog-row"><span>Lessons</span><span class="mono" id="progTxt">0 / 26</span></div>
       <div class="prog-bar"><i id="progBar"></i></div>
       <div class="prog-row" style="margin-top:11px"><span>Drills</span><span class="mono" id="drillTxt">not started</span></div>
       <div class="prog-bar"><i id="drillBar"></i></div>
       <button class="b review-btn" id="reviewBtn" type="button" hidden></button>
+      <div class="synced" id="synced" hidden></div>
     </div>
     <nav class="nav" id="nav" aria-label="Lessons"></nav>
     <div class="rail-foot">
@@ -498,8 +510,169 @@ td.hi{color:var(--accent-2)}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script>if(!window.THREE){document.write('<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/scr'+'ipt>')}</script>
 <script>
+/* ── src/sync.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   SYNC — optional. Talks to the local server when one is running.
+
+   The app is built to work with no backend at all, and that stays true:
+   if nothing answers /api/health, this module does nothing and every
+   other module carries on reading and writing localStorage.
+
+   When the server IS there, it becomes the source of truth:
+     · on boot, the saved record is pulled down into localStorage before
+       the app reads it, so a new browser picks up where you left off
+     · every later write to those keys is pushed back, debounced
+     · practice attempts are posted individually, which is what feeds
+       mastery and the review schedule on the server
+
+   Nothing here blocks the app for more than `TIMEOUT` milliseconds.
+   ═══════════════════════════════════════════════════════════════ */
+const SYNC = (() => {
+  const TIMEOUT = 900;
+  const KEYS = {
+    lessons:'rbx-theory-progress-v1',
+    drills:'rbx-theory-drills-v2',
+    practice:'rbx-theory-practice-v1',
+    saves:'rbx-theory-saves-v1',
+    mode:'rbx-theory-mode-v1',
+    theme:'rbx-theory-theme-v1',
+    flat:'rbx-theory-flat-v1'
+  };
+  const UID = 'rbx-theory-user-v1';
+  let base = '', on = false, uid = null, me = null, timer = null;
+
+  const read = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const write = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const parse = (k, d) => { try { return JSON.parse(read(k) || '') ?? d; } catch (e) { return d; } };
+
+  function ask(path, opt) {
+    opt = opt || {};
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const t = setTimeout(() => ctl && ctl.abort(), opt.timeout || TIMEOUT);
+    return fetch(base + path, {
+      method:opt.method || 'GET',
+      headers:{ 'Content-Type':'application/json' },
+      body:opt.body ? JSON.stringify(opt.body) : undefined,
+      signal:ctl ? ctl.signal : undefined
+    }).then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
+      .finally(() => clearTimeout(t));
+  }
+
+  /* pull the server's copy into localStorage, before anything reads it */
+  function hydrate(profile) {
+    const p = profile.progress || {};
+    if (p.lessons && Object.keys(p.lessons).length) write(KEYS.lessons, JSON.stringify(p.lessons));
+    if (p.drills && Object.keys(p.drills).length) write(KEYS.drills, JSON.stringify(p.drills));
+    if (p.mode) write(KEYS.mode, p.mode);
+    if (p.theme) write(KEYS.theme, p.theme);
+    if (p.flat) write(KEYS.flat, p.flat);
+    if (profile.projects && profile.projects.length) {
+      /* the studio stores saves under one key; keep its shape */
+      const saves = profile.projects.filter(x => x.kind === 'studio').map(x => x.data);
+      if (saves.length) write(KEYS.saves, JSON.stringify(saves));
+    }
+    me = profile.user;
+  }
+
+  const snapshot = () => ({
+    lessons:parse(KEYS.lessons, {}),
+    drills:parse(KEYS.drills, {}),
+    mode:read(KEYS.mode), theme:read(KEYS.theme), flat:read(KEYS.flat)
+  });
+
+  function push(now) {
+    if (!on || !uid) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      ask('/api/progress/' + uid, { method:'PUT', body:snapshot() }).catch(() => {});
+      const saves = parse(KEYS.saves, []);
+      saves.forEach(s => ask('/api/projects/' + uid, { method:'POST',
+        body:{ id:'save-' + (s.id || s.at || s.name), kind:'studio', name:s.name || 'Idea',
+               lesson:s.lesson || null, bpm:s.bpm || null, data:s } }).catch(() => {}));
+    }, now ? 0 : 600);
+  }
+  /* leaving the page should not lose the last answer */
+  function armFlush() {
+    const flush = () => push(true);
+    try {
+      window.addEventListener('pagehide', flush);
+      window.addEventListener('beforeunload', flush);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') flush();
+      });
+      setInterval(() => push(true), 20000);     /* cheap on localhost */
+    } catch (e) {}
+  }
+
+  /* watch the keys this app already writes, rather than rewriting every
+     module to call us — one shim, and the rest of the code is untouched */
+  function watch() {
+    try {
+      const orig = localStorage.setItem.bind(localStorage);
+      localStorage.setItem = function (k, v) {
+        orig(k, v);
+        if (Object.keys(KEYS).some(n => KEYS[n] === k)) push();
+      };
+    } catch (e) {}
+  }
+
+  /* practice attempts go up one at a time: they are what mastery is made of */
+  function attempt(a) {
+    if (!on || !uid) return;
+    ask('/api/attempts/' + uid, { method:'POST', body:a, timeout:2000 }).catch(() => {});
+  }
+
+  /* If the record arrives after the app has already booted (a slow first
+     request, a cold server), we do not want a half-hydrated session: tell the
+     app to re-read storage instead of hoping the timing worked out. */
+  let booted = false;
+  function applyLate() {
+    if (booted && typeof APP !== 'undefined' && APP.rehydrate) APP.rehydrate();
+  }
+  function start(done) {
+    const go = () => { try { booted = true; done(); } catch (e) {} };
+    let finished = false;
+    const finish = () => { if (!finished) { finished = true; go(); } };
+    if (typeof fetch !== 'function' || location.protocol === 'file:') return finish();
+    ask('/api/health')
+      .then(h => {
+        if (!h || !h.ok) throw new Error('no api');
+        on = true;
+        watch(); armFlush();        /* before anything else can write */
+        uid = read(UID);
+        return uid ? ask('/api/profile/' + uid, { timeout:2500 }).catch(() => null) : null;
+      })
+      .then(profile => {
+        if (on && !profile) {
+          return ask('/api/users', { method:'POST', body:{ name:'Producer' }, timeout:2500 })
+            .then(u => { uid = u.id; write(UID, uid); me = { id:u.id, name:u.name }; });
+        }
+        if (profile) hydrate(profile);
+      })
+      .then(() => { if (on) push(); })
+      .catch(() => { on = false; })
+      .finally(() => { finish(); applyLate(); });
+    /* never hold the app hostage — but give a healthy server long enough to
+       answer, because booting early means reading storage before it is filled */
+    setTimeout(finish, TIMEOUT * 3);
+  }
+
+  return {
+    start, attempt, push,
+    get on() { return on; },
+    get user() { return me; },
+    rename(name) {
+      if (!on || !uid) return Promise.resolve(null);
+      return ask('/api/users/' + uid, { method:'PUT', body:{ name } })
+        .then(u => (me = { id:u.id, name:u.name }));
+    },
+    stats() { return (on && uid) ? ask('/api/stats/' + uid) : Promise.resolve(null); },
+    review() { return (on && uid) ? ask('/api/review/' + uid) : Promise.resolve(null); }
+  };
+})();
+
+
 /* ── src/theory.js ── */
 /* ═══════════════════════════════════════════════════════════════
    THEORY — the music maths everything else reads from.
@@ -789,32 +962,38 @@ const A = (() => {
   }
 
   /* Percussive click for the metronome / grid. */
-  function click(kind = 'weak', when) {
+  /* `vel` is 0..1 and scales the hit the way MIDI velocity would: quieter,
+     and — because real drums do this — a little duller as it softens. */
+  function click(kind = 'weak', when, vel) {
     if (!resume()) return;
     const t0 = when != null ? when : ctx.currentTime + 0.01;
+    const v = vel == null ? 1 : Math.max(0.04, Math.min(1, vel));
     if (kind === 'kick') {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.frequency.setValueAtTime(155, t0);
       o.frequency.exponentialRampToValueAtTime(48, t0 + 0.11);
-      g.gain.setValueAtTime(0.9, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25);
+      g.gain.setValueAtTime(0.9 * v, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1 + 0.15 * v);
       o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.3); return;
     }
     if (kind === 'snare' || kind === 'hat') {
-      const len = kind === 'snare' ? 0.16 : 0.045;
+      const len = (kind === 'snare' ? 0.16 : 0.045) * (0.55 + 0.45 * v);
       const b = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
       const d = b.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, kind === 'snare' ? 2 : 1.2);
       const s = ctx.createBufferSource(); s.buffer = b;
       const hp = ctx.createBiquadFilter(); hp.type = 'highpass';
       hp.frequency.value = kind === 'snare' ? 1400 : 7000;
-      const g = ctx.createGain(); g.gain.value = kind === 'snare' ? 0.5 : 0.22;
-      s.connect(hp); hp.connect(g); g.connect(master); s.start(t0); return;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+      lp.frequency.value = 2000 + 12000 * v;          /* soft hits lose their top */
+      const g = ctx.createGain(); g.gain.value = (kind === 'snare' ? 0.5 : 0.22) * v;
+      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); s.start(t0); return;
     }
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = 'square';
     o.frequency.value = kind === 'strong' ? 1500 : kind === 'mid' ? 1100 : 820;
-    const v = kind === 'strong' ? 0.3 : kind === 'mid' ? 0.19 : 0.11;
-    g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
+    const amp = (kind === 'strong' ? 0.3 : kind === 'mid' ? 0.19 : 0.11) * v;
+    g.gain.setValueAtTime(amp, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
     o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.06);
   }
 
@@ -1908,15 +2087,24 @@ const APP = (() => {
     });
   }
 
+  /* the sidebar is the curriculum: stages, in the order they are taught */
+  const partName = L => (typeof CURRICULUM !== 'undefined' && L.part)
+    ? CURRICULUM.part(L.part).name
+    : 'Level ' + L.level;
   function buildNav() {
     const nav = $('#nav');
     nav.innerHTML = '';
-    let lvl = null;
+    let seen = null;
     LESSONS.forEach((L, i) => {
-      if (L.level !== lvl) {
-        lvl = L.level;
+      const key = L.part || L.level;
+      if (key !== seen) {
+        seen = key;
+        const st = (typeof CURRICULUM !== 'undefined' && L.part) ? CURRICULUM.part(L.part) : null;
         const h = UI.el('div', 'lvl');
-        h.innerHTML = '<b>Level ' + lvl + '</b> · ' + ['Fundamentals','Harmony','Pro moves'][lvl - 1];
+        h.innerHTML = st
+          ? '<b>' + (CURRICULUM.partIndex(L.part) + 1) + '</b> · ' + st.name
+          : '<b>Level ' + L.level + '</b>';
+        if (st) h.title = st.blurb;
         nav.appendChild(h);
       }
       const b = UI.el('button');
@@ -1951,7 +2139,7 @@ const APP = (() => {
   /* Identity of a quiz question: its text plus its options. Two questions that
      read identically in both modes share one record; different ones never do. */
   function qKey(Q) {
-    const s = String(Q.q) + ' ' + (Q.a || []).join(' ');
+    const s = String(Q.q) + '\u0000' + (Q.a || []).join('\u0000');
     let h = 5381;
     for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
     return 'q' + h.toString(36);
@@ -2051,7 +2239,7 @@ const APP = (() => {
     w.appendChild(bar);
 
     const crumb = UI.html('div', 'crumb',
-      '<b>Level ' + L.level + '</b> &nbsp;·&nbsp; Lesson ' + (idx + 1) + ' of ' + LESSONS.length +
+      '<b>' + partName(L) + '</b> &nbsp;·&nbsp; Lesson ' + (idx + 1) + ' of ' + LESSONS.length +
       ' &nbsp;·&nbsp; ' + L.tag);
     w.appendChild(crumb);
     w.appendChild(UI.html('h2', null, L.title));
@@ -2571,7 +2759,17 @@ const APP = (() => {
     new ResizeObserver(() => { if (V.resize) V.resize(); fitFlat(); })
       .observe(document.querySelector('#stage'));
   }
-  return { boot, go, qKey, get idx() { return idx; } };
+  /* called when the local server hands over a record after the app booted */
+  function rehydrate() {
+    load(); loadMode(); loadDrills(); loadTheme();
+    applyTheme(); progress(); render();
+    const el = $('#synced');
+    if (el && typeof SYNC !== 'undefined' && SYNC.on) {
+      el.hidden = false;
+      el.textContent = 'Saving to your local server' + (SYNC.user ? ' \u00B7 ' + SYNC.user.name : '');
+    }
+  }
+  return { boot, go, qKey, rehydrate, get idx() { return idx; } };
 })();
 
 
@@ -2609,6 +2807,10 @@ const PRACTICE = (() => {
     if (e.runs.length > 12) e.runs = e.runs.slice(-12);
     e.seen = Date.now();
     save();
+    /* the server, when there is one, keeps mastery and the review schedule */
+    if (typeof SYNC !== 'undefined' && SYNC.on) {
+      SYNC.attempt({ lesson:lessonId, kind, concept, label, ok:!!ok });
+    }
     return e;
   }
   const entries = () => Object.keys(log).map(k => log[k]);
@@ -2979,7 +3181,12 @@ const PRACTICE = (() => {
     suspensions: { kind:'chord', pool:['sus2','sus4','maj','min'], roots:[55,57,60] },
     'dom-dim-aug': { kind:'chord', pool:['dom7','dim7','aug','m7b5'], roots:[55,57,60] },
     'harmonic-minor': { kind:'scale', pool:['minor','harmonicMinor','melodicMinor','phrygianDom'],
-                        roots:[55,57,60] }
+                        roots:[55,57,60] },
+    /* bass moves: the distances a bassline actually walks */
+    bassline:    { kind:'interval', pool:[0,5,7,12], roots:[40,43,45],
+                   p:'Root, 4th, 5th, octave \u2014 four distances, and most basslines are made of them.' },
+    velocity:    { kind:'rhythm', lane:2, laneName:'hat', sound:'hat',
+                   p:'Name the pattern, then place it. Velocity is what you bring to it afterwards.' }
   };
   const plan = lessons => lessons.forEach(L => { if (PLAN[L.id]) L.practice = PLAN[L.id]; });
 
@@ -3047,7 +3254,13 @@ const STUDIO = (() => {
     return new Uint8Array(bytes);
   }
 
+  /* The artifact viewer on claude.ai blocks page-initiated downloads, so a
+     link there silently does nothing. Detect it and let the caller say so. */
+  const canDownload = () => {
+    try { return typeof window.claude === 'undefined'; } catch (e) { return true; }
+  };
   function download(bytes, filename) {
+    if (!canDownload()) return false;
     try {
       const blob = new Blob([bytes], { type:'audio/midi' });
       const url = URL.createObjectURL(blob);
@@ -3263,7 +3476,7 @@ const STUDIO = (() => {
     return wrap;
   }
 
-  return { build, midi, download, notesFrom, history, put, drop, forLesson, DRUM, PPQ,
+  return { build, midi, download, canDownload, notesFrom, history, put, drop, forLesson, DRUM, PPQ,
            get saves() { return saves; } };
 })();
 
@@ -6565,7 +6778,782 @@ challenges:{
 /* attach each simple version to its lesson */
 LESSONS.forEach(l => { if (SIMPLE[l.id]) l.simple = SIMPLE[l.id]; });
 
-APP.boot();
+
+/* ── src/lessons-production.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   LESSONS — the making-music chapters.
+
+   These four sit inside the stages rather than after them: a bassline
+   belongs with your first progression, velocity with your first groove,
+   and the capstone is where drums, bass, chords and melody finally meet.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* the loop every making-music lesson builds over: i – VI – III – VII in C minor,
+   the progression under a very large amount of modern music */
+const LOOP_CM = [
+  { step:0,  len:4, notes:[48,51,55], root:36, label:'Cm',  spell:['C','E♭','G'] },
+  { step:4,  len:4, notes:[44,48,51], root:32, label:'A♭', spell:['A♭','C','E♭'] },
+  { step:8,  len:4, notes:[51,55,58], root:39, label:'E♭', spell:['E♭','G','B♭'] },
+  { step:12, len:4, notes:[46,50,53], root:34, label:'B♭', spell:['B♭','D','F'] }
+];
+
+LESSONS.push({
+  id:'bassline', tag:'Bass', title:'Basslines',
+  hint:'Write the low part under the chords',
+  lede:'The bass is not a quiet guitar. It is the note that tells your ear which chord it is hearing, and it is the part most beginner tracks get wrong by writing too much of it.',
+  stage:{ view:'roll', cfg:{ steps:16, root:36, scale:'minor', octaves:2 } },
+  blocks:[
+    { h:'What the bass is actually for' },
+    { p:'Two jobs, in this order. First, it <b>names the chord</b>: the lowest note is what your ear takes as the root, which is why an inversion sounds different from the same chord in root position. Second, it <b>locks to the drums</b> — bass and kick together are what people feel in their chest.' },
+    { p:'Everything else (melody, movement, fills) is a distant third. A bassline that only plays the right note at the right time already works.' },
+    { h:'Start with roots' },
+    { p:'Under each chord, play its <b>root</b>. Four chords, four bass notes, one per bar. That is a complete, professional bassline — most house, trap and pop basslines are barely more than this.' },
+    { p:'The moment that gets dull, you have three moves, in order of safety:' },
+    { keys:[
+      '<b>Octaves.</b> Same note, jumped an octave up or down. No new harmony, instant movement — the backbone of disco and house.',
+      '<b>The 5th.</b> Root and 5th alternate. Strong and neutral, because the 5th says nothing about major or minor.',
+      '<b>Passing notes.</b> A short note that walks from one root to the next, usually stepwise, usually on a weak box just before the change. It belongs to the <em>next</em> chord more than the current one.' ] },
+    { h:'Rhythm: lock, then leave gaps' },
+    { p:'Put a bass note where the kick is and the two fuse into one sound. Put one where the kick is not and you get a bounce. Both are valid — what does not work is bass under every box, which turns into a drone and eats the low end.' },
+    { p:'A useful discipline: write the bass rhythm <em>before</em> the pitches. Tap the rhythm first, then decide which note goes at each hit.' },
+    { h:'Register: lower is not better' },
+    { p:'Keep the bass <b>mono</b> and mostly between <span class="k">E1</span> and <span class="k">E3</span>. Below E1 most speakers and phones reproduce nothing, so notes there use up headroom and are simply never heard. Above E3 it stops functioning as bass and starts competing with the chords.' },
+    { note:{ h:'The kick and the bass are one instrument',
+      p:'If they fight, you have two choices: move one of them in time so they do not land together, or duck the bass under the kick (sidechain compression). The theory decision — which notes — comes first; the mixing decision comes after.' } },
+    { try:{ h:'Build one, one move at a time', p:'The chords are playing a i–VI–III–VII loop in C minor. Start with roots, then add each move and listen to what it costs.',
+      build:ctx => [
+        UI.chips([
+          { label:'Roots only', value:'roots' },
+          { label:'Roots + octaves', value:'octaves' },
+          { label:'Root and 5th', value:'fifths' },
+          { label:'With passing notes', value:'passing' },
+          { label:'Too busy (hear the problem)', value:'busy' }
+        ], v => ctx.load(v), 0),
+        UI.toggle('Lock to the kick', v => ctx.setLock(v), true),
+        UI.btn('Clear and write your own', () => ctx.clear())
+      ] } },
+    { keys:[
+      'The lowest note names the chord. Get that right and the rest is decoration.',
+      'Roots alone is a finished bassline. Octaves, 5ths and passing notes are the three upgrades.',
+      'Write the rhythm before the pitches, and leave gaps.',
+      'Mono, roughly E1–E3, and decide early whether bass and kick land together.' ] }
+  ],
+  quiz:[
+    { q:'Under a C minor chord, the safest bass note is…', a:['E♭','G','C','B♭'], c:2,
+      why:'The root. It confirms the chord your ear is already hearing. The others work, but they change how settled the chord sounds.' },
+    { q:'Why is the 5th a safe bass note to alternate with the root?', a:['It is the loudest note','It says nothing about major or minor','It is always in the melody','It cancels the root'], c:1,
+      why:'The 5th is the same in a major and a minor chord, so it adds movement without changing the chord’s colour.' },
+    { q:'Your bass and kick sound muddy together. Which is a theory fix rather than a mixing fix?', a:['Sidechain the bass','Move one of them off the other’s box','Add reverb','Boost 60 Hz'], c:1,
+      why:'Changing when the notes land is a writing decision. Sidechaining is the mixing answer to the same problem — both are legitimate, but write first.' },
+    { q:'Most of a bassline’s notes should sit…', a:['Below E1','Between E1 and E3','Around middle C','Wherever the melody is'], c:1,
+      why:'Below E1 is mostly inaudible on real speakers; above E3 the part stops doing the bass’s job and starts crowding the chords.' }
+  ],
+  init:ctx => {
+    let bpm = 92, lock = ctx.recall('lock') !== false, kit = true;
+    const KICK = [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0];
+    const PAT = {
+      roots:   [[0,36],[4,32],[8,39],[12,34]],
+      octaves: [[0,36],[2,48],[4,32],[6,44],[8,39],[10,51],[12,34],[14,46]],
+      fifths:  [[0,36],[3,43],[4,32],[7,39],[8,39],[11,46],[12,34],[15,41]],
+      passing: [[0,36],[3,36],[4,32],[6,32],[7,34],[8,39],[11,39],[12,34],[14,34],[15,35]],
+      busy:    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].map(s =>
+                 [s, LOOP_CM[Math.floor(s / 4)].root])
+    };
+    const rows = () => [36,38,39,41,43,44,46,48,50,51,53,55,56,58,60];
+    const snap = m => rows().reduce((b, r) => Math.abs(r - m) < Math.abs(b - m) ? r : b, rows()[0]);
+    ctx.v.setChords(LOOP_CM);
+    ctx.load = k => {
+      const ns = PAT[k].map(([step, midi]) => ({ step, midi:snap(midi), len:1 }));
+      ctx.v.setNotes(ns);
+      ctx.keep('pat', k);
+      ctx.syncA11y && ctx.syncA11y();
+      ctx.read({
+        roots:   'roots only\none note per chord · always correct',
+        octaves: 'roots + octaves\nmovement, no new harmony',
+        fifths:  'root and 5th\nstrong, neutral, says nothing about major or minor',
+        passing: 'passing notes\nshort steps into the next root',
+        busy:    'a note on every box\nlisten: the low end turns into a drone'
+      }[k]);
+      ctx.play();
+    };
+    ctx.clear = () => { ctx.v.clearNotes(); ctx.syncA11y && ctx.syncA11y();
+      ctx.read('empty\ntap the roll to write your own'); };
+    ctx.setLock = v => { lock = v; ctx.keep('lock', v); };
+    ctx.play = () => {
+      ctx.stop();
+      ctx.seq({ bpm, div:16, steps:16, cb:(step, t) => {
+        const c = LOOP_CM.find(b => b.step === step);
+        if (c) A.chord(c.notes.map(n => n + 12), 2.1, { when:t, spread:.03, gain:.4 });
+        if (kit) {
+          if (KICK[step]) A.click('kick', t);
+          if (step === 4 || step === 12) A.click('snare', t);
+          if (step % 2 === 0) A.click('hat', t, .5);
+        }
+        ctx.v.notes.filter(n => n.step === step).forEach(n =>
+          A.note(n.midi, .5, { when: t + (lock || !KICK[step] ? 0 : 0.012), gain:1 }));
+        sch(ctx, t, () => ctx.v.playhead(step));
+      } });
+    };
+    ctx.v.onCell((s, m, added) => {
+      if (added) A.note(m, .6);
+      const c = LOOP_CM[Math.floor(s / 4)];
+      const role = c && c.notes.concat([c.root]).some(n => T.pc(n) === T.pc(m))
+        ? 'chord tone — safe' : 'outside the chord — keep it short';
+      ctx.read(T.inKey(m, 'C', 'minor') + T.oct(m) + ' under ' + (c ? c.label : '—') + '\n' + role);
+      ctx.keep('notes', ctx.v.notes.slice());
+    });
+    ctx.keepCfg = { kind:'roll', name:'Bassline', bpm:() => bpm };
+    ctx.stage(
+      UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
+      UI.toggle('Drums', v => { kit = v; }, true),
+      UI.slider('Tempo', 70, 140, bpm, 1, v => { bpm = v; ctx.transport.bpm = v; }, v => v + ' BPM')
+    );
+    const back = ctx.recall('notes');
+    if (back && back.length) { ctx.v.setNotes(back); ctx.read('your bassline\npress loop'); }
+    else ctx.load(ctx.recall('pat') || 'roots');
+  }
+});
+
+LESSONS.push({
+  id:'velocity', tag:'Groove', title:'Velocity and Groove',
+  hint:'Same notes, different weight',
+  lede:'Two producers program the identical pattern. One sounds like a drum machine and one sounds like a person. The difference is almost never the notes — it is how hard and how exactly on time each one is played.',
+  stage:{ view:'grid', cfg:{ steps:16, group:4,
+    lanes:[{name:'Kick',kind:'kick'},{name:'Snare',kind:'snare'},{name:'Hat',kind:'hat'}] } },
+  blocks:[
+    { h:'Velocity is how hard, not how loud' },
+    { p:'Every note you draw carries a <b>velocity</b> from 1 to 127. It usually controls volume, but on a real instrument hitting something harder also makes it <em>brighter</em> and longer, and good samples and synths follow that. Which is why a velocity change reads as a different <em>performance</em> rather than a fader move.' },
+    { p:'Default velocity in most DAWs is 100, and every note at exactly 100 is the sound people mean when they say a beat is “stiff”.' },
+    { h:'Accents and ghost notes' },
+    { keys:[
+      '<b>Accent</b> — noticeably harder than its neighbours, around 110–127. It marks where the pattern leans.',
+      '<b>Normal</b> — 90–105. The body of the pattern.',
+      '<b>Ghost note</b> — deliberately weak, around 20–45. You barely hear it as a hit; you hear it as texture and forward motion. Ghost snares between the backbeats are most of what makes a drum loop feel human.' ] },
+    { p:'A hat pattern of sixteen identical hits is noise. The same sixteen with a loud one on each beat, mid ones on the &s, and ghosts on the e/a is a groove.' },
+    { h:'Timing: the other half' },
+    { p:'<b>Swing</b> delays every second 16th by a percentage, turning even pairs into long-short. <b>Micro-timing</b> is smaller and more powerful: a few milliseconds late feels laid-back and heavy, a few early feels urgent. Drummers push hats and drag snares without being told to.' },
+    { p:'Most DAWs call presets of these two things <b>groove templates</b> or <b>grooves</b>. They are doing exactly what you can do by hand: nudging velocity and timing in a repeating shape.' },
+    { table:{ head:['Move','Typical setting','What it does'],
+      rows:[
+        ['Flat velocity','everything 100','machine-like, tiring quickly'],
+        ['Accent on the beat','beat 110–120, rest 95','marks the pulse, still tidy'],
+        ['Ghost notes','20–45 between hits','motion and human feel'],
+        ['Velocity curve','rising over a bar','builds into the next bar'],
+        ['Swing 15–25%','second 16ths late','lopes without sounding triplety'],
+        ['Late snare','+8–15 ms','heavier, more relaxed'],
+        ['Early hat','−5–10 ms','urgent, pushed'] ] } },
+    { note:{ h:'Note length matters too',
+      p:'Short notes leave air and let the next sound through; long notes glue a part together and can smother the low end. On a bass, note length is as much a groove decision as velocity — same pitches, staccato versus sustained, completely different track.' } },
+    { try:{ h:'Hear the difference before you believe it', p:'One pattern. Switch how it is played — the boxes do not move.',
+      build:ctx => [
+        UI.chips([
+          { label:'Flat 100 (robot)', value:'flat' },
+          { label:'Accented', value:'accent' },
+          { label:'Accents + ghost notes', value:'ghost' },
+          { label:'Building curve', value:'curve' }
+        ], v => ctx.setFeel(v), 0),
+        UI.slider('Swing', 0, 60, 0, 5, v => ctx.setSwing(v), v => v + '%'),
+        UI.slider('Snare timing', -20, 20, 0, 1, v => ctx.setPush(v), v => (v > 0 ? '+' : '') + v + ' ms')
+      ] } },
+    { keys:[
+      'Velocity 1–127; 100 is the default, and all-100 is what “stiff” sounds like.',
+      'Accent 110–127, normal 90–105, ghost 20–45.',
+      'Swing is a percentage on second 16ths; micro-timing is a few milliseconds and does more.',
+      'Note length is part of groove, not just an editing detail.' ] }
+  ],
+  quiz:[
+    { q:'A ghost note is…', a:['A note with no sound','A deliberately weak hit, roughly 20–45','A note an octave down','A muted MIDI note'], c:1,
+      why:'Weak enough that you feel it more than hear it. Ghost snares between the backbeats are the classic example.' },
+    { q:'Why does raising velocity often change the tone, not only the volume?', a:['MIDI sends brightness','Hitting something harder is brighter, and good instruments reproduce that','It shortens the note','It is a DAW bug'], c:1,
+      why:'Velocity usually maps to a filter or a different sample layer, because that is what a real hit does.' },
+    { q:'Which change is smaller but usually does more for feel?', a:['Swing at 50%','A few milliseconds of timing offset','Doubling the tempo','Transposing an octave'], c:1,
+      why:'Micro-timing is the difference between laid-back and urgent. Swing is the bigger, more obvious lope.' }
+  ],
+  init:ctx => {
+    let bpm = 92, feel = ctx.recall('feel') || 'flat', swing = 0, push = 0;
+    const PAT = [
+      [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0],
+      [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1]
+    ];
+    /* velocity per lane per step, 0..1 — the whole lesson in three arrays */
+    const FEELS = {
+      flat:   () => PAT.map(row => row.map(v => v ? .78 : 0)),
+      accent: () => [
+        PAT[0].map((v, s) => v ? (s % 4 === 0 ? .95 : .8) : 0),
+        PAT[1].map(v => v ? .95 : 0),
+        PAT[2].map((v, s) => v ? (s % 4 === 0 ? .95 : s % 2 === 0 ? .7 : .45) : 0)
+      ],
+      ghost:  () => [
+        PAT[0].map((v, s) => v ? (s % 4 === 0 ? .95 : .8) : 0),
+        PAT[1].map((v, s) => v ? .95 : (s % 4 === 2 ? .22 : 0)),
+        PAT[2].map((v, s) => v ? (s % 4 === 0 ? .95 : s % 2 === 0 ? .68 : .3) : 0)
+      ],
+      curve:  () => [
+        PAT[0].map((v, s) => v ? .6 + .35 * (s / 15) : 0),
+        PAT[1].map(v => v ? .9 : 0),
+        PAT[2].map((v, s) => v ? .35 + .6 * (s / 15) : 0)
+      ]
+    };
+    let vel = FEELS[feel]();
+    const paint = () => {
+      PAT.forEach((row, l) => ctx.v.pattern(l, row.map((v, s) => vel[l][s] > .85 ? 2 : (vel[l][s] || v ? 1 : 0))));
+      /* the hat lane's velocity shape, drawn as box height */
+      ctx.v.accents(vel[2].map(x => Math.max(.12, x)));
+      ctx.syncA11y && ctx.syncA11y();
+    };
+    ctx.setFeel = k => {
+      feel = k; vel = FEELS[k](); ctx.keep('feel', k); paint();
+      ctx.read({
+        flat:  'every hit at 100\nnothing leans — this is the robot sound',
+        accent:'accents on the beat\n120 on the pulse, 100 between',
+        ghost: 'accents + ghost notes\nghost snares at ~28, ghost hats at ~38',
+        curve: 'a rising velocity curve\nthe bar builds into the next one'
+      }[k]);
+      ctx.play();
+    };
+    ctx.setSwing = v => { swing = v; ctx.keep('swing', v); };
+    ctx.setPush = v => { push = v; ctx.keep('push', v); };
+    ctx.play = () => {
+      ctx.stop();
+      ctx.seq({ bpm, div:16, steps:16, cb:(step, t) => {
+        const beat = 60 / bpm, sixteenth = beat / 4;
+        const late = (step % 2 === 1) ? sixteenth * (swing / 100) : 0;
+        for (let l = 0; l < 3; l++) {
+          const v = vel[l][step];
+          if (!v) continue;
+          const off = late + (l === 1 ? push / 1000 : 0);
+          A.click(['kick','snare','hat'][l], t + off, v);
+        }
+        sch(ctx, t, () => {
+          ctx.v.playhead(step);
+          const v = vel[2][step];
+          if (v) ctx.read('step ' + (step + 1) + '  ·  hat velocity ' + Math.round(v * 127) +
+            (v < .5 ? '  (ghost)' : v > .85 ? '  (accent)' : ''));
+        });
+      } });
+    };
+    ctx.keepCfg = { kind:'grid', kinds:['kick','snare','hat'], name:'Groove', bpm:() => bpm };
+    ctx.stage(
+      UI.toggle('▶ Play', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
+      UI.slider('Tempo', 70, 150, bpm, 1, v => { bpm = v; ctx.transport.bpm = v; }, v => v + ' BPM')
+    );
+    ctx.v.onCell(() => {});
+    ctx.setFeel(feel);
+  }
+});
+
+LESSONS.push({
+  id:'eightbar', tag:'Build', title:'Build an 8-Bar Idea',
+  hint:'Four layers, one loop, exported',
+  lede:'Everything so far, in one place. Drums, bass, chords and a melody — the smallest thing that is recognisably a piece of music rather than an exercise.',
+  stage:{ view:'roll', cfg:{ steps:16, root:60, scale:'minor', octaves:2, contour:true } },
+  blocks:[
+    { h:'The order that works' },
+    { p:'Layers are easiest to write from the bottom up, because each one gives the next its constraints:' },
+    { keys:[
+      '<b>1 · Drums.</b> Kick and snare first. Hats last, and only as much as the track needs.',
+      '<b>2 · Chords.</b> Four of them, one per bar, from one key. You already know a shape that works.',
+      '<b>3 · Bass.</b> The roots, locked to the kick. Add an octave or a passing note only if it is dull.',
+      '<b>4 · Melody.</b> A short motif over the top, landing on chord tones on strong beats.' ] },
+    { p:'Written in this order, the melody is the only part you have to be clever about, and by then it is a small decision rather than a blank page.' },
+    { h:'What makes eight bars feel finished' },
+    { p:'Two four-bar halves, where the second answers the first. Change <em>one</em> thing in bars 5–8: the last chord, the melody’s ending, an extra drum layer, or a bar of silence before it loops. One change is a phrase; several changes are a new section.' },
+    { note:{ h:'This is the unit of modern production',
+      p:'Most tracks are an 8-bar idea repeated with layers taken away and put back. Learning to finish eight bars is worth more than learning to start thirty-two.' } },
+    { h:'Your task' },
+    { keys:[
+      'Keep the chords and the drums that are loaded.',
+      'Write a melody of <b>six notes or fewer</b> in the first four bars.',
+      'Repeat it in bars 5–8 with <b>one</b> change — a different last note is enough.',
+      'Land on a chord tone at the start of each bar, and leave at least one full beat of silence somewhere.',
+      'Export the whole loop as MIDI and open it in your DAW.' ] },
+    { try:{ h:'Build it', p:'Tap the roll to write your melody. Layers can be muted while you work, and the export contains all four.',
+      build:ctx => [
+        UI.btn('Give me a starting motif', () => ctx.seed()),
+        UI.btn('Copy bars 1–4 into 5–8', () => ctx.copyHalf()),
+        UI.btn('Vary the ending', () => ctx.varyEnd()),
+        UI.btn('Check my 8 bars', () => ctx.check(), { primary:true }),
+        UI.btn('↓ Export the full loop as MIDI', () => ctx.exportAll())
+      ] } }
+  ],
+  quiz:[
+    { q:'Writing order that gives each layer its constraints…', a:['Melody, chords, bass, drums','Drums, chords, bass, melody','Chords, melody, drums, bass','Bass, melody, drums, chords'], c:1,
+      why:'Bottom up. By the time you reach the melody, the key, the rhythm and the landing notes are all already decided.' },
+    { q:'To make 8 bars feel like a phrase rather than a loop of 4, you should…', a:['Change everything in bars 5–8','Change one thing in bars 5–8','Add a key change','Double the tempo'], c:1,
+      why:'One change reads as an answer to the first half. Several changes read as a different section.' }
+  ],
+  init:ctx => {
+    let bpm = 90, mute = { drums:false, bass:false, chords:false };
+    const KICK = [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0];
+    const BASS = [[0,36],[4,32],[8,39],[12,34]];
+    ctx.v.setChords(LOOP_CM);
+    const rows = [60,62,63,65,67,68,70,72,74,75,77,79,80,82,84];
+    ctx.seed = () => {
+      const shape = [[0,63],[2,67],[4,65],[7,63]];
+      ctx.v.setNotes(shape.map(([step, midi]) => ({ step, midi, len:1 })));
+      ctx.syncA11y && ctx.syncA11y();
+      ctx.read('a four-note motif in bars 1–2\nnow answer it in bars 5–8');
+      ctx.play();
+    };
+    ctx.copyHalf = () => {
+      const first = ctx.v.notes.filter(n => n.step < 8);
+      ctx.v.setNotes(first.concat(first.map(n => ({ step:n.step + 8, midi:n.midi, len:n.len }))));
+      ctx.syncA11y && ctx.syncA11y();
+      ctx.read('bars 1–4 copied into 5–8\nnow change one thing');
+      ctx.play();
+    };
+    ctx.varyEnd = () => {
+      const ns = ctx.v.notes.slice().sort((a, b) => a.step - b.step);
+      if (!ns.length) return ctx.read('write something first');
+      const last = ns[ns.length - 1];
+      const i = rows.indexOf(last.midi);
+      last.midi = rows[Math.max(0, Math.min(rows.length - 1, i + (Math.random() < .5 ? -2 : 2)))];
+      ctx.v.setNotes(ns);
+      ctx.syncA11y && ctx.syncA11y();
+      ctx.read('last note moved\nthat alone turns a loop into a phrase');
+      ctx.play();
+    };
+    /* the checklist from the lesson, actually checked */
+    ctx.check = () => {
+      const ns = ctx.v.notes.slice().sort((a, b) => a.step - b.step);
+      const first = ns.filter(n => n.step < 8), second = ns.filter(n => n.step >= 8);
+      const onChordTone = ns.filter(n => {
+        const c = LOOP_CM[Math.floor(n.step / 4)];
+        return c && c.notes.some(x => T.pc(x) === T.pc(n.midi)) && n.step % 4 === 0;
+      }).length;
+      const barStarts = ns.filter(n => n.step % 4 === 0).length;
+      const gaps = [];
+      for (let s = 0; s < 16; s++) if (!ns.some(n => n.step === s)) gaps.push(s);
+      let run = 0, best = 0;
+      for (let s = 0; s < 16; s++) { run = gaps.indexOf(s) >= 0 ? run + 1 : 0; best = Math.max(best, run); }
+      const lines = [
+        (first.length ? '✓' : '✗') + ' something in bars 1–4 (' + first.length + ' notes)',
+        (first.length && first.length <= 6 ? '✓' : '✗') + ' six notes or fewer in the first half',
+        (second.length ? '✓' : '✗') + ' an answer in bars 5–8 (' + second.length + ' notes)',
+        (barStarts && onChordTone === barStarts ? '✓' : '✗') +
+          ' every bar starts on a chord tone (' + onChordTone + '/' + barStarts + ')',
+        (best >= 4 ? '✓' : '✗') + ' at least one full beat of silence (longest gap: ' + best + ' boxes)'
+      ];
+      const done = lines.filter(l => l[0] === '✓').length;
+      ctx.read(lines.join('\n'));
+      ctx.score(done === lines.length);
+      ctx.hint(done === lines.length
+        ? 'All five — export it and keep it.'
+        : done + ' of 5. The readout says which.');
+    };
+    ctx.exportAll = () => {
+      if (typeof STUDIO === 'undefined') return;
+      const step = STUDIO.PPQ / 4, out = [];
+      LOOP_CM.forEach(c => c.notes.forEach(n =>
+        out.push({ note:n + 12, t:c.step * step, dur:c.len * step - 20, vel:78 })));
+      BASS.forEach(([s, m]) => out.push({ note:m, t:s * step, dur:step * 3.5, vel:105 }));
+      KICK.forEach((v, s) => { if (v) out.push({ note:STUDIO.DRUM.kick, t:s * step, dur:step / 2, vel:110 }); });
+      [4, 12].forEach(s => out.push({ note:STUDIO.DRUM.snare, t:s * step, dur:step / 2, vel:112 }));
+      for (let s = 0; s < 16; s += 2) out.push({ note:STUDIO.DRUM.hat, t:s * step, dur:step / 3, vel:70 });
+      ctx.v.notes.forEach(n => out.push({ note:n.midi, t:n.step * step, dur:(n.len || 1) * step - 12, vel:100 }));
+      const okDl = STUDIO.download(STUDIO.midi(out, { bpm, name:'8-bar idea' }), 'musiclearn-8-bar-idea.mid');
+      ctx.read(okDl
+        ? 'exported: drums, bass, chords and your melody\nopen it in your DAW'
+        : 'downloads are blocked in this viewer\nopen the site or your local copy to export');
+    };
+    ctx.play = () => {
+      ctx.stop();
+      ctx.seq({ bpm, div:16, steps:16, cb:(step, t) => {
+        if (!mute.chords) {
+          const c = LOOP_CM.find(b => b.step === step);
+          if (c) A.chord(c.notes.map(n => n + 12), 2.2, { when:t, spread:.03, gain:.38 });
+        }
+        if (!mute.bass) { const b = BASS.find(x => x[0] === step); if (b) A.note(b[1], .55, { when:t }); }
+        if (!mute.drums) {
+          if (KICK[step]) A.click('kick', t);
+          if (step === 4 || step === 12) A.click('snare', t);
+          if (step % 2 === 0) A.click('hat', t, step % 4 === 0 ? .8 : .45);
+        }
+        ctx.v.notes.filter(n => n.step === step).forEach(n =>
+          A.note(n.midi, .3 * (n.len || 1) + .25, { when:t, gain:.95 }));
+        sch(ctx, t, () => ctx.v.playhead(step));
+      } });
+    };
+    ctx.v.onCell((s, m, added) => {
+      if (added) A.note(m, .6);
+      ctx.keep('notes', ctx.v.notes.slice());
+      const c = LOOP_CM[Math.floor(s / 4)];
+      ctx.read(T.inKey(m, 'C', 'minor') + T.oct(m) + ' over ' + (c ? c.label : '—') + '\n' +
+        (c && c.notes.some(x => T.pc(x) === T.pc(m)) ? 'chord tone — good landing' : 'not in the chord — pass through it'));
+    });
+    ctx.keepCfg = { kind:'roll', name:'8-bar idea', bpm:() => bpm };
+    ctx.stage(
+      UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
+      UI.toggle('Drums', v => { mute.drums = !v; }, true),
+      UI.toggle('Bass', v => { mute.bass = !v; }, true),
+      UI.toggle('Chords', v => { mute.chords = !v; }, true)
+    );
+    const back = ctx.recall('notes');
+    if (back && back.length) { ctx.v.setNotes(back); ctx.read('your 8 bars\npress loop, or check them'); }
+    else ctx.read('empty roll\nchords and drums are already playing — add a melody');
+  }
+});
+
+LESSONS.push({
+  id:'structure', tag:'Arrangement', title:'Song Structure',
+  hint:'16 bars across, one layer per row',
+  lede:'A track is an 8-bar idea with things taken away and put back. Arrangement is mostly deciding what is missing.',
+  stage:{ view:'grid', cfg:{ steps:16, group:4,
+    lanes:[{name:'Drums',kind:'kick'},{name:'Bass',kind:'kick'},{name:'Chords',kind:'hat'},{name:'Melody',kind:'hat'}] } },
+  blocks:[
+    { h:'Read the grid differently here' },
+    { p:'Each box is <b>one bar</b>, not one 16th, and each row is a <b>layer</b>. Sixteen bars across, four layers down: that is an arrangement, and it is the same picture your DAW shows you zoomed out.' },
+    { h:'Sections' },
+    { table:{ head:['Section','Usual length','What it does','Layers'],
+      rows:[
+        ['Intro','4–8 bars','establishes the loop','1–2'],
+        ['Verse','8–16 bars','room for a vocal or the main idea','2–3'],
+        ['Build','4–8 bars','tension, no low end','rising'],
+        ['Chorus / drop','8–16 bars','the payoff','all of them'],
+        ['Breakdown','4–8 bars','contrast, strips back','1–2'],
+        ['Outro','4–8 bars','removes layers','falling'] ] } },
+    { p:'Lengths are almost always <b>4, 8 or 16 bars</b>. The reason is the same as in a melody: the ear counts in twos and fours, so an odd-length section registers as a mistake unless you make it obviously deliberate.' },
+    { h:'Arrangement is subtraction' },
+    { p:'Beginners arrange by adding new material until something interesting happens. Producers arrange by writing one strong loop and then <em>removing</em> parts of it, so the moment everything comes back feels enormous. The chorus is not louder because of the mix — it is louder because the bar before it had almost nothing in it.' },
+    { keys:[
+      '<b>Drop a layer</b> to create a section boundary. The most common: bass out for four bars, bass back in on the drop.',
+      '<b>Silence is a transition.</b> One beat of nothing before a chorus does more than any sweep.',
+      '<b>A fill marks the join.</b> The last bar before a new section changes the drums.',
+      '<b>Keep one constant.</b> Something should run through everything, or the sections stop sounding like the same song.' ] },
+    { note:{ h:'The path from 8 bars to a track',
+      p:'Loop your 8 bars four times. Delete layers from the first pass to make an intro, strip the third pass to make a breakdown, and put everything back for the fourth. That is a 32-bar arrangement made entirely of subtraction — and it is genuinely how a lot of released music is built.' } },
+    { try:{ h:'Arrange 16 bars', p:'Tap boxes to turn a layer on or off in that bar. Load a shape, then take something away and hear the difference.',
+      build:ctx => [
+        UI.chips([
+          { label:'Intro → verse → chorus', value:'pop' },
+          { label:'Build → drop (dance)', value:'dance' },
+          { label:'Loop with a breakdown', value:'break' },
+          { label:'Everything, all the time', value:'flat' }
+        ], v => ctx.load(v), 0),
+        UI.btn('Clear and arrange it yourself', () => ctx.clear())
+      ] } },
+    { keys:[
+      'One box = one bar; one row = one layer.',
+      'Sections come in 4, 8 or 16 bars.',
+      'Arrange by taking away, not by adding new material.',
+      'Mark the joins: a fill, a gap, or a layer appearing.' ] }
+  ],
+  quiz:[
+    { q:'Why do sections almost always last 4, 8 or 16 bars?', a:['MIDI requires it','The ear counts in twos and fours','DAWs cannot do otherwise','It saves CPU'], c:1,
+      why:'Phrasing is grouped in twos and fours all the way up. An odd-length section sounds like a slip unless it is clearly on purpose.' },
+    { q:'The most reliable way to make a chorus feel big is…', a:['Raise its volume','Strip the bar before it','Add more reverb','Change key'], c:1,
+      why:'Contrast. A near-empty bar makes the full arrangement that follows sound enormous without touching a fader.' },
+    { q:'“Arrangement is subtraction” means…', a:['Delete your worst ideas','Write one strong loop, then remove parts to create sections','Use fewer instruments overall','Shorten the track'], c:1,
+      why:'One good loop plus a plan for what is missing when gets you a full arrangement.' }
+  ],
+  init:ctx => {
+    let bpm = 110;
+    const SHAPES = {
+      pop: [
+        [0,0,0,0, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+        [0,0,0,0, 0,0,0,0, 1,1,1,1, 1,1,1,1],
+        [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+        [0,0,0,0, 0,0,0,0, 0,0,0,0, 1,1,1,1]
+      ],
+      dance: [
+        [1,1,1,1, 1,1,1,1, 1,1,1,0, 1,1,1,1],
+        [1,1,1,1, 0,0,0,0, 0,0,0,0, 1,1,1,1],
+        [0,0,0,0, 1,1,1,1, 1,1,1,0, 1,1,1,1],
+        [0,0,0,0, 0,0,0,0, 1,1,1,0, 1,1,1,1]
+      ],
+      break: [
+        [1,1,1,1, 1,1,1,1, 0,0,0,0, 1,1,1,1],
+        [1,1,1,1, 1,1,1,1, 0,0,0,0, 1,1,1,1],
+        [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1],
+        [0,0,0,0, 1,1,1,1, 0,0,0,0, 1,1,1,1]
+      ],
+      flat: [0,1,2,3].map(() => new Array(16).fill(1))
+    };
+    const SECTION = s => s < 4 ? 'bars 1–4' : s < 8 ? 'bars 5–8' : s < 12 ? 'bars 9–12' : 'bars 13–16';
+    ctx.load = k => {
+      SHAPES[k].forEach((row, l) => ctx.v.pattern(l, row));
+      ctx.keep('shape', k);
+      ctx.syncA11y && ctx.syncA11y();
+      ctx.read({
+        pop:  'intro → verse → chorus\nlayers arrive one section at a time',
+        dance:'build → drop\nbass out for the build, everything back on bar 13',
+        break:'loop with a breakdown\nbars 9–12 lose the rhythm section',
+        flat: 'everything, all 16 bars\nnothing to arrive — listen to how flat it feels'
+      }[k]);
+      ctx.play();
+    };
+    ctx.clear = () => { ctx.v.clearAll(); ctx.syncA11y && ctx.syncA11y();
+      ctx.read('empty arrangement\ntap boxes: a box is one bar'); };
+    /* each bar of the arrangement plays one bar of the loop */
+    ctx.play = () => {
+      ctx.stop();
+      ctx.seq({ bpm:bpm, div:1, steps:16, cb:(bar, t) => {
+        const on = l => ctx.v.state[l][bar];
+        const beat = 60 / bpm;
+        for (let b = 0; b < 4; b++) {
+          const tb = t + b * beat;
+          if (on(0)) {
+            A.click('kick', tb, b === 0 ? 1 : .85);
+            if (b % 2 === 1) A.click('snare', tb, .9);
+            A.click('hat', tb + beat / 2, .4);
+          }
+          if (on(1) && b % 2 === 0) A.note(LOOP_CM[bar % 4].root, .7, { when:tb, gain:.9 });
+        }
+        if (on(2)) A.chord(LOOP_CM[bar % 4].notes.map(n => n + 12), beat * 3.6,
+          { when:t, spread:.03, gain:.34 });
+        if (on(3)) [0, 1.5, 2.5].forEach((b, i) =>
+          A.note([75, 70, 72][i], .45, { when:t + b * beat, gain:.85 }));
+        sch(ctx, t, () => {
+          ctx.v.playhead(bar);
+          const layers = [0,1,2,3].filter(on).length;
+          ctx.read('bar ' + (bar + 1) + ' of 16  ·  ' + SECTION(bar) +
+            '\n' + layers + ' of 4 layers playing');
+        });
+      } });
+    };
+    ctx.keepCfg = { kind:'grid', kinds:['kick','kick','hat','hat'], name:'Arrangement', bpm:() => bpm };
+    ctx.stage(
+      UI.toggle('▶ Play 16 bars', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
+      UI.slider('Tempo', 80, 150, bpm, 1, v => { bpm = v; ctx.transport.bpm = v; }, v => v + ' BPM')
+    );
+    ctx.v.onCell(() => { ctx.keep('arr', ctx.v.state.map(r => r.slice())); });
+    const back = ctx.recall('arr');
+    if (back) { back.forEach((row, l) => ctx.v.pattern(l, row)); ctx.read('your arrangement\npress play'); }
+    else ctx.load(ctx.recall('shape') || 'pop');
+  }
+});
+
+
+/* ── src/simple-production.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   SIMPLE MODE — the making-music chapters, in small steps.
+   ═══════════════════════════════════════════════════════════════ */
+Object.assign(SIMPLE, {
+
+bassline:{
+  lede:'The bass is the low part under everything. Its job is simpler than you think: tell your ear which chord is playing, and lock in with the kick drum.',
+  blocks:[
+    { h:'Step 1 · What the bass is for' },
+    { p:'When a chord plays, your ear listens to the <b>lowest</b> note to decide what the chord is. That lowest note is the bass. So the bass is not decoration — it is the part that names the chord.' },
+    { p:'Its second job is to line up with the <b>kick drum</b>. When bass and kick hit together they turn into one big sound. That is the thing you feel in your chest at a gig.' },
+    { h:'Step 2 · Just play the root' },
+    { p:'Every chord has a <b>root</b> — the note it is named after. A C minor chord’s root is C.' },
+    { p:'Play the root of each chord, one note per bar. Four chords, four notes. That is a real bassline. Most songs you know are not doing much more than this.' },
+    { h:'Step 3 · Three ways to make it less boring' },
+    { p:'Try them in this order, because each one is slightly riskier than the last:' },
+    { keys:[
+      '<b>Jump an octave.</b> Same note, but much higher or lower. Nothing can go wrong — it is the same note.',
+      '<b>Add the 5th.</b> Bounce between the root and the 5th. Safe, because the 5th sounds the same in happy and sad chords.',
+      '<b>Add a passing note.</b> One quick note that walks you into the next chord. Keep it short and put it right before the change.' ] },
+    { h:'Step 4 · Leave gaps' },
+    { p:'A note on every single box turns the bass into a long low hum, and the track gets muddy. Real basslines have holes in them.' },
+    { p:'A good trick: tap the <em>rhythm</em> of the bass on the table first, without thinking about notes at all. Then decide which note goes on each tap.' },
+    { h:'Step 5 · Keep it low, but not too low' },
+    { p:'Bass lives roughly between <b>E1 and E3</b>. Below that, phones and laptops cannot play the sound at all — the note is there in the file and nobody ever hears it. Above that, it stops sounding like bass.' },
+    { note:{ h:'One instrument, not two',
+      p:'If the bass and the kick sound like mud together, you have two choices: move one of them so they do not land on the same box, or turn the bass down for a moment whenever the kick hits (that is what producers call sidechaining). Decide the notes first, though.' } },
+    { try:{ h:'Build one, one step at a time', p:'A chord loop is playing. Start with roots, then add each move and listen to what changes.', use:true } },
+    { keys:[
+      'The lowest note tells your ear which chord it is.',
+      'Roots only is already a finished bassline.',
+      'Then: octaves, then the 5th, then passing notes.',
+      'Leave gaps, and keep it between E1 and E3.' ] }
+  ],
+  quiz:[
+    { q:'Under a C minor chord, the safest bass note is…', a:['E♭','G','C','B♭'], c:2,
+      why:'C, the root — the note the chord is named after. It confirms what your ear already thinks it is hearing.' },
+    { q:'What happens if the bass plays a note on every box?', a:['It sounds professional','It turns into a muddy hum','It gets louder','Nothing'], c:1,
+      why:'The low end has no room to breathe. Gaps are what make a bassline groove.' }
+  ]
+},
+
+velocity:{
+  lede:'Two people program exactly the same drum pattern. One sounds like a machine, one sounds like a person playing. The notes are identical — what differs is how hard each hit is.',
+  blocks:[
+    { h:'Step 1 · Every note has a strength number' },
+    { p:'When you draw a note, it carries a number from <b>1 to 127</b> called <b>velocity</b>. It means “how hard was this hit”.' },
+    { p:'Most programs set every note to <b>100</b> automatically. Sixteen hits all at exactly 100 is the sound people mean when they say a beat is stiff or robotic.' },
+    { h:'Step 2 · Hard hits are also brighter' },
+    { p:'Velocity usually changes the volume — but hit a real drum harder and it also gets <b>brighter</b> and rings longer. Good drum sounds copy that. This is why changing velocity sounds like someone playing differently, not like someone moving a volume fader.' },
+    { h:'Step 3 · Three strengths to use' },
+    { keys:[
+      '<b>Accent</b> — about 110 to 127. The hits you want people to notice.',
+      '<b>Normal</b> — about 90 to 105. The main body of the pattern.',
+      '<b>Ghost note</b> — about 20 to 45. So quiet you almost do not hear it as a hit. You feel it as movement.' ] },
+    { p:'Quiet ghost notes between the loud ones are most of what makes a drum loop sound human.' },
+    { h:'Step 4 · Timing does the rest' },
+    { p:'<b>Swing</b> pushes every second small box slightly late, so hits go long-short-long-short instead of all even. Your app has a knob for it.' },
+    { p:'Even smaller: moving a hit a few <b>milliseconds</b> early or late. Late feels relaxed and heavy. Early feels urgent. Real drummers do this without being asked, and it is the difference between a loop you tolerate and one you enjoy.' },
+    { note:{ h:'How long the note is counts too',
+      p:'A short note leaves space; a long note fills it in. On a bass especially, the same notes played short or long give you two completely different tracks.' } },
+    { try:{ h:'Hear it — the boxes never move', p:'One pattern, four ways of playing it. Then add swing and nudge the snare.', use:true } },
+    { keys:[
+      'Velocity = how hard, from 1 to 127. Everything at 100 sounds robotic.',
+      'Accent 110–127 · normal 90–105 · ghost 20–45.',
+      'Swing makes pairs long-short. A few milliseconds early or late changes the feel even more.',
+      'Note length is part of the groove.' ] }
+  ],
+  quiz:[
+    { q:'A ghost note is…', a:['A note you cannot hear at all','A very quiet hit you feel more than hear','A note an octave lower','A mistake'], c:1,
+      why:'Around 20 to 45. Quiet ghost hits between the loud ones are what make a beat feel played rather than typed.' },
+    { q:'Everything in your beat is at velocity 100. It will sound…', a:['Professional','Stiff and machine-like','Too quiet','Out of tune'], c:1,
+      why:'Nothing leans anywhere. Give some hits more and some hits much less and the pattern comes alive.' }
+  ]
+},
+
+eightbar:{
+  lede:'Time to put it together. Drums, bass, chords and a tune — eight bars. That is the smallest thing that sounds like actual music instead of an exercise.',
+  blocks:[
+    { h:'Step 1 · Build from the bottom up' },
+    { p:'Do the layers in this order. Each one makes the next one easier, because it takes decisions away:' },
+    { keys:[
+      '<b>1 · Drums.</b> Kick and snare. Hats last.',
+      '<b>2 · Chords.</b> Four chords, one per bar, all from one key.',
+      '<b>3 · Bass.</b> The root of each chord, lined up with the kick.',
+      '<b>4 · Tune.</b> A few notes on top, landing on chord notes at the start of each bar.' ] },
+    { p:'By the time you get to the tune, the key is decided, the rhythm is decided and you know which notes land well. That is a small decision instead of a blank page.' },
+    { h:'Step 2 · What makes 8 bars feel finished' },
+    { p:'Think of it as two halves of four bars. The first half asks something, the second half answers it.' },
+    { p:'To do that, change <b>one</b> thing in bars 5–8 — a different last note is enough. Change lots of things and it stops sounding like an answer and starts sounding like a different song.' },
+    { note:{ h:'This is how real tracks are made',
+      p:'Most songs are one 8-bar idea, repeated, with layers taken out and put back. Finishing eight bars is worth far more than starting thirty-two.' } },
+    { h:'Step 3 · Your job' },
+    { keys:[
+      'Keep the drums and chords that are already playing.',
+      'Write <b>six notes or fewer</b> in bars 1–4.',
+      'Repeat them in bars 5–8, changing one note.',
+      'Start each bar on a note that is in the chord.',
+      'Leave at least one beat of silence somewhere.',
+      'Press <b>Check my 8 bars</b>, then export it as a MIDI file.' ] },
+    { try:{ h:'Build it', p:'Tap the roll to write your tune. The buttons will start you off, copy your first half, and check the list above for you.', use:true } }
+  ],
+  quiz:[
+    { q:'Which order makes writing easiest?', a:['Tune, chords, bass, drums','Drums, chords, bass, tune','Chords, tune, drums, bass','Any order'], c:1,
+      why:'Bottom up. Every layer you finish removes choices from the next one.' },
+    { q:'How many things should change in bars 5–8?', a:['None','One','Most of them','All of them'], c:1,
+      why:'One change sounds like an answer to the first four bars. Many changes sound like a new section.' }
+  ]
+},
+
+structure:{
+  lede:'A whole song is one good loop with bits taken out and put back. That is nearly all arrangement is.',
+  blocks:[
+    { h:'Step 1 · Read this grid differently' },
+    { p:'Up to now a box has been a tiny slice of a bar. Here, <b>one box is one whole bar</b>, and each row is one instrument. So you are looking at sixteen bars of a song, from above.' },
+    { p:'This is the same picture your music app shows you when you zoom all the way out.' },
+    { h:'Step 2 · The parts of a song' },
+    { keys:[
+      '<b>Intro</b> — one or two layers. Sets the scene.',
+      '<b>Verse</b> — the main idea, with room left over.',
+      '<b>Build</b> — tension. Often the bass disappears here.',
+      '<b>Chorus (or drop)</b> — everything at once. The payoff.',
+      '<b>Breakdown</b> — strip almost everything away for contrast.',
+      '<b>Outro</b> — take the layers off one at a time.' ] },
+    { p:'These parts are almost always <b>4, 8 or 16 bars</b> long. Same reason as in a tune: the ear counts in twos and fours, so an odd length feels like a mistake.' },
+    { h:'Step 3 · The big secret: take things away' },
+    { p:'Beginners arrange by <em>adding</em> new stuff until something interesting happens. Producers write one good loop and then <b>remove</b> parts of it.' },
+    { p:'The chorus does not sound huge because it is louder. It sounds huge because the bar before it was nearly empty.' },
+    { keys:[
+      '<b>Drop a layer</b> to start a new section. The classic: bass out for four bars, bass back for the chorus.',
+      '<b>Silence is a transition.</b> One beat of nothing before the chorus beats any fancy effect.',
+      '<b>Change the drums in the last bar</b> before a new part, so the join is obvious.',
+      '<b>Keep one thing running</b> all the way through, or the sections stop sounding like the same song.' ] },
+    { note:{ h:'How to get a whole track out of 8 bars',
+      p:'Play your 8 bars four times over. Take layers <em>off</em> the first time through — that is your intro. Strip the third time right back — that is your breakdown. Put everything back for the fourth. You now have 32 bars, and you did not write anything new.' } },
+    { try:{ h:'Arrange 16 bars', p:'Tap a box to turn a layer on or off for that bar. Load a shape, take something away, and hear what it does.', use:true } },
+    { keys:[
+      'One box = one bar. One row = one instrument.',
+      'Sections are 4, 8 or 16 bars.',
+      'Arrange by taking away, not by adding.',
+      'Mark the joins, and keep one thing constant.' ] }
+  ],
+  quiz:[
+    { q:'How long is a section usually?', a:['3, 5 or 7 bars','4, 8 or 16 bars','Any length','Exactly 10 bars'], c:1,
+      why:'The ear groups in twos and fours all the way up, so those lengths feel natural and odd ones feel like a slip.' },
+    { q:'What makes a chorus feel big?', a:['Turning it up','Having almost nothing in the bar before it','More reverb','A key change'], c:1,
+      why:'Contrast. Empty the bar before it and the full arrangement lands enormously, without touching a volume control.' }
+  ]
+}
+
+});
+
+/* the new chapters load after the first attach pass, so attach again */
+LESSONS.forEach(l => { if (SIMPLE[l.id]) l.simple = SIMPLE[l.id]; });
+
+
+/* ── src/curriculum.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   CURRICULUM — the order the lessons are taught in.
+
+   The lessons themselves are just data; this file decides the journey.
+   It is deliberately the last thing loaded, so changing the path never
+   means touching a lesson, and the path is reviewable in one screen.
+
+   The shape: get someone making recognisable music early, then widen.
+   Harmony that is not needed to finish an 8-bar idea waits until after
+   they have finished one.
+   ═══════════════════════════════════════════════════════════════ */
+const CURRICULUM = (() => {
+  const STAGES = [
+    { id:'start',   name:'Start Making Music',
+      blurb:'Beats, bars and the piano roll — enough to put sound anywhere you want it.' },
+    { id:'notes',   name:'Notes & Keys',
+      blurb:'The twelve notes, the distances between them, and the small teams that agree.' },
+    { id:'first',   name:'Build Your First Track',
+      blurb:'Chords, a progression, a bassline and a tune over the top.' },
+    { id:'musical', name:'Make It Musical',
+      blurb:'Which notes land, and how hard you hit them.' },
+    { id:'finish',  name:'Finish an 8-Bar Idea',
+      blurb:'Put the four layers together, then arrange them into a track.' },
+    { id:'toolkit', name:'Harmony Toolkit',
+      blurb:'The chords that make a progression sound expensive.' },
+    { id:'advanced',name:'Advanced Producer Theory',
+      blurb:'Modes, borrowed chords and the map of all twelve keys.' },
+    { id:'ear',     name:'Ear & Production Skills',
+      blurb:'Recognise it without looking, and get unstuck when you are staring at an empty project.' }
+  ];
+
+  /* The path. Every lesson id appears exactly once; the tests enforce that. */
+  const PATH = {
+    start:    ['grid', 'accents', 'meter', 'pianoroll'],
+    notes:    ['intervals', 'scales'],
+    first:    ['chords', 'progressions', 'bassline', 'melody'],
+    musical:  ['melody-chords', 'velocity'],
+    finish:   ['eightbar', 'structure'],
+    toolkit:  ['inversions', 'sevenths', 'suspensions', 'extensions'],
+    advanced: ['modes', 'adv-intervals', 'harmonic-minor', 'dom-dim-aug', 'borrowed', 'circle'],
+    ear:      ['beatblock', 'challenges']
+  };
+
+  /* Apply the path: stamp each lesson with its stage and sort into order.
+     A lesson missing from PATH is kept at the end rather than dropped, so a
+     half-finished new chapter is visible instead of silently invisible. */
+  function apply(lessons) {
+    const order = [];
+    STAGES.forEach(s => (PATH[s.id] || []).forEach(id => order.push({ id, part:s.id })));
+    const rank = {}, partOf = {};
+    order.forEach((o, i) => { rank[o.id] = i; partOf[o.id] = o.part; });
+    lessons.forEach(L => {
+      /* `L.stage` is the 3D instrument; the curriculum grouping is `L.part` */
+      L.part = partOf[L.id] || 'ear';
+      L.rank = rank[L.id] == null ? 900 + lessons.indexOf(L) : rank[L.id];
+    });
+    lessons.sort((a, b) => a.rank - b.rank);
+    return lessons;
+  }
+  const part = id => STAGES.filter(s => s.id === id)[0] || STAGES[STAGES.length - 1];
+  const partIndex = id => STAGES.map(s => s.id).indexOf(id);
+
+  return { STAGES, PATH, apply, part, partIndex };
+})();
+
+if (typeof LESSONS !== 'undefined') CURRICULUM.apply(LESSONS);
+
+if(!window.THREE){document.write('<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/scr'+'ipt>')}</script>
+<script>
+/* the local server, when there is one, hydrates before the app reads storage */
+if (typeof SYNC !== "undefined") SYNC.start(function () { APP.boot(); }); else APP.boot();
 </script>
 </body>
 </html>
