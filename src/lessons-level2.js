@@ -31,7 +31,7 @@ LESSONS.push({
       build:ctx => [
         UI.chips([{label:'m2 / M7',value:1},{label:'M2 / m7',value:2},{label:'m3 / M6',value:3},
                   {label:'M3 / m6',value:4},{label:'P4 / P5',value:5},{label:'Tritone',value:6}],
-          v => ctx.show(v), 2),
+          v => ctx.show(v), 3),
         UI.btn('Invert it', () => ctx.invert()),
         UI.btn('Add an octave (compound)', () => ctx.compound())
       ] } }
@@ -87,12 +87,12 @@ LESSONS.push({
     { p:'Run the stacking through a major scale and the seventh chords come out in a fixed order: <span class="k v">Imaj7 &nbsp; iim7 &nbsp; iiim7 &nbsp; IVmaj7 &nbsp; V7 &nbsp; vim7 &nbsp; viim7♭5</span>. Notice the <b>V7</b> — the only dominant 7th in the key. It’s the tension chord, and the m7♭5 on degree 7 is the anxious one.' },
     { p:'In natural minor: <span class="k v">im7 &nbsp; iim7♭5 &nbsp; IIImaj7 &nbsp; ivm7 &nbsp; vm7 &nbsp; VImaj7 &nbsp; VII7</span>. That <b>VII7</b> is the sound of a thousand drill loops.' },
     { note:{ h:'Producer move: swap every triad for its 7th',
-      p:'Take a progression you already like and add the 7th to each chord. Nothing about the key or the roman numerals changes, and the loop usually sounds richer and smoother. It is worth A/B-ing rather than assuming: 7ths soften the push of a V chord and can blur a hook, which is exactly why a lot of punchy pop and dance music stays on plain triads. If it gets muddy, drop the 5th — in a 7th chord the 5th is the most disposable note.' } },
+      p:'Take a progression you already like and add the 7th to each chord. Nothing about the key or the roman numerals changes, and the loop usually sounds richer and smoother. Keep two things apart when you judge it. <b>Harmonic pull:</b> adding the 7th to a V chord <em>increases</em> the tension — V7 holds a tritone the plain triad does not, so it leans on the tonic harder, not less. <b>Texture:</b> the extra note also thickens every chord, which can blur a hook or crowd a vocal, and that is why a lot of punchy pop and dance music stays on plain triads. If it gets muddy, drop the 5th — in a 7th chord the 5th is the most disposable note.' } },
     { try:{ h:'Triad vs 7th, back to back', p:'Pick a quality and A/B it against the plain triad. The floating tiles name every stacked gap.',
       build:ctx => [
         UI.chips([{label:'maj7',value:'maj7'},{label:'m7',value:'min7'},{label:'7 (dominant)',value:'dom7'},
                   {label:'m7♭5',value:'m7b5'},{label:'dim7',value:'dim7'},{label:'m(maj7)',value:'minMaj7'}],
-          v => ctx.show(v), 0),
+          v => ctx.show(v), ctx.recall('type') || 'maj7'),
         UI.btn('Hear the triad first', () => ctx.compare()),
         UI.btn('All seven of the key', () => ctx.key())
       ] } }
@@ -164,7 +164,8 @@ LESSONS.push({
       build:ctx => [
         UI.chips([{label:'Triad',value:'maj'},{label:'maj7',value:'maj7'},{label:'add9',value:'add9'},
                   {label:'maj9',value:'maj9'},{label:'6/9',value:'six9'},{label:'m9',value:'min9'},
-                  {label:'m11',value:'min11'},{label:'maj13',value:'maj13'}], v => ctx.show(v), 0),
+                  {label:'m11',value:'min11'},{label:'maj13',value:'maj13'}],
+          v => ctx.show(v), ctx.recall('type') || 'maj'),
         UI.toggle('Rootless voicing', v => ctx.rootless(v)),
         UI.toggle('Drop the 5th', v => ctx.no5(v))
       ] } }
@@ -232,7 +233,7 @@ LESSONS.push({
     { try:{ h:'Hang it, then land it', p:'Play the suspension and hear it resolve. Then try holding it and see how long your ear can take the ambiguity.',
       build:ctx => [
         UI.chips([{label:'sus4',value:'sus4'},{label:'sus2',value:'sus2'},{label:'7sus4',value:'7sus4'}],
-          v => ctx.show(v), 0),
+          v => ctx.show(v), ctx.recall('type') || 'sus4'),
         UI.btn('Resolve to major', () => ctx.resolve('maj')),
         UI.btn('Resolve to minor', () => ctx.resolve('min')),
         UI.btn('Loop: 3 beats sus, 1 beat resolved', () => ctx.loop())
@@ -312,7 +313,8 @@ LESSONS.push({
     { try:{ h:'Rotate, then smooth a progression', p:'Invert a single chord first, then play the same progression twice — once all in root position, once voice-led — and hear the difference.',
       build:ctx => [
         UI.chips([{label:'Root position',value:0},{label:'1st inversion',value:1},
-                  {label:'2nd inversion',value:2},{label:'3rd (7th chords)',value:3}], v => ctx.inv(v), 0),
+                  {label:'2nd inversion',value:2},{label:'3rd (7th chords)',value:3}],
+          v => ctx.inv(v), ctx.recall('inv') || 0),
         UI.btn('C–F–G–C all in root position', () => ctx.prog(false)),
         UI.btn('Same, voice-led', () => ctx.prog(true))
       ] } }
@@ -382,7 +384,7 @@ LESSONS.push({
       build:ctx => [
         UI.chips([{label:'V7 → I',value:'v7'},{label:'vii°7 → i',value:'dim'},{label:'Caug → Am',value:'aug'},
                   {label:'Tritone sub: D♭7 → C',value:'sub'},{label:'Secondary: A7 → Dm',value:'sec'}],
-          v => ctx.demo(v), 0),
+          v => ctx.demo(v), ctx.recall('demo') || 'v7'),
         UI.btn('Tension only (no resolution)', () => ctx.hold())
       ] } }
   ],
@@ -439,7 +441,7 @@ LESSONS.push({
   stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names', flats:true } },
   blocks:[
     { h:'The problem it solves' },
-    { p:'In natural minor the chord on degree 5 comes out <b>minor</b> (in C minor: G B♭ D). A minor v has no leading note and barely pulls home. So: raise the 7th degree by a semitone — B♭ becomes B — and the chord on 5 turns into <b>G7</b>, a proper dominant that slams back into Cm.' },
+    { p:'In natural minor the chord on degree 5 comes out <b>minor</b> (in C minor: G B♭ D). A minor v has no leading note and barely pulls home. So: raise the 7th degree by a semitone — B♭ becomes B. The chord on 5 is now G–B–D: <b>G major</b>. Its 3rd is the leading note, and that alone is what gives it the pull home. Add the 7th of the chord on top — F — and you get <b>G7</b>, a full dominant that slams back into Cm.' },
     { p:'That’s <b>harmonic minor</b>: <span class="k">0 2 3 5 7 8 11</span>. Natural minor with a raised 7th. One note changed, and the key suddenly has a strong home pull.' },
     { h:'The side effect: an augmented 2nd' },
     { p:'Between the ♭6 and the ♮7 there is now a gap of <b>3 semitones</b> (A♭ to B in C minor) — an <b>augmented 2nd</b>, the widest step in any common scale. Your ear reads that leap as “exotic, dramatic, Middle-Eastern, sinister”. It’s the sound of Eastern European folk, flamenco, metal, drill and most film villains.' },
@@ -462,7 +464,7 @@ LESSONS.push({
       build:ctx => [
         UI.chips([{label:'Natural minor',value:'minor'},{label:'Harmonic minor',value:'harmonicMinor'},
                   {label:'Melodic minor',value:'melodicMinor'},{label:'Phrygian dominant',value:'phrygianDom'}],
-          v => ctx.setScale(v), 0),
+          v => ctx.setScale(v), ctx.recall('type') || 'minor'),
         UI.btn('Play the scale', () => ctx.run()),
         UI.btn('Play V → i', () => ctx.cadence()),
         UI.btn('vii°7 → i', () => ctx.dim())
@@ -554,7 +556,8 @@ LESSONS.push({
       build:ctx => [
         UI.chips([{label:'IV → iv (sad IV)',value:'iv'},{label:'♭VI lift',value:'bVI'},
                   {label:'♭VII rock move',value:'bVII'},{label:'V7/ii secondary',value:'sec'},
-                  {label:'♭II shock',value:'bII'}], v => ctx.demo(v), 0),
+                  {label:'♭II shock',value:'bII'}],
+          v => ctx.demo(v), ctx.recall('demo') || 'iv'),
         UI.btn('Diatonic version first', () => ctx.plain())
       ] } }
   ],

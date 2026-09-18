@@ -29,22 +29,28 @@ const UI = (() => {
     });
     return b;
   }
-  /* A row of mutually exclusive pills. items: [{label, value}] */
-  function chips(items, fn, startIdx) {
+  /* A row of mutually exclusive pills. items: [{label, value}]
+     `start` is the *value* to show as chosen — lessons pass their restored
+     state, so the pills cannot disagree with what is actually loaded. A value
+     no item carries (null, or an edited progression) lights none of them. */
+  function chips(items, fn, start) {
     const wrap = el('div', 'chips');
+    const at = start === undefined ? 0
+             : items.findIndex(it => String(it.value) === String(start));
     const bs = items.map((it, i) => {
       const b = el('button', 'chip', it.label);
       b.type = 'button';
-      b.setAttribute('aria-pressed', i === (startIdx || 0) ? 'true' : 'false');
+      b.setAttribute('aria-pressed', i === at ? 'true' : 'false');
       b.addEventListener('click', () => {
         A.resume();
-        bs.forEach(o => o.setAttribute('aria-pressed', 'false'));
-        b.setAttribute('aria-pressed', 'true');
+        wrap.show(i);
         fn(it.value, i, it);
       });
       wrap.appendChild(b);
       return b;
     });
+    /* move the selection without running the callback */
+    wrap.show = i => bs.forEach((o, j) => o.setAttribute('aria-pressed', i === j ? 'true' : 'false'));
     wrap.pick = i => bs[i] && bs[i].click();
     return wrap;
   }
@@ -188,17 +194,37 @@ const APP = (() => {
 
   /* Drill accuracy, tracked separately from "lesson done". First answer on
      each question counts; a lesson can be retried to clear its record. */
-  const DKEY = 'rbx-theory-drills-v1';
+  /* v2: results are keyed by the question itself rather than by its position,
+     so the simple and producer versions of a lesson no longer overwrite each
+     other's scores. v1 records cannot be mapped onto questions reliably, so
+     they are left where they are rather than guessed at. */
+  const DKEY = 'rbx-theory-drills-v2';
   let drills = {};
   function loadDrills() {
     try { drills = JSON.parse(localStorage.getItem(DKEY) || '{}') || {}; } catch (e) { drills = {}; }
   }
   function saveDrills() { try { localStorage.setItem(DKEY, JSON.stringify(drills)); } catch (e) {} }
+
+  /* Identity of a quiz question: its text plus its options. Two questions that
+     read identically in both modes share one record; different ones never do. */
+  function qKey(Q) {
+    const s = String(Q.q) + ' ' + (Q.a || []).join(' ');
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return 'q' + h.toString(36);
+  }
   function drillTally(id) {
     const rec = drills[id] || {};
     const ks = Object.keys(rec);
     return { total:ks.length, right:ks.filter(k => rec[k]).length,
-             wrong:ks.filter(k => !rec[k]).map(Number) };
+             wrong:ks.filter(k => !rec[k]) };
+  }
+  /* Clear one lesson's quiz answers so they can be attempted again. Ear-training
+     runs (the 'd' records) are a separate history and are left alone. */
+  function retryQuiz(id) {
+    const rec = drills[id]; if (!rec) return;
+    Object.keys(rec).forEach(k => { if (k[0] === 'q') delete rec[k]; });
+    saveDrills();
   }
 
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
@@ -223,6 +249,9 @@ const APP = (() => {
       stop: () => { transport.stop(); },
       keep: (k, v) => keep(L.id, k, v),
       recall: k => recall(L.id, k),
+      /* lessons call this after changing the instrument behind the panel's back
+         — a preset, or a view swapped for one with a different step count */
+      syncA11y: () => syncA11y(ctx),
       /* ear-training results feed the same accuracy tally as the quizzes */
       score: ok => {
         const rec = drills[L.id] = drills[L.id] || {};
@@ -230,8 +259,6 @@ const APP = (() => {
         saveDrills(); progress();
       }
     };
-
-    buildA11y(ctx);
 
     /* ── prose ── */
     const S = (mode === 'simple' && L.simple) ? L.simple : null;
@@ -320,43 +347,61 @@ const APP = (() => {
     /* ── quiz ── */
     {
       const q = UI.el('div', 'quiz');
-      if (quiz && quiz.length) {
-        const t = drillTally(L.id);
-        q.appendChild(UI.html('h3', null, 'Check yourself' +
-          (t.total ? ' \u00B7 <span style="color:var(--muted)">' + t.right + '/' + t.total +
-            ' right so far</span>' : '')));
-      }
+      const title = UI.html('h3', null, 'Check yourself');
+      if (quiz && quiz.length) q.appendChild(title);
       const rec = drills[L.id] = drills[L.id] || {};
+      /* the running score and the retry offer follow the answers as they land,
+         instead of describing how things stood when the page was drawn */
+      const chrome = () => {
+        const t = drillTally(L.id);
+        title.innerHTML = 'Check yourself' +
+          (t.total ? ' \u00B7 <span style="color:var(--muted)">' + t.right + '/' + t.total +
+            ' right so far</span>' : '');
+        const any = Object.keys(rec).some(k => k[0] === 'q');
+        if (retry) retry.hidden = !any;
+      };
+      let retry = null;
       (quiz || []).forEach((Q, qi) => {
+        const key = qKey(Q);
         const box = UI.el('div', 'q');
         box.appendChild(UI.html('p', 'qt', '<span class="qn">Q' + (qi + 1) + '</span>' + Q.q));
         const opts = UI.el('div', 'opts');
         const why = UI.html('p', 'why', Q.why); why.hidden = true;
+        const settle = picked => {
+          Array.from(opts.children).forEach((o, oi) => {
+            o.disabled = true;
+            if (oi === Q.c) o.classList.add('right');
+            if (picked != null && oi === picked && picked !== Q.c) o.classList.add('wrong');
+          });
+          why.hidden = false;
+        };
         Q.a.forEach((txt, ai) => {
           const b = UI.el('button', 'opt', txt);
           b.type = 'button';
           b.addEventListener('click', () => {
-            Array.from(opts.children).forEach((o, oi) => {
-              o.disabled = true;
-              if (oi === Q.c) o.classList.add('right');
-            });
-            if (ai !== Q.c) b.classList.add('wrong');
-            why.hidden = false;
-            if (rec[qi] === undefined) {      /* only the first answer is scored */
-              rec[qi] = (ai === Q.c); saveDrills(); progress();
+            settle(ai);
+            if (rec[key] === undefined) {      /* only the first answer is scored */
+              rec[key] = (ai === Q.c); saveDrills(); progress();
             }
+            chrome();
             if (Q.hear) { A.resume(); Q.hear(); }
           });
           opts.appendChild(b);
         });
         box.append(opts, why);
+        /* an answered question stays answered across a re-render, so switching
+           reading level or theme does not quietly offer a second first attempt */
+        if (rec[key] !== undefined) settle(rec[key] ? Q.c : null);
         q.appendChild(box);
       });
       const mark = UI.btn(done[L.id] ? 'Done ✓' : 'Mark this lesson done ✓', () => {
         done[L.id] = true; save(); progress();
         mark.textContent = 'Done ✓'; mark.classList.add('on');
       }, { primary:!done[L.id] });
-      q.appendChild(UI.row(mark));
+      retry = UI.btn('↻ Try these again', () => { retryQuiz(L.id); render(); });
+      retry.title = 'Clear this lesson’s answers and start the questions over';
+      chrome();
+      q.appendChild(UI.row(mark, retry));
       w.appendChild(q);
     }
 
@@ -382,6 +427,10 @@ const APP = (() => {
 
     /* the 3D instrument gets set up last, so it can talk to the DOM above */
     if (L.init) L.init(ctx);
+    /* and the button mirror after that, so it reflects the loaded pattern and
+       the view the lesson actually ended up with — then follows it from there */
+    buildA11y(ctx);
+    if (V.onPaint) V.onPaint(() => syncA11y(ctx));
     document.querySelectorAll('#nav button').forEach(b =>
       b.setAttribute('aria-current', b.dataset.id === L.id ? 'true' : 'false'));
     const cur = document.querySelector('#nav button[aria-current="true"]');
@@ -393,12 +442,52 @@ const APP = (() => {
 
   /* Mirror the 3D instrument as real buttons: operable by keyboard, named for
      screen readers, and legible for anyone who finds the perspective labels
-     small. The canvas itself is marked decorative. */
+     small. The canvas itself is marked decorative.
+
+     The panel is built *after* the lesson has initialised, and every button
+     re-reads the instrument after it acts, so what a screen reader announces is
+     the instrument's real state rather than a guess about what the tap did. */
+  let a11yPads = [];      /* [{btn, g, i}] \u2014 live handles for in-place refresh */
+  let a11yShape = '';     /* group/lane layout the panel was built from */
+
+  const shapeOf = d => !d ? '' :
+    (d.groups || []).map(g => g.name + '\u00d7' + g.items.length).join('|') +
+    (d.form ? '#form' + d.form.steps : '');
+
+  /* Repaint names and pressed states from the instrument. Rebuilds only when
+     the instrument itself changed shape (a lesson swapping 8 steps for 12). */
+  function syncA11y(ctx) {
+    const d = V.a11y && V.a11y();
+    if (shapeOf(d) !== a11yShape) { buildA11y(ctx); return; }
+    /* only write what actually changed: the playhead repaints the stage many
+       times a second, and rewriting an unchanged aria-label makes a screen
+       reader chatter through the whole loop */
+    a11yPads.forEach(p => {
+      const it = d.groups[p.g] && d.groups[p.g].items[p.i];
+      if (!it) return;
+      const aria = it.aria || it.label;
+      if (p.btn.textContent !== it.label) p.btn.textContent = it.label;
+      if (p.btn.getAttribute('aria-label') !== aria) p.btn.setAttribute('aria-label', aria);
+      if (it.pressed != null) {
+        const now = it.pressed ? 'true' : 'false';
+        if (p.btn.getAttribute('aria-pressed') !== now) {
+          p.btn.setAttribute('aria-pressed', now);
+          p.btn.classList.toggle('on', !!it.pressed);
+        }
+      }
+      p.act = it.act;
+    });
+    if (d.form) buildForm(ctx, d.form);
+  }
+
   function buildA11y(ctx) {
     const body = $('#a11yBody'), sum = $('#a11ySum');
     if (!body) return;
-    body.innerHTML = '';
+    const focusId = document.activeElement && body.contains(document.activeElement)
+      ? document.activeElement.dataset.a11yId : null;
+    body.innerHTML = ''; a11yPads = [];
     const d = V.a11y && V.a11y();
+    a11yShape = shapeOf(d);
     if (!d) {
       body.appendChild(UI.html('p', 'hint', 'This lesson has no instrument to operate.'));
       return;
@@ -408,53 +497,61 @@ const APP = (() => {
       'These do exactly what tapping the 3D stage does. Tab to move, Enter or Space to play. ' +
       'Results are announced in the readout above the lesson.'));
 
-    (d.groups || []).forEach(g => {
+    (d.groups || []).forEach((g, gi) => {
       body.appendChild(UI.html('h4', null, g.name));
       const row = UI.el('div', 'pads');
-      g.items.forEach(it => {
+      g.items.forEach((it, ii) => {
         const b = UI.el('button', 'pad' + (/black/.test(it.aria || '') ? ' black' : ''), it.label);
         b.type = 'button';
+        b.dataset.a11yId = gi + '-' + ii;
         b.setAttribute('aria-label', it.aria || it.label);
-        if (it.pressed != null) b.setAttribute('aria-pressed', it.pressed ? 'true' : 'false');
-        b.addEventListener('click', () => {
-          A.resume(); it.act();
-          if (it.pressed != null) {
-            const now = b.getAttribute('aria-pressed') === 'true';
-            b.setAttribute('aria-pressed', now ? 'false' : 'true');
-          }
-        });
+        if (it.pressed != null) {
+          b.setAttribute('aria-pressed', it.pressed ? 'true' : 'false');
+          b.classList.toggle('on', !!it.pressed);
+        }
+        const handle = { btn:b, g:gi, i:ii, act:it.act };
+        b.addEventListener('click', () => { A.resume(); handle.act(); syncA11y(ctx); });
+        a11yPads.push(handle);
         row.appendChild(b);
       });
       body.appendChild(row);
     });
-
-    /* the piano roll gets a compact add/remove form instead of 240 buttons */
-    if (d.form) {
-      const f = d.form;
-      body.appendChild(UI.html('h4', null, 'Write a note'));
-      const stepSel = UI.select('Step', Array.from({ length:f.steps }, (_, i) =>
-        ({ label:'step ' + (i + 1), value:i })), () => {}, 0);
-      const rowSel = UI.select('Note', f.rows.map(m =>
-        ({ label:f.rowLabel(m), value:m })), () => {}, f.rows[0]);
-      const act = UI.btn('Add or remove', () => {
-        const st = Number(stepSel.el.value), md = Number(rowSel.el.value);
-        f.toggle(st, md);
-        buildA11y(ctx);
-      }, { primary:true });
-      body.appendChild(UI.row(stepSel, rowSel, act));
-      const list = f.list();
-      body.appendChild(UI.html('h4', null, 'Notes on the roll (' + list.length + ')'));
-      const wrap = UI.el('div', 'notelist');
-      if (!list.length) wrap.appendChild(UI.html('span', 'hint', 'empty'));
-      list.forEach(n => {
-        const b = UI.el('button', 'pad', f.rowLabel(n.midi) + ' @' + (n.step + 1));
-        b.type = 'button';
-        b.setAttribute('aria-label', 'Remove ' + f.rowLabel(n.midi) + ' at step ' + (n.step + 1));
-        b.addEventListener('click', () => { A.resume(); f.toggle(n.step, n.midi); buildA11y(ctx); });
-        wrap.appendChild(b);
-      });
-      body.appendChild(wrap);
+    if (focusId) {
+      const back = body.querySelector('[data-a11y-id="' + focusId + '"]');
+      if (back) back.focus();
     }
+
+    if (d.form) buildForm(ctx, d.form);
+  }
+
+  /* the piano roll gets a compact add/remove form instead of 240 buttons */
+  function buildForm(ctx, f) {
+    const body = $('#a11yBody');
+    let host = body.querySelector('.a11yform');
+    if (host) host.innerHTML = ''; else { host = UI.el('div', 'a11yform'); body.appendChild(host); }
+    host.appendChild(UI.html('h4', null, 'Write a note'));
+    const stepSel = UI.select('Step', Array.from({ length:f.steps }, (_, i) =>
+      ({ label:'step ' + (i + 1), value:i })), () => {}, 0);
+    const rowSel = UI.select('Note', f.rows.map(m =>
+      ({ label:f.rowLabel(m), value:m })), () => {}, f.rows[0]);
+    const act = UI.btn('Add or remove', () => {
+      const st = Number(stepSel.el.value), md = Number(rowSel.el.value);
+      f.toggle(st, md);
+      syncA11y(ctx);
+    }, { primary:true });
+    host.appendChild(UI.row(stepSel, rowSel, act));
+    const list = f.list();
+    host.appendChild(UI.html('h4', null, 'Notes on the roll (' + list.length + ')'));
+    const wrap = UI.el('div', 'notelist');
+    if (!list.length) wrap.appendChild(UI.html('span', 'hint', 'empty'));
+    list.forEach(n => {
+      const b = UI.el('button', 'pad', f.rowLabel(n.midi) + ' @' + (n.step + 1));
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Remove ' + f.rowLabel(n.midi) + ' at step ' + (n.step + 1));
+      b.addEventListener('click', () => { A.resume(); f.toggle(n.step, n.midi); syncA11y(ctx); });
+      wrap.appendChild(b);
+    });
+    host.appendChild(wrap);
   }
 
   function go(i) {
@@ -508,5 +605,5 @@ const APP = (() => {
     } catch (e) {}
     new ResizeObserver(() => V.resize && V.resize()).observe(document.querySelector('#stage'));
   }
-  return { boot, go, get idx() { return idx; } };
+  return { boot, go, qKey, get idx() { return idx; } };
 })();

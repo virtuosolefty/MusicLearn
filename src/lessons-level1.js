@@ -28,14 +28,9 @@ LESSONS.push({
     { p:'<b>BPM</b> = beats per minute, so it counts the <em>beats</em>, not the boxes. At 120 BPM a beat lasts half a second and a 16th box lasts an eighth of a second. Genre gives you a rough home: boom-bap 85–95, trap 130–150 (but written so it <em>feels</em> like 65–75), reggaetón 90–100, house 120–128.' },
     { try:{ h:'Build one bar', p:'The classic starting point is loaded: kick on beats 1 and 3, snare on 2 and 4, hats on every 8th. Tap any pad in the 3D grid to add or remove a hit, then press play and move the tempo around.',
       build:ctx => [
-        UI.btn('Reset to the classic', () => {
-          ctx.v.clearAll();
-          ctx.v.pattern(0, [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0]);
-          ctx.v.pattern(1, [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0]);
-          ctx.v.pattern(2, [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0]);
-        }),
-        UI.btn('Clear the grid', () => ctx.v.clearAll()),
-        UI.btn('Trap hats (16ths)', () => ctx.v.pattern(2, new Array(16).fill(1)))
+        UI.btn('Reset to the classic', () => ctx.preset('classic')),
+        UI.btn('Clear the grid', () => ctx.preset('clear')),
+        UI.btn('Trap hats (16ths)', () => ctx.preset('traphats'))
       ] } },
     { keys:[
       'One bar of 4/4 = 4 beats = 16 boxes of a 16th note each.',
@@ -52,9 +47,27 @@ LESSONS.push({
       why:'60 ÷ 120 = 0.5 seconds per beat. A 16th box is a quarter of that — 0.125 s.' }
   ],
   init:ctx => {
-    ctx.v.pattern(0, [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0]);
-    ctx.v.pattern(1, [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0]);
-    ctx.v.pattern(2, [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0]);
+    const CLASSIC = [
+      [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+      [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0]
+    ];
+    /* every route into the grid — pad, preset, accessible button — ends here,
+       so the saved pattern and the button mirror can never fall behind it */
+    const sync = () => {
+      ctx.keep('pattern', ctx.v.state.map(r => r.slice()));
+      ctx.syncA11y();
+    };
+    ctx.preset = kind => {
+      ctx.v.clearAll();
+      if (kind === 'classic') CLASSIC.forEach((row, l) => ctx.v.pattern(l, row));
+      if (kind === 'traphats') {
+        CLASSIC.forEach((row, l) => ctx.v.pattern(l, row));
+        ctx.v.pattern(2, new Array(16).fill(1));
+      }
+      sync();
+    };
+    CLASSIC.forEach((row, l) => ctx.v.pattern(l, row));
     let bpm = 96;
     const kinds = ['kick','snare','hat'];
     const play = on => {
@@ -75,7 +88,7 @@ LESSONS.push({
     );
     const saved = ctx.recall('pattern');
     if (saved) saved.forEach((row, l) => ctx.v.pattern(l, row));
-    ctx.v.onCell(() => ctx.keep('pattern', ctx.v.state.map(r => r.slice())));
+    ctx.v.onCell(sync);
     ctx.read('one bar of 4/4\n16 boxes  \u00B7  press play');
   }
 });
@@ -101,7 +114,7 @@ LESSONS.push({
         { label:'Backbeat', value:'back' },
         { label:'Dembow (syncopated)', value:'dembow' },
         { label:'Trap (rolling)', value:'trap' }
-      ], v => ctx.load(v), 0) } },
+      ], v => ctx.load(v), ctx.recall('kit') || 'straight') } },
     { keys:[
       'Strength order in 4/4: <b>1</b> &gt; 3 &gt; 2 and 4 &gt; the &amp;s &gt; the <em>e</em>s and <em>a</em>s.',
       'Syncopation = accenting a weak box on purpose.',
@@ -182,14 +195,18 @@ LESSONS.push({
     { h:'The cheat every producer uses' },
     { p:'You rarely change your DAW’s time signature. Instead you stay in 4/4 and place <b>triplets</b> — three notes in the space of two — for the compound feel, or turn on <b>swing</b>, which nudges every second 16th late so pairs of boxes become long-short. Swing at 0% is stiff and mechanical; at 100% it’s fully triplet.' },
     { try:{ h:'Two against three', p:'The pulse lane marks the big beats, and the tempo stays put when you switch. In 4/4 you get four beats of two boxes; in 12/8 (which is just two bars of 6/8 back to back) you get four beats of three. Same speed, different gait.',
-      build:ctx => [
-        UI.chips([
+      build:ctx => {
+        const at = ctx.recall('meter') || 2;
+        ctx.pills = UI.chips([
           { label:'Simple — 2 per beat (apple)', value:2 },
           { label:'Compound — 3 per beat (strawberry)', value:3 }
-        ], v => ctx.setMeter(v), 0),
-        UI.btn('Now split each beat into 4', () => ctx.setMeter(4)),
-        UI.btn('Fill every box', () => ctx.fill())
-      ] } },
+        ], v => ctx.setMeter(v), at);
+        return [
+          ctx.pills,
+          UI.btn('Now split each beat into 4', () => ctx.setMeter(4)),
+          UI.btn('Fill every box', () => ctx.fill())
+        ];
+      } } },
     { keys:[
       'Bottom number = which note value counts as one unit. Top number = how many units per bar.',
       'Simple meter: the unit is the beat, so the top number is the beat count (3/4 = 3 beats).',
@@ -234,8 +251,12 @@ LESSONS.push({
           ? 'AP-PLE  ·  simple\n4 beats, 2 boxes each = 4/4 in 8ths\nbeat = a quarter'
           : 'AP-PLE, twice as fine  ·  simple\n4 beats, 4 boxes each = 4/4 in 16ths\nstill 2-per-beat at heart');
       ctx.keep('meter', g);
+      /* the grid it mirrors has a different number of steps now */
+      ctx.syncA11y();
+      /* 4-per-beat arrives from its own button, so no pill matches it */
+      if (ctx.pills) ctx.pills.show(g === 2 ? 0 : g === 3 ? 1 : -1);
     };
-    ctx.fill = () => ctx.v.pattern(2, new Array(nSteps).fill(1));
+    ctx.fill = () => { ctx.v.pattern(2, new Array(nSteps).fill(1)); ctx.syncA11y(); };
     ctx.setMeter(ctx.recall('meter') || 2);
     const play = on => {
       if (!on) { ctx.stop(); ctx.v.playhead(-1); return; }
@@ -269,7 +290,7 @@ LESSONS.push({
     { try:{ h:'Find things by shape, not by name', p:'Play the keyboard, then have the lab hide the labels and ask you for a note. Use the black-key groups to find it.',
       build:ctx => [
         UI.chips([{label:'Note names',value:'names'},{label:'MIDI numbers',value:'midi'},{label:'Labels off',value:'none'}],
-          v => ctx.setLabels(v), 0),
+          v => ctx.setLabels(v), 'names'),
         UI.btn('Sharps ♯ / flats ♭', () => ctx.flip()),
         UI.btn('Quiz me: find a note', () => ctx.findNote())
       ] } },
@@ -452,9 +473,10 @@ LESSONS.push({
       build:ctx => [
         UI.select('Root', [48,49,50,51,52,53,54,55,56,57,58,59].map(m =>
           ({ label:T.MAJ_ROOT[T.pc(m)], value:m })),
-          v => ctx.setRoot(Number(v)), 48),
+          v => ctx.setRoot(Number(v)), ctx.recall('root') || 48),
         UI.select('Scale', ['major','minor','majorPent','minorPent','blues','harmonicMinor']
-          .map(k => ({ label:T.SCALES[k].label, value:k })), v => ctx.setScale(v), 'major'),
+          .map(k => ({ label:T.SCALES[k].label, value:k })), v => ctx.setScale(v),
+          ctx.recall('type') || 'major'),
         UI.btn('Play it up and down', () => ctx.run()),
         UI.toggle('Show degrees', v => ctx.degrees(v))
       ] } },
@@ -553,7 +575,8 @@ LESSONS.push({
       p:'Modes only register if you keep hammering home the root and use the chord that contains the characteristic note. Dorian over a static Dm–G vamp sings; the same notes over a C chord just sounds like C major. Mode = notes + a stubborn root.' } },
     { try:{ h:'Turn the brightness dial', p:'All seven modes on the same root, so you hear the mood change instead of the key change. Watch which single key moves each time.',
       build:ctx => [
-        UI.chips(T.MODE_ORDER.map(k => ({ label:T.SCALES[k].label.split(' ')[0], value:k })), v => ctx.setMode(v), 1),
+        UI.chips(T.MODE_ORDER.map(k => ({ label:T.SCALES[k].label.split(' ')[0], value:k })),
+          v => ctx.setMode(v), ctx.recall('mode') || 'major'),
         UI.btn('Play the mode', () => ctx.run()),
         UI.btn('Play its home chord', () => ctx.vamp())
       ] } }
@@ -623,8 +646,10 @@ LESSONS.push({
       p:'Natural minor gives you <span class="k v">i  ii°  III  iv  v  VI  VII</span>. The big ones are <b>i</b>, <b>iv</b>, <b>VI</b> and <b>VII</b> — that VI–VII–i move is most of modern trap and drill harmony.' } },
     { try:{ h:'See a chord get built', p:'Pick a degree and the lab stacks it for you, naming each gap. Switch the key to hear the same numeral in a different place.',
       build:ctx => [
-        UI.chips([1,2,3,4,5,6,7].map(d => ({ label:'Degree ' + d, value:d })), v => ctx.deg(v), 0),
-        UI.select('Key', [{label:'C major',value:'major'},{label:'C minor',value:'minor'}], v => ctx.key(v), 'major'),
+        UI.chips([1,2,3,4,5,6,7].map(d => ({ label:'Degree ' + d, value:d })),
+          v => ctx.deg(v), ctx.recall('deg') || 1),
+        UI.select('Key', [{label:'C major',value:'major'},{label:'C minor',value:'minor'}],
+          v => ctx.key(v), ctx.recall('key') || 'major'),
         UI.btn('Play all seven', () => ctx.all())
       ] } },
     { keys:[
@@ -706,18 +731,25 @@ LESSONS.push({
     { note:{ h:'Loops don’t need cadences — they need a hinge',
       p:'Most modern production loops 4 or 8 bars forever, so instead of “ending” you often want a chord that throws you back to bar 1 — usually the V, the VII or the IV. Try it both ways: ending on the unstable chord pulls the loop around, and ending on I makes each pass feel like a complete statement. Which one is right depends on the track.' } },
     { try:{ h:'Four slots, your call', p:'Load a classic, then tap any slot and change its numeral. You will hear immediately which swaps keep the story and which break it.',
-      build:ctx => [
-        UI.chips([
-          { label:'I–V–vi–IV', value:'1,5,6,4' },
-          { label:'vi–IV–I–V', value:'6,4,1,5' },
-          { label:'ii–V–I–I', value:'2,5,1,1' },
-          { label:'i–VI–III–VII (natural minor)', value:'m1,6,3,7' },
-          { label:'i–iv–VI–v (natural minor)', value:'m1,4,6,5' },
-          { label:'i–iv–VI–V (harmonic minor)', value:'h1,4,6,5' }
-        ], v => ctx.loadProg(v), 0),
-        UI.btn('▶ Play the loop', () => ctx.loop()),
-        UI.toggle('Add 7ths', v => ctx.sevenths(v))
-      ] } },
+      build:ctx => {
+        /* the controls open on whatever is actually loaded — an edited
+           progression shows no preset lit, because none of them is what
+           you are hearing */
+        const st = ctx.recall('state') || {};
+        ctx.pills = UI.chips([
+            { label:'I–V–vi–IV', value:'1,5,6,4' },
+            { label:'vi–IV–I–V', value:'6,4,1,5' },
+            { label:'ii–V–I–I', value:'2,5,1,1' },
+            { label:'i–VI–III–VII (natural minor)', value:'m1,6,3,7' },
+            { label:'i–iv–VI–v (natural minor)', value:'m1,4,6,5' },
+            { label:'i–iv–VI–V (harmonic minor)', value:'h1,4,6,5' }
+          ], v => ctx.loadProg(v), st.preset === undefined ? '1,5,6,4' : st.preset);
+        return [
+          ctx.pills,
+          UI.btn('▶ Play the loop', () => ctx.loop()),
+          UI.toggle('Add 7ths', v => ctx.sevenths(v), !!st.sevens)
+        ];
+      } } },
     { keys:[
       'Chords have jobs: tonic (home), subdominant (motion), dominant (tension).',
       'Home → away → tension → home is the default story.',
@@ -733,8 +765,18 @@ LESSONS.push({
       why:'IV → I. Softer than V → I — it arrives home without the same push. Gospel and worship music live on it.' }
   ],
   init:ctx => {
-    let keyType = 'major', seq = [1,5,6,4], sevens = false, playing = false;
+    /* What gets kept is the progression as it stands — key, the four degrees,
+       and whether 7ths are on — not the name of the preset it started from.
+       Editing a slot and switching reading level therefore keeps the edit.
+       `preset` is only the pill to light up, and goes blank once edited. */
+    const st = ctx.recall('state') || {};
+    let keyType = st.keyType || 'major';
+    let seq = (st.seq || [1,5,6,4]).slice();
+    let sevens = !!st.sevens;
+    let preset = st.preset === undefined ? '1,5,6,4' : st.preset;
+    let playing = false;
     const root = 48;
+    const store = () => ctx.keep('state', { keyType, seq:seq.slice(), sevens, preset });
     const RN = () => T.rootFor(root, keyType === 'major' ? 'major' : 'minor');
     const chordAt = d => {
       const c = T.diatonic(root, keyType)[d - 1];
@@ -762,10 +804,10 @@ LESSONS.push({
          the sound can never drift apart. */
       keyType = v[0] === 'm' ? 'minor' : v[0] === 'h' ? 'harmonicMinor' : 'major';
       seq = v.replace(/^[mh]/, '').split(',').map(Number);
-      ctx.keep('prog', v); ctx.keep('sevens', sevens);
+      preset = v; store();
       showChord(0);
     };
-    ctx.sevenths = v => { sevens = v; ctx.keep('sevens', v); showChord(0); };
+    ctx.sevenths = v => { sevens = v; store(); showChord(0); };
     ctx.loop = () => {
       if (playing) return;
       playing = true;
@@ -776,14 +818,22 @@ LESSONS.push({
       };
       step(0);
     };
+    /* Editing a slot makes the progression its own thing: the preset pills go
+       blank, because none of them is what you are hearing any more. */
+    const degSel = UI.select('to numeral', [1,2,3,4,5,6,7].map(d => ({ label:'degree ' + d, value:d })), v => {
+      const i = (ctx.slot || 1) - 1;
+      seq[i] = Number(v); preset = null; store();
+      if (ctx.pills) ctx.pills.show(-1);
+      showChord(i);
+    }, seq[0]);
     ctx.stage(
-      UI.select('Change slot', [1,2,3,4].map(i => ({ label:'Slot ' + i, value:i })), v => { ctx.slot = Number(v); }, 1),
-      UI.select('to numeral', [1,2,3,4,5,6,7].map(d => ({ label:'degree ' + d, value:d })), v => {
-        seq[(ctx.slot || 1) - 1] = Number(v); showChord((ctx.slot || 1) - 1);
-      }, 1)
+      UI.select('Change slot', [1,2,3,4].map(i => ({ label:'Slot ' + i, value:i })), v => {
+        ctx.slot = Number(v);
+        degSel.el.value = String(seq[ctx.slot - 1]);   /* show the slot's own degree */
+      }, 1),
+      degSel
     );
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN(), keyType) + T.oct(m)); });
-    sevens = !!ctx.recall('sevens');
-    ctx.loadProg(ctx.recall('prog') || '1,5,6,4');
+    showChord(0);
   }
 });

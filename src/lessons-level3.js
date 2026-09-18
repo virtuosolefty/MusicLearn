@@ -229,7 +229,7 @@ LESSONS.push({
       build:ctx => [
         UI.chips([{label:'Chord tones only',value:'safe'},{label:'Ignoring the chords',value:'bad'},
                   {label:'With approach notes',value:'pro'},{label:'Tension notes (9ths)',value:'colour'}],
-          v => ctx.load(v), 0),
+          v => ctx.load(v), ctx.recall('which') || 'safe'),
         UI.btn('Chords alone', () => ctx.bedOnly())
       ] } }
   ],
@@ -451,7 +451,9 @@ LESSONS.push({
   id:'challenges', level:3, tag:'Drills', title:'Challenges',
   hint:'Ear training — no looking',
   lede:'Theory you can only see is half-learned. These drills are deliberately unfair to your eyes: you have to hear it.',
-  stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'none' } },
+  /* three octaves, because hard mode reaches past the two the other lessons
+     use — the correction has to be able to light the note that actually played */
+  stage:{ view:'keys', cfg:{ lo:48, hi:84, labels:'none' } },
   blocks:[
     { h:'How to use these' },
     { p:'Pick a drill, listen, answer. Get it wrong and you’ll be shown the right answer with the notes lit up — that correction is where the learning actually happens. Ten minutes a day for two weeks will change how you write, more than any amount of reading.' },
@@ -475,11 +477,12 @@ LESSONS.push({
         wrap.append(
           UI.chips([{label:'Interval',value:'ivl'},{label:'Chord quality',value:'chord'},
                     {label:'Progression',value:'prog'},{label:'Scale',value:'scale'},
-                    {label:'Scale degree',value:'deg'}], v => ctx.setDrill(v), 0),
+                    {label:'Scale degree',value:'deg'}],
+                    v => ctx.setDrill(v), ctx.recall('drill') || 'ivl'),
           UI.row(UI.btn('\uD83D\uDD0A Listen', () => ctx.playQ(), { primary:true }),
                  UI.btn('\u21BB Replay', () => ctx.replay()),
                  UI.btn('Next question', () => ctx.next()),
-                 UI.toggle('Hard mode', v => ctx.setHard(v))),
+                 UI.toggle('Hard mode', v => ctx.setHard(v), !!ctx.recall('hard'))),
           box);
         ctx.answers = box;
         return wrap;
@@ -498,17 +501,34 @@ LESSONS.push({
     const pickRoot = () => hard
       ? Math.min(66, rnd(ALL_ROOTS) + rnd([0, 0, 12]))
       : rnd(EASY_ROOTS);
+    /* The stage shows LO..HI. An example that would run off the top moves down
+       by whole octaves — all of its notes together — because moving one note on
+       its own would change the very interval the question is asking about. */
+    const LO = 48, HI = 84;
+    const drop = ns => {
+      let out = ns.slice();
+      while (Math.max.apply(null, out) > HI && Math.min.apply(null, out) - 12 >= LO)
+        out = out.map(n => n - 12);
+      return out;
+    };
 
     const DRILLS = {
       ivl: () => {
-        const base = pickRoot();
         const n = hard ? rnd([1,2,3,4,5,6,7,8,9,10,11,12,13,14]) : rnd([3,4,5,7,8,9,12]);
+        const base0 = pickRoot();
+        const [base, top] = drop([base0, base0 + n]);
         const rn = T.MAJ_ROOT[T.pc(base)];
-        return { notes:[[base], [base + n]], answer:T.ivl(n).label,
+        const topName = T.spellIvl(rn, n);
+        /* the key lights up under the same name the explanation uses: a minor
+           7th above F is E♭, so the keyboard must not call it D♯ */
+        const spell = { flats:topName.indexOf('♭') >= 0 || rn.indexOf('♭') >= 0 };
+        spell[T.pc(base)] = rn; spell[T.pc(top)] = topName;
+        return { notes:[[base], [top]], answer:T.ivl(n).label,
           options:T.IVL.slice(1, hard ? 15 : 13).map(i => i.label),
           show:() => {
-            ctx.v.clear().mark(base, 'root').mark(Math.min(base + n, 72), 'target').apply().clearExtras();
-            if (base + n <= 72) ctx.v.arc(base, base + n, T.ivl(n).short);
+            ctx.v.clear().mark(base, 'root').mark(top, 'target').apply().clearExtras()
+              .spelling(spell);
+            ctx.v.arc(base, top, T.ivl(n).short);
           },
           why:rn + ' up to ' + T.spellIvl(rn, n) + '  \u00B7  ' + n + ' semitones' };
       },
@@ -520,11 +540,15 @@ LESSONS.push({
         const t = rnd(types);
         let ns = T.chordNotes(root, t);
         if (hard && Math.random() < 0.4) ns = T.invert(ns, 1 + Math.floor(Math.random() * 2));
+        ns = drop(ns);
         const rn = T.MAJ_ROOT[T.pc(root)];
+        const spelt = T.spellChord(rn, t);
+        const spell = { flats:spelt.some(s => s.indexOf('♭') >= 0) };
+        T.chordNotes(T.nameToPc(rn), t).forEach((m, i) => { spell[T.pc(m)] = spelt[i]; });
         return { notes:[ns], answer:T.CHORDS[t].label,
           options:types.map(x => T.CHORDS[x].label),
-          show:() => ctx.v.clear().marks(ns.filter(x => x <= 72), 'chord').mark(ns[0], 'root')
-            .apply().clearExtras().stack(ns.filter(x => x <= 74)),
+          show:() => ctx.v.clear().marks(ns, 'chord').mark(ns[0], 'root')
+            .apply().clearExtras().spelling(spell).stack(ns),
           why:T.chordName(rn, t) + '  \u00B7  ' + T.spellChord(rn, t).join(' ') +
             (ns[0] !== root ? '  (inverted)' : '') };
       },
@@ -553,10 +577,10 @@ LESSONS.push({
         const k = rnd(keys);
         const root = pickRoot();
         const rn = T.rootFor(root, k);
-        const ns = T.scaleNotes(root, k).concat([root + 12]);
+        const ns = drop(T.scaleNotes(root, k).concat([root + 12]));
         return { notes:ns.map(n => [n]), spaced:true, answer:T.SCALES[k].label,
           options:keys.map(x => T.SCALES[x].label),
-          show:() => ctx.v.clear().marks(ns.filter(n => n <= 72), 'scale').mark(root, 'root')
+          show:() => ctx.v.clear().marks(ns, 'scale').mark(ns[0], 'root')
             .apply().clearExtras().spelling(T.keyMap(rn, k)),
           why:rn + ' ' + T.SCALES[k].label + '  \u00B7  ' + T.spellScale(rn, k).join(' ') };
       },
@@ -567,11 +591,18 @@ LESSONS.push({
         const target = root + step + (hard && Math.random() < 0.3 ? 12 : 0);
         const rn = T.MAJ_ROOT[T.pc(root)];
         const dia = T.diatonic(root, 'major');
-        return { notes:[dia[0].notes, dia[4].notes, dia[0].notes, [target]], spaced:true,
+        /* the key-establishing cadence and the mystery note are one example:
+           they move together or the note stops being that degree of that key */
+        const all = drop(dia[0].notes.concat(dia[4].notes, [target]));
+        const shift = all[0] - dia[0].notes[0];
+        const tonic = dia[0].notes.map(n => n + shift);
+        const dom = dia[4].notes.map(n => n + shift);
+        return { notes:[tonic, dom, tonic, [target + shift]], spaced:true,
           answer:'degree ' + d,
           options:[1,2,3,4,5,6,7].map(x => 'degree ' + x),
-          show:() => ctx.v.clear().marks(T.scaleNotes(root, 'major').filter(n => n <= 72), 'ghost')
-            .mark(root, 'root').mark(Math.min(target, 72), 'target').apply().clearExtras()
+          show:() => ctx.v.clear()
+            .marks(T.scaleNotes(root + shift, 'major'), 'ghost')
+            .mark(root + shift, 'root').mark(target + shift, 'target').apply().clearExtras()
             .spelling(T.keyMap(rn, 'major')),
           why:'the key was ' + rn + ' major; the note was ' +
             T.inKey(target, rn, 'major') + ' \u2014 degree ' + d };

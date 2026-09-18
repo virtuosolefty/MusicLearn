@@ -786,10 +786,38 @@ const V = (() => {
     if (k === 'sel') return 0;
     return () => STUB;
   } }) : {};
+  /* Anything that can change an instrument announces it once per tick, so the
+     accessible button panel can follow the instrument instead of being told
+     about each change by hand at every call site. */
+  let onChange = null, pinged = false, notifying = false;
+  function ping() {
+    if (pinged || notifying || !onChange) return;
+    pinged = true;
+    /* a timer, not an animation frame: a background tab stops painting, but the
+       buttons a screen reader is walking still have to describe the truth */
+    setTimeout(() => {
+      pinged = false; notifying = true;
+      try { onChange(); } finally { notifying = false; }
+    }, 0);
+  }
+  /* wrap a view so its own chaining still works, but every call pings */
+  function watch(api) {
+    if (typeof Proxy !== 'function') return api;
+    const p = new Proxy(api, { get(t, k) {
+      const v = t[k];
+      if (typeof v !== 'function') return v;
+      return function () {
+        const r = v.apply(t, arguments);
+        ping();
+        return r === t ? p : r;
+      };
+    } });
+    return p;
+  }
   function set(kind, cfg) {
     if (!renderer) return STUB;
     if (current && current.dispose) current.dispose();
-    current = KINDS[kind](cfg || {});
+    current = watch(KINDS[kind](cfg || {}));
     return current;
   }
   /* Repaint the world. Views are rebuilt by the caller afterwards. */
@@ -806,7 +834,9 @@ const V = (() => {
     if (lightRim) { lightRim.color.setHex(C.accent); lightRim.intensity = C.rimI; }
   }
   const a11y = () => (current && current.a11y) ? current.a11y() : null;
-  return { mount, set, label, setTheme, a11y, get C() { return C; }, get ROLE() { return ROLE; },
+  const onPaint = cb => { onChange = cb; };
+  return { mount, set, label, setTheme, a11y, onPaint,
+           get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
            get orbit() { return orb; }, resize };
 })();

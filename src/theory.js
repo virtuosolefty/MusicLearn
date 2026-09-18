@@ -52,6 +52,7 @@ const T = (() => {
     dim7:   { label:'diminished 7th',    sym:'dim7',    steps:[0,3,6,9], deg:[0,2,4,6] },
     minMaj7:{ label:'minor major 7th',   sym:'m(maj7)', steps:[0,3,7,11], deg:[0,2,4,6] },
     aug7:   { label:'augmented 7th',     sym:'7♯5', steps:[0,4,8,10], deg:[0,2,4,6] },
+    augMaj7:{ label:'augmented major 7th', sym:'maj7♯5', steps:[0,4,8,11], deg:[0,2,4,6] },
     add9:   { label:'added 9th',         sym:'add9',    steps:[0,4,7,14], deg:[0,2,4,8] },
     maj9:   { label:'major 9th',         sym:'maj9',    steps:[0,4,7,11,14], deg:[0,2,4,6,8] },
     min9:   { label:'minor 9th',         sym:'m9',      steps:[0,3,7,10,14], deg:[0,2,4,6,8] },
@@ -112,10 +113,14 @@ const T = (() => {
       const a = g(0), b = g(2), c = g(4), s = g(6);
       const q = qualityOf(a, b, c);
       const sev = ((s - a) % 12 + 12) % 12;
+      /* the triad decides the letter of the numeral, the seventh decides the
+         rest of the name — an augmented triad carries a major 7th in both
+         harmonic and melodic minor, which is a different chord from aug7 */
       let q7 = q === 'maj' ? (sev === 11 ? 'maj7' : 'dom7')
              : q === 'min' ? (sev === 10 ? 'min7' : 'minMaj7')
              : q === 'dim' ? (sev === 10 ? 'm7b5' : 'dim7')
-             : 'aug7';
+             : q === 'aug' ? (sev === 10 ? 'aug7' : 'augMaj7')
+             : 'dom7';
       out.push({ degree:d + 1, root:a, notes:[a,b,c], seventh:[a,b,c,s], quality:q, q7 });
     }
     return out;
@@ -125,7 +130,7 @@ const T = (() => {
     const r = ROMAN[d - 1];
     if (q === 'min' || q === 'min7' || q === 'minMaj7') return r.toLowerCase();
     if (q === 'dim' || q === 'm7b5' || q === 'dim7') return r.toLowerCase() + '°';
-    if (q === 'aug') return r + '+';
+    if (q === 'aug' || q === 'aug7' || q === 'augMaj7') return r + '+';
     return r;
   };
   const chordLabel = (rootMidi, type, flats) => name(rootMidi, flats) + (CHORDS[type] ? CHORDS[type].sym : '');
