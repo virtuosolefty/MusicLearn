@@ -95,6 +95,8 @@ const theory = read('src/theory.js');
 const uiSrc = read('src/ui.js');
 const practiceSrc = read('src/practice.js');
 const studioSrc = read('src/studio.js');
+const flatSrc = read('src/flat.js');
+const scenesSrc = read('src/scenes.js');
 const lessonSrc = ['src/lessons-level1.js','src/lessons-level2.js','src/lessons-level3.js',
                    'src/simple-level1.js','src/simple-level2.js'].map(read).join('\n');
 
@@ -117,10 +119,10 @@ const Vmock = { set:(kind, cfg) => {
 
 const sandbox = new Function('A', 'V', 'document', 'window', 'localStorage',
   theory.replace(/^const A = \(\(\)[\s\S]*$/m, '') + '\n' +
-  uiSrc + '\n' + practiceSrc + '\n' + studioSrc + '\n' + lessonSrc +
-  '\nreturn { LESSONS, UI, T, APP, PRACTICE, STUDIO };');
-const { LESSONS, UI, T, APP, PRACTICE, STUDIO } = sandbox(Amock, Vmock, global.document,
-                                                          global.window, global.localStorage);
+  uiSrc + '\n' + practiceSrc + '\n' + studioSrc + '\n' + flatSrc + '\n' + lessonSrc +
+  '\nreturn { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT };');
+const { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT } =
+  sandbox(Amock, Vmock, global.document, global.window, global.localStorage);
 PRACTICE.plan(LESSONS);
 
 /* a lesson context, backed by a store that survives a "re-render" the way the
@@ -518,6 +520,41 @@ head('MIDI export');
   h.redo(); eq(state.n, 2, 'redo steps forward');
   state = { n:9 }; h.changed();
   ok(!h.canRedo, 'a fresh edit drops the redo trail');
+}
+
+/* ═══ 10. every instrument can be drawn face-on, or says it cannot ═══ */
+head('Flat view');
+{
+  /* each 3D view has to declare what it is, or the flat view has nothing to go on */
+  const views = (scenesSrc.match(/a11y\(\)\s*\{/g) || []).length;
+  const shapes = (scenesSrc.match(/shape:'[a-z]+'/g) || []).map(s => s.slice(7, -1));
+  eq(shapes.length + 1, views, 'every view but one declares a shape');
+  eq(shapes.slice().sort().join(','), 'grid,keys,roll', 'and they are the three it can draw');
+  /* the one that does not is the circle — a wheel has no face-on version */
+  const wheelLesson = LESSONS.filter(L => L.stage.view === 'wheel').map(L => L.id);
+  eq(wheelLesson.join(','), 'circle', 'the only view without one is the circle of fifths');
+
+  /* supports() decides whether the canvas may be hidden — getting this wrong
+     is a blank stage, which is how the roll lessons first broke */
+  const shown = { shape:'grid', groups:[{ name:'k', items:[] }] };
+  Vmock.a11y = () => shown;
+  ok(FLAT.supports(), 'a grid can be drawn flat');
+  shown.shape = 'keys'; ok(FLAT.supports(), 'so can a keyboard');
+  shown.shape = 'roll'; shown.matrix = { steps:16, rows:[] }; ok(FLAT.supports(), 'so can a piano roll');
+  shown.shape = 'wheel'; ok(!FLAT.supports(), 'a wheel says it cannot');
+  Vmock.a11y = () => null;
+  ok(!FLAT.supports(), 'and neither can nothing at all');
+  Vmock.a11y = () => stage.a11y();
+
+  /* the choice is remembered, and a phone starts flat */
+  FLAT.set(true); ok(FLAT.on, 'turning it on sticks');
+  FLAT.set(false); ok(!FLAT.on, 'and so does turning it off');
+  eq(typeof FLAT.narrow(), 'boolean', 'it can tell whether the screen is narrow');
+
+  /* every lesson is covered by a flat view or is the known exception */
+  const uncovered = LESSONS.filter(L => ['keys','grid','roll'].indexOf(L.stage.view) < 0)
+    .map(L => L.id + ':' + L.stage.view);
+  eq(uncovered.join(','), 'circle:wheel', 'every other lesson has a face-on instrument');
 }
 
 console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));

@@ -479,6 +479,7 @@ const APP = (() => {
        the view the lesson actually ended up with — then follows it from there */
     buildA11y(ctx);
     if (V.onPaint) V.onPaint(() => syncA11y(ctx));
+    applyFlat();
     document.querySelectorAll('#nav button').forEach(b =>
       b.setAttribute('aria-current', b.dataset.id === L.id ? 'true' : 'false'));
     const cur = document.querySelector('#nav button[aria-current="true"]');
@@ -502,10 +503,51 @@ const APP = (() => {
     (d.groups || []).map(g => g.name + '\u00d7' + g.items.length).join('|') +
     (d.form ? '#form' + d.form.steps : '');
 
+  /* The flat instrument is the same lab drawn face-on, for thumbs and for
+     anyone who would rather not read an instrument through perspective. */
+  /* The readout and the transport float over the stage and both change height
+     from lesson to lesson, so the flat instrument is given whatever room is
+     actually left rather than a guessed margin. */
+  function fitFlat() {
+    const flat = $('#flat'), foot = $('.stage-foot'), hud = $('.hud'), stage = $('#stage');
+    if (!flat || flat.hidden) return;
+    const h = stage ? stage.clientHeight : 300;
+    const top = Math.min((hud ? hud.offsetHeight : 40) + 6, h * 0.32);
+    const bottom = Math.min((foot ? foot.offsetHeight : 50) + 10, h * 0.42);
+    flat.style.paddingTop = Math.round(top) + 'px';
+    flat.style.paddingBottom = Math.round(bottom) + 'px';
+  }
+
+  function applyFlat() {
+    if (typeof FLAT === 'undefined') return;
+    const gl = $('#gl'), btn = $('#flatBtn'), node = $('#flat');
+    FLAT.reset();
+    FLAT.paint(node);
+    fitFlat();
+    /* the circle of fifths has no face-on equivalent, so that lesson keeps the
+       3D stage even while flat view is on elsewhere */
+    const drawn = FLAT.on && FLAT.supports();
+    if (gl) gl.hidden = drawn;
+    const st = $('#stage');
+    if (st) st.classList.toggle('flat-on', drawn);
+    if (V.setPaused) V.setPaused(drawn);        /* no point rendering what is hidden */
+    if (btn) {
+      btn.setAttribute('aria-pressed', FLAT.on ? 'true' : 'false');
+      btn.classList.toggle('on', FLAT.on);
+      btn.hidden = !FLAT.on && !FLAT.supports();
+      btn.textContent = FLAT.on ? '3D view' : 'Flat view';
+      btn.title = FLAT.on
+        ? (drawn ? 'Back to the 3D stage' : 'This one has no flat version')
+        : 'A face-on instrument with bigger targets';
+    }
+    if (!drawn && V.resize) V.resize();
+  }
+
   /* Repaint names and pressed states from the instrument. Rebuilds only when
      the instrument itself changed shape (a lesson swapping 8 steps for 12). */
   function syncA11y(ctx) {
     const d = V.a11y && V.a11y();
+    if (typeof FLAT !== 'undefined') FLAT.paint();
     if (shapeOf(d) !== a11yShape) { buildA11y(ctx); return; }
     /* only write what actually changed: the playhead repaints the stage many
        times a second, and rewriting an unchanged aria-label makes a screen
@@ -736,6 +778,10 @@ const APP = (() => {
     $('#scrim').addEventListener('click', closeRail);
     const rb = $('#reviewBtn');
     if (rb) rb.addEventListener('click', () => { A.resume(); openReview(); });
+    const fb = $('#flatBtn');
+    if (fb && typeof FLAT !== 'undefined') {
+      fb.addEventListener('click', () => { A.resume(); FLAT.set(!FLAT.on); applyFlat(); });
+    }
     document.addEventListener('keydown', e => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
       if (e.key === 'ArrowRight' && e.altKey) go(idx + 1);
@@ -748,7 +794,8 @@ const APP = (() => {
       if (mq.addEventListener) mq.addEventListener('change', onSys);
       else if (mq.addListener) mq.addListener(onSys);
     } catch (e) {}
-    new ResizeObserver(() => V.resize && V.resize()).observe(document.querySelector('#stage'));
+    new ResizeObserver(() => { if (V.resize) V.resize(); fitFlat(); })
+      .observe(document.querySelector('#stage'));
   }
   return { boot, go, qKey, get idx() { return idx; } };
 })();

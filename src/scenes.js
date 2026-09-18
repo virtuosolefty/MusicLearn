@@ -158,8 +158,16 @@ const V = (() => {
       tgt.z + r * Math.sin(ph) * Math.cos(th));
     camera.lookAt(tgt.x, tgt.y, tgt.z);
   }
+  /* The flat view hides the canvas; there is no reason to keep rendering into
+     it, least of all on the phone the flat view exists for. */
+  let paused = false;
+  function setPaused(v) {
+    const was = paused;
+    paused = !!v;
+    if (was && !paused && running) { last = performance.now(); requestAnimationFrame(tick); }
+  }
   function tick(now) {
-    if (!running) return;
+    if (!running || paused) return;      /* setPaused(false) restarts the loop */
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (orb.auto) orb.th += orb.auto * dt;
     if (current && current.update) current.update(dt, now / 1000);
@@ -321,11 +329,13 @@ const V = (() => {
             aria:nameOf(m) + T.oct(m) + ', ' + (k.white ? 'white key' : 'black key') +
               (role ? ', highlighted as ' + role : ''),
             pressed:!!role,
+            /* layout, for anyone drawing these as an instrument rather than a list */
+            midi:m, white:k.white, role:role || null, name:nameOf(m), octave:T.oct(m),
             act:() => api.tap(m)
           });
         });
-        items.sort((a, b) => 0);
-        return { title:'Piano keys', groups:[{ name:'Keys, low to high', items }] };
+        return { title:'Piano keys', shape:'keys', labels:labelMode,
+                 groups:[{ name:'Keys, low to high', items }] };
       },
       onKey(cb) { onKeyCb = cb; return api; },
       press(m, dur) {
@@ -485,14 +495,17 @@ const V = (() => {
       listen(cb) { taps.push(cb); return api; },
       unlisten(cb) { const i = taps.indexOf(cb); if (i >= 0) taps.splice(i, 1); return api; },
       a11y() {
-        return { title:'Step grid',
+        return { title:'Step grid', shape:'grid', group:cfg.group, steps:S,
           groups:cfg.lanes.map((ln, l) => ({
             name:ln.name + ' \u00B7 ' + S + ' steps',
+            lane:l, laneName:ln.name,
             items:state[l].map((v, st) => ({
               label:String(st + 1),
               aria:ln.name + ', step ' + (st + 1) + ' of ' + S +
                 ', beat ' + (Math.floor(st / cfg.group) + 1) + (v ? ', on' : ', off'),
               pressed:!!v,
+              step:st, beat:Math.floor(st / cfg.group) + 1, accent:v === 2,
+              downbeat:st % cfg.group === 0,
               act:() => api.tapCell(l, st)
             }))
           })) };
@@ -743,13 +756,23 @@ const V = (() => {
         return api;
       },
       a11y() {
-        return { title:'Piano roll', form:{
-          steps:S, rows:rows.slice(),
-          rowLabel:m => T.name(m) + T.oct(m),
-          has:(step, midi) => noteList.some(n => n.step === step && n.midi === midi),
-          toggle:(step, midi) => api.tapCell(step, midi),
-          list:() => noteList.slice().sort((a, b) => a.step - b.step || a.midi - b.midi)
-        } };
+        const has = (step, midi) => noteList.some(n => n.step === step && n.midi === midi);
+        return { title:'Piano roll', shape:'roll',
+          /* the button panel gets a short add/remove form rather than a few
+             hundred buttons; a face-on view gets the whole matrix */
+          matrix:{ steps:S, group:cfg.group,
+            rows:rows.slice().reverse().map(m => ({
+              midi:m, label:T.name(m) + T.oct(m), black:T.isBlack(m),
+              cells:Array.from({ length:S }, (_, s) => has(s, m))
+            })),
+            toggle:(step, midi) => api.tapCell(step, midi) },
+          form:{
+            steps:S, rows:rows.slice(),
+            rowLabel:m => T.name(m) + T.oct(m),
+            has,
+            toggle:(step, midi) => api.tapCell(step, midi),
+            list:() => noteList.slice().sort((a, b) => a.step - b.step || a.midi - b.midi)
+          } };
       },
       get notes() { return noteList; },
       setNotes(list) { noteList = (list || []).slice(); drawNotes(); return api; },
@@ -852,7 +875,7 @@ const V = (() => {
      is offering to save or undo what is on it */
   const onPaint = cb => { watchers.push(cb); };
   const clearPaint = () => { watchers = []; };
-  return { mount, set, label, setTheme, a11y, onPaint, clearPaint,
+  return { mount, set, label, setTheme, a11y, onPaint, clearPaint, setPaused,
            get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
            get orbit() { return orb; }, resize };

@@ -39,6 +39,7 @@
   <main id="main">
     <section class="stage" id="stage">
       <canvas id="gl" aria-hidden="true"></canvas>
+      <div class="flat" id="flat" hidden></div>
       <div class="hud">
         <span class="tag" id="hudTag">Rhythm</span>
         <div class="readout mono" id="readout" role="status" aria-live="polite">ready</div>
@@ -46,6 +47,7 @@
       <div class="stage-foot">
         <button class="b menu-btn" id="menuBtn" aria-expanded="false">☰ Lessons</button>
         <div class="ctl" id="stageCtl"></div>
+        <button class="b flat-btn" id="flatBtn" type="button" aria-pressed="false">Flat view</button>
         <span class="hint" id="stageHint"></span>
       </div>
     </section>
@@ -64,6 +66,7 @@
 <script src="src/ui.js"></script>
 <script src="src/practice.js"></script>
 <script src="src/studio.js"></script>
+<script src="src/flat.js"></script>
 <script src="src/lessons-level1.js"></script>
 <script src="src/lessons-level2.js"></script>
 <script src="src/lessons-level3.js"></script>

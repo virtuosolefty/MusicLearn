@@ -260,6 +260,68 @@ td.hi{color:var(--accent-2)}
 .why{margin:11px 0 0;font-size:14.5px;color:var(--text-2);border-left:2px solid var(--accent);padding-left:11px}
 .why[hidden]{display:none!important}
 
+/* the same instrument, face-on: bigger targets, names on every key */
+.flat{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:46px 14px 62px;overflow:auto;touch-action:manipulation}
+.flat[hidden]{display:none}
+.flat-btn{white-space:nowrap}
+
+.flat-keys{width:100%;min-width:0;max-width:980px;height:100%;display:flex;align-items:center}
+.flat-board{position:relative;flex:0 0 auto;width:max(100%,calc(var(--keys,12) * 34px));
+  height:min(100%,190px);min-height:96px}
+.fk{position:absolute;top:0;border:1px solid var(--line-2);cursor:pointer;padding:0;
+  display:flex;align-items:flex-end;justify-content:center;transition:background .12s,color .12s}
+.fk.white{height:100%;background:#FFFFFF;color:#2A3A32;border-radius:0 0 6px 6px;z-index:1}
+.fk.black{height:62%;background:#1B2B23;color:#D8E6DE;border-radius:0 0 5px 5px;z-index:2;
+  box-shadow:0 3px 6px rgba(0,0,0,.35)}
+.fk-name{font:600 11px/1 "IBM Plex Mono",monospace;padding-bottom:9px;pointer-events:none;opacity:.72}
+.fk.black .fk-name{font-size:9.5px;padding-bottom:6px}
+.fk:active{filter:brightness(.92)}
+.fk[data-role]{color:#FFFFFF}
+.fk[data-role] .fk-name{opacity:1}
+.fk[data-role="root"]{background:var(--accent);border-color:var(--accent)}
+.fk[data-role="chord"]{background:var(--amber);border-color:var(--amber)}
+.fk[data-role="target"]{background:var(--sky);border-color:var(--sky)}
+/* a key in the scale is still a white or a black key — tint it, do not repaint
+   it, or the keyboard stops reading as a keyboard */
+.fk.white[data-role="scale"],.fk.white[data-role="ghost"]{background:#D8F0E5;color:#0B6B48}
+.fk.black[data-role="scale"],.fk.black[data-role="ghost"]{background:#294A3C;color:#A8DCC6}
+.fk[data-role="extra"]{background:var(--violet);border-color:var(--violet)}
+
+.flat-grid,.flat-roll{width:100%;min-width:0;max-width:980px;display:grid;gap:8px}
+.flat-roll{gap:2px;max-height:100%;overflow-y:auto;align-content:start}
+.flat-roll .flat-lane-name{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:0;
+  text-transform:none}
+.flat-roll .flat-lane-name.black{color:var(--muted);opacity:.65}
+.fr{height:16px;min-height:0;aspect-ratio:auto;border-radius:3px}
+.flat-lane{display:flex;align-items:center;gap:10px;min-width:0}
+.flat-lane-name{flex:0 0 62px;font:600 10.5px/1 "Bricolage Grotesque",sans-serif;
+  text-transform:uppercase;letter-spacing:.1em;color:var(--muted);text-align:right}
+.flat-steps{flex:1;min-width:0;display:grid;grid-template-columns:repeat(var(--cols),1fr);gap:4px}
+.fs{aspect-ratio:1;min-height:30px;border:1px solid var(--line-2);border-radius:5px;
+  background:var(--panel-2);cursor:pointer;padding:0;position:relative;
+  display:flex;align-items:center;justify-content:center;transition:background .12s}
+.fs.down{border-color:var(--line-2);background:var(--panel-3)}
+.fs-num{font:600 10px/1 "IBM Plex Mono",monospace;color:var(--muted);pointer-events:none}
+.fs[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
+.fs[aria-pressed="true"] .fs-num{color:#FFFFFF}
+.fs.accent[aria-pressed="true"]{background:var(--amber);border-color:var(--amber)}
+.fs:active{filter:brightness(.92)}
+
+/* On a phone the stage foot wraps to two or three rows, so the instrument gets
+   the room above it and the step boxes stop insisting on being square. */
+@media (max-width:860px){
+  .flat{padding-left:8px;padding-right:8px}
+  .flat-board{height:min(100%,150px)}
+  .flat-lane-name{flex-basis:44px;font-size:9.5px}
+  .flat-grid{gap:6px}
+  .flat-steps{gap:3px}
+  .fs{aspect-ratio:auto;height:30px;min-height:0;border-radius:4px}
+  .fs-num{font-size:9px}
+  .stage.flat-on{--stage-h:50vh}
+  .stage-foot .hint{display:none}
+}
+
 /* keep what you made: undo, saved ideas, MIDI */
 .studio{display:grid;gap:10px}
 .studio .ctl{margin:0}
@@ -403,6 +465,7 @@ td.hi{color:var(--accent-2)}
   <main id="main">
     <section class="stage" id="stage">
       <canvas id="gl" aria-hidden="true"></canvas>
+      <div class="flat" id="flat" hidden></div>
       <div class="hud">
         <span class="tag" id="hudTag">Rhythm</span>
         <div class="readout mono" id="readout" role="status" aria-live="polite">ready</div>
@@ -410,6 +473,7 @@ td.hi{color:var(--accent-2)}
       <div class="stage-foot">
         <button class="b menu-btn" id="menuBtn" aria-expanded="false">☰ Lessons</button>
         <div class="ctl" id="stageCtl"></div>
+        <button class="b flat-btn" id="flatBtn" type="button" aria-pressed="false">Flat view</button>
         <span class="hint" id="stageHint"></span>
       </div>
     </section>
@@ -932,8 +996,16 @@ const V = (() => {
       tgt.z + r * Math.sin(ph) * Math.cos(th));
     camera.lookAt(tgt.x, tgt.y, tgt.z);
   }
+  /* The flat view hides the canvas; there is no reason to keep rendering into
+     it, least of all on the phone the flat view exists for. */
+  let paused = false;
+  function setPaused(v) {
+    const was = paused;
+    paused = !!v;
+    if (was && !paused && running) { last = performance.now(); requestAnimationFrame(tick); }
+  }
   function tick(now) {
-    if (!running) return;
+    if (!running || paused) return;      /* setPaused(false) restarts the loop */
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (orb.auto) orb.th += orb.auto * dt;
     if (current && current.update) current.update(dt, now / 1000);
@@ -1095,11 +1167,13 @@ const V = (() => {
             aria:nameOf(m) + T.oct(m) + ', ' + (k.white ? 'white key' : 'black key') +
               (role ? ', highlighted as ' + role : ''),
             pressed:!!role,
+            /* layout, for anyone drawing these as an instrument rather than a list */
+            midi:m, white:k.white, role:role || null, name:nameOf(m), octave:T.oct(m),
             act:() => api.tap(m)
           });
         });
-        items.sort((a, b) => 0);
-        return { title:'Piano keys', groups:[{ name:'Keys, low to high', items }] };
+        return { title:'Piano keys', shape:'keys', labels:labelMode,
+                 groups:[{ name:'Keys, low to high', items }] };
       },
       onKey(cb) { onKeyCb = cb; return api; },
       press(m, dur) {
@@ -1259,14 +1333,17 @@ const V = (() => {
       listen(cb) { taps.push(cb); return api; },
       unlisten(cb) { const i = taps.indexOf(cb); if (i >= 0) taps.splice(i, 1); return api; },
       a11y() {
-        return { title:'Step grid',
+        return { title:'Step grid', shape:'grid', group:cfg.group, steps:S,
           groups:cfg.lanes.map((ln, l) => ({
             name:ln.name + ' \u00B7 ' + S + ' steps',
+            lane:l, laneName:ln.name,
             items:state[l].map((v, st) => ({
               label:String(st + 1),
               aria:ln.name + ', step ' + (st + 1) + ' of ' + S +
                 ', beat ' + (Math.floor(st / cfg.group) + 1) + (v ? ', on' : ', off'),
               pressed:!!v,
+              step:st, beat:Math.floor(st / cfg.group) + 1, accent:v === 2,
+              downbeat:st % cfg.group === 0,
               act:() => api.tapCell(l, st)
             }))
           })) };
@@ -1517,13 +1594,23 @@ const V = (() => {
         return api;
       },
       a11y() {
-        return { title:'Piano roll', form:{
-          steps:S, rows:rows.slice(),
-          rowLabel:m => T.name(m) + T.oct(m),
-          has:(step, midi) => noteList.some(n => n.step === step && n.midi === midi),
-          toggle:(step, midi) => api.tapCell(step, midi),
-          list:() => noteList.slice().sort((a, b) => a.step - b.step || a.midi - b.midi)
-        } };
+        const has = (step, midi) => noteList.some(n => n.step === step && n.midi === midi);
+        return { title:'Piano roll', shape:'roll',
+          /* the button panel gets a short add/remove form rather than a few
+             hundred buttons; a face-on view gets the whole matrix */
+          matrix:{ steps:S, group:cfg.group,
+            rows:rows.slice().reverse().map(m => ({
+              midi:m, label:T.name(m) + T.oct(m), black:T.isBlack(m),
+              cells:Array.from({ length:S }, (_, s) => has(s, m))
+            })),
+            toggle:(step, midi) => api.tapCell(step, midi) },
+          form:{
+            steps:S, rows:rows.slice(),
+            rowLabel:m => T.name(m) + T.oct(m),
+            has,
+            toggle:(step, midi) => api.tapCell(step, midi),
+            list:() => noteList.slice().sort((a, b) => a.step - b.step || a.midi - b.midi)
+          } };
       },
       get notes() { return noteList; },
       setNotes(list) { noteList = (list || []).slice(); drawNotes(); return api; },
@@ -1626,7 +1713,7 @@ const V = (() => {
      is offering to save or undo what is on it */
   const onPaint = cb => { watchers.push(cb); };
   const clearPaint = () => { watchers = []; };
-  return { mount, set, label, setTheme, a11y, onPaint, clearPaint,
+  return { mount, set, label, setTheme, a11y, onPaint, clearPaint, setPaused,
            get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
            get orbit() { return orb; }, resize };
@@ -2115,6 +2202,7 @@ const APP = (() => {
        the view the lesson actually ended up with — then follows it from there */
     buildA11y(ctx);
     if (V.onPaint) V.onPaint(() => syncA11y(ctx));
+    applyFlat();
     document.querySelectorAll('#nav button').forEach(b =>
       b.setAttribute('aria-current', b.dataset.id === L.id ? 'true' : 'false'));
     const cur = document.querySelector('#nav button[aria-current="true"]');
@@ -2138,10 +2226,51 @@ const APP = (() => {
     (d.groups || []).map(g => g.name + '\u00d7' + g.items.length).join('|') +
     (d.form ? '#form' + d.form.steps : '');
 
+  /* The flat instrument is the same lab drawn face-on, for thumbs and for
+     anyone who would rather not read an instrument through perspective. */
+  /* The readout and the transport float over the stage and both change height
+     from lesson to lesson, so the flat instrument is given whatever room is
+     actually left rather than a guessed margin. */
+  function fitFlat() {
+    const flat = $('#flat'), foot = $('.stage-foot'), hud = $('.hud'), stage = $('#stage');
+    if (!flat || flat.hidden) return;
+    const h = stage ? stage.clientHeight : 300;
+    const top = Math.min((hud ? hud.offsetHeight : 40) + 6, h * 0.32);
+    const bottom = Math.min((foot ? foot.offsetHeight : 50) + 10, h * 0.42);
+    flat.style.paddingTop = Math.round(top) + 'px';
+    flat.style.paddingBottom = Math.round(bottom) + 'px';
+  }
+
+  function applyFlat() {
+    if (typeof FLAT === 'undefined') return;
+    const gl = $('#gl'), btn = $('#flatBtn'), node = $('#flat');
+    FLAT.reset();
+    FLAT.paint(node);
+    fitFlat();
+    /* the circle of fifths has no face-on equivalent, so that lesson keeps the
+       3D stage even while flat view is on elsewhere */
+    const drawn = FLAT.on && FLAT.supports();
+    if (gl) gl.hidden = drawn;
+    const st = $('#stage');
+    if (st) st.classList.toggle('flat-on', drawn);
+    if (V.setPaused) V.setPaused(drawn);        /* no point rendering what is hidden */
+    if (btn) {
+      btn.setAttribute('aria-pressed', FLAT.on ? 'true' : 'false');
+      btn.classList.toggle('on', FLAT.on);
+      btn.hidden = !FLAT.on && !FLAT.supports();
+      btn.textContent = FLAT.on ? '3D view' : 'Flat view';
+      btn.title = FLAT.on
+        ? (drawn ? 'Back to the 3D stage' : 'This one has no flat version')
+        : 'A face-on instrument with bigger targets';
+    }
+    if (!drawn && V.resize) V.resize();
+  }
+
   /* Repaint names and pressed states from the instrument. Rebuilds only when
      the instrument itself changed shape (a lesson swapping 8 steps for 12). */
   function syncA11y(ctx) {
     const d = V.a11y && V.a11y();
+    if (typeof FLAT !== 'undefined') FLAT.paint();
     if (shapeOf(d) !== a11yShape) { buildA11y(ctx); return; }
     /* only write what actually changed: the playhead repaints the stage many
        times a second, and rewriting an unchanged aria-label makes a screen
@@ -2372,6 +2501,10 @@ const APP = (() => {
     $('#scrim').addEventListener('click', closeRail);
     const rb = $('#reviewBtn');
     if (rb) rb.addEventListener('click', () => { A.resume(); openReview(); });
+    const fb = $('#flatBtn');
+    if (fb && typeof FLAT !== 'undefined') {
+      fb.addEventListener('click', () => { A.resume(); FLAT.set(!FLAT.on); applyFlat(); });
+    }
     document.addEventListener('keydown', e => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
       if (e.key === 'ArrowRight' && e.altKey) go(idx + 1);
@@ -2384,7 +2517,8 @@ const APP = (() => {
       if (mq.addEventListener) mq.addEventListener('change', onSys);
       else if (mq.addListener) mq.addListener(onSys);
     } catch (e) {}
-    new ResizeObserver(() => V.resize && V.resize()).observe(document.querySelector('#stage'));
+    new ResizeObserver(() => { if (V.resize) V.resize(); fitFlat(); })
+      .observe(document.querySelector('#stage'));
   }
   return { boot, go, qKey, get idx() { return idx; } };
 })();
@@ -3080,6 +3214,214 @@ const STUDIO = (() => {
 
   return { build, midi, download, notesFrom, history, put, drop, forLesson, DRUM, PPQ,
            get saves() { return saves; } };
+})();
+
+
+/* ── src/flat.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   FLAT — the same instrument, drawn face-on.
+
+   The 3D stage is lovely and hard to hit with a thumb. This draws the
+   instrument the lab is already running as a straight-on keyboard or step
+   grid: big targets, names on every key, no perspective to read through.
+
+   It renders from the same descriptor the accessible button panel uses, so
+   it follows whatever the lesson does without a lesson knowing it exists.
+   ═══════════════════════════════════════════════════════════════ */
+const FLAT = (() => {
+  const KEY = 'rbx-theory-flat-v1';
+  /* Narrow screens start flat, because that is where the 3D stage is worst to
+     use — but an explicit choice always wins and is remembered. */
+  let on = null;
+  function load() {
+    try {
+      const v = localStorage.getItem(KEY);
+      if (v === 'on' || v === 'off') on = (v === 'on');
+    } catch (e) {}
+    if (on === null) on = narrow();
+    return on;
+  }
+  function narrow() {
+    try { return window.matchMedia('(max-width: 720px)').matches; } catch (e) { return false; }
+  }
+  function set(v) {
+    on = !!v;
+    try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch (e) {}
+    return on;
+  }
+  load();
+
+  const el = (tag, cls, txt) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+  };
+
+  /* what the a11y descriptor last looked like — a rebuild is only needed when
+     the instrument itself changes shape */
+  let host = null, built = '', cells = [];
+  const DRAWS = { keys:keyboard, grid:grid, roll:roll };
+  /* whether the instrument currently on the stage is one this can draw */
+  function supports() {
+    const d = V.a11y && V.a11y();
+    return !!(d && d.shape && DRAWS[d.shape]);
+  }
+  const shapeOf = d => !d ? '' : d.shape + ':' +
+    (d.groups || []).map(g => g.name + '/' + g.items.length).join('|') +
+    (d.matrix ? '#' + d.matrix.rows.length + 'x' + d.matrix.steps : '');
+
+  function keyboard(d) {
+    const items = d.groups[0].items;
+    const whites = items.filter(i => i.white);
+    const wrap = el('div', 'flat-keys');
+    const board = el('div', 'flat-board');
+    /* the board never squeezes keys below a thumb's width — on a narrow screen
+       it grows past the viewport and scrolls instead */
+    board.style.setProperty('--keys', whites.length);
+    /* white keys carry the layout; black keys float between them */
+    const width = 100 / Math.max(1, whites.length);
+    let wi = -1;
+    items.forEach(it => {
+      const b = el('button', 'fk ' + (it.white ? 'white' : 'black'));
+      b.type = 'button';
+      if (it.white) wi++;
+      b.style.left = (it.white ? wi * width : (wi + 1) * width - width * 0.3) + '%';
+      b.style.width = (it.white ? width : width * 0.6) + '%';
+      b.dataset.midi = it.midi;
+      b.setAttribute('aria-label', it.aria);
+      b.setAttribute('aria-pressed', it.pressed ? 'true' : 'false');
+      if (it.role) b.dataset.role = it.role;
+      const nm = el('span', 'fk-name', it.name);
+      if (it.name === 'C') nm.textContent = it.name + it.octave;
+      b.appendChild(nm);
+      b.addEventListener('pointerdown', e => { e.preventDefault(); A.resume(); it.act(); });
+      board.appendChild(b);
+      cells.push({ node:b, g:0, i:items.indexOf(it) });
+    });
+    wrap.appendChild(board);
+    return wrap;
+  }
+
+  function grid(d) {
+    const wrap = el('div', 'flat-grid');
+    d.groups.forEach((g, gi) => {
+      const row = el('div', 'flat-lane');
+      row.appendChild(el('span', 'flat-lane-name', g.laneName || g.name));
+      const steps = el('div', 'flat-steps');
+      steps.style.setProperty('--cols', g.items.length);
+      g.items.forEach((it, i) => {
+        const b = el('button', 'fs' + (it.downbeat ? ' down' : '') + (it.accent ? ' accent' : ''));
+        b.type = 'button';
+        b.setAttribute('aria-label', it.aria);
+        b.setAttribute('aria-pressed', it.pressed ? 'true' : 'false');
+        b.appendChild(el('span', 'fs-num', it.downbeat ? String(it.beat) : ''));
+        b.addEventListener('pointerdown', e => { e.preventDefault(); A.resume(); it.act(); });
+        steps.appendChild(b);
+        cells.push({ node:b, g:gi, i });
+      });
+      row.appendChild(steps);
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
+  /* the piano roll, face-on: pitch up the side, time across, the way a DAW
+     draws it — and the one view where the 3D stage is hardest to aim at */
+  function roll(d) {
+    const m = d.matrix;
+    const wrap = el('div', 'flat-roll');
+    m.rows.forEach((r, ri) => {
+      const row = el('div', 'flat-lane');
+      const name = el('span', 'flat-lane-name' + (r.black ? ' black' : ''), r.label);
+      row.appendChild(name);
+      const steps = el('div', 'flat-steps');
+      steps.style.setProperty('--cols', m.steps);
+      r.cells.forEach((on, s) => {
+        const b = el('button', 'fs fr' + (s % (m.group || 4) === 0 ? ' down' : ''));
+        b.type = 'button';
+        b.setAttribute('aria-label', r.label + ', step ' + (s + 1) + (on ? ', on' : ', off'));
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.addEventListener('pointerdown', e => {
+          e.preventDefault(); A.resume(); m.toggle(s, r.midi);
+        });
+        steps.appendChild(b);
+        cells.push({ node:b, roll:true, row:ri, step:s });
+      });
+      row.appendChild(steps);
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
+  /* Build or refresh. Cheap enough to call on every instrument change, because
+     an unchanged attribute is never written — the same rule the button panel
+     follows, so a running playhead cannot make a screen reader chatter. */
+  function paint(node) {
+    if (node) host = node;
+    if (!host) return;
+    const d = V.a11y && V.a11y();
+    if (!on || !d || !DRAWS[d.shape]) { host.hidden = true; host.innerHTML = ''; built = ''; return; }
+    host.hidden = false;
+    const shape = shapeOf(d);
+    if (shape !== built) {
+      host.innerHTML = ''; cells = [];
+      host.appendChild(DRAWS[d.shape](d));
+      built = shape;
+      /* fall through, so a freshly built board is also scrolled to what is lit */
+    }
+    let firstLit = null;
+    cells.forEach(c => {
+      if (c.roll) {
+        const r = d.matrix.rows[c.row];
+        if (!r) return;
+        if (!firstLit && r.cells[c.step]) firstLit = c.node;
+        const on = r.cells[c.step] ? 'true' : 'false';
+        if (c.node.getAttribute('aria-pressed') !== on) {
+          c.node.setAttribute('aria-pressed', on);
+          c.node.setAttribute('aria-label', r.label + ', step ' + (c.step + 1) +
+            (r.cells[c.step] ? ', on' : ', off'));
+        }
+        return;
+      }
+      const it = d.groups[c.g] && d.groups[c.g].items[c.i];
+      if (!it) return;
+      if (!firstLit && it.role && it.role !== 'ghost' && it.role !== 'scale') firstLit = c.node;
+      const pressed = it.pressed ? 'true' : 'false';
+      if (c.node.getAttribute('aria-pressed') !== pressed) c.node.setAttribute('aria-pressed', pressed);
+      if (c.node.getAttribute('aria-label') !== it.aria) c.node.setAttribute('aria-label', it.aria);
+      const role = it.role || '';
+      if ((c.node.dataset.role || '') !== role) {
+        if (role) c.node.dataset.role = role; else delete c.node.dataset.role;
+      }
+      if (it.name != null) {
+        const nm = c.node.firstChild;
+        const want = it.name === 'C' ? it.name + it.octave : it.name;
+        if (nm && nm.textContent !== want) nm.textContent = want;
+      }
+      if (it.accent != null) c.node.classList.toggle('accent', !!it.accent);
+    });
+    keepInView(firstLit);
+  }
+
+  /* When the board is wider than the screen, follow what the lesson is pointing
+     at rather than leaving the learner to go looking for it. */
+  function keepInView(node) {
+    if (!node) return;
+    /* whichever box actually scrolls: the keyboard scrolls sideways inside the
+       stage, the roll scrolls up and down inside itself */
+    [host, node.closest && node.closest('.flat-roll')].forEach(box => {
+      if (!box) return;
+      const n = node.getBoundingClientRect(), b = box.getBoundingClientRect();
+      if (box.scrollWidth > box.clientWidth + 4 && (n.left < b.left + 8 || n.right > b.right - 8))
+        box.scrollLeft += (n.left - b.left) - (b.width - n.width) / 2;
+      if (box.scrollHeight > box.clientHeight + 4 && (n.top < b.top + 6 || n.bottom > b.bottom - 6))
+        box.scrollTop += (n.top - b.top) - (b.height - n.height) / 2;
+    });
+  }
+
+  const reset = () => { built = ''; cells = []; };
+  return { paint, reset, set, load, narrow, supports, get on() { return on; } };
 })();
 
 
