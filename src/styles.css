@@ -249,6 +249,15 @@ td.hi{color:var(--accent-2)}
 .why{margin:11px 0 0;font-size:14.5px;color:var(--text-2);border-left:2px solid var(--accent);padding-left:11px}
 .why[hidden]{display:none!important}
 
+/* keep what you made: undo, saved ideas, MIDI */
+.studio{display:grid;gap:10px}
+.studio .ctl{margin:0}
+.savelist{display:grid;gap:6px}
+.saverow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:7px 10px}
+.savename{flex:1;min-width:120px;font-size:14px;color:var(--text)}
+.saverow .b{padding:5px 9px;font-size:12px}
+
 .review-btn{width:100%;margin-top:12px;justify-content:center;font-size:12.5px}
 .review-btn[hidden]{display:none}
 

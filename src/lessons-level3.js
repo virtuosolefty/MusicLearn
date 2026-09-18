@@ -202,6 +202,8 @@ LESSONS.push({
       UI.toggle('Contour ribbon', v => ctx.v.contour(v), true)
     );
     ctx.read('C minor roll\ntap cells to write \u00B7 only scale notes shown');
+    ctx.saveInstrument = () => ctx.keep('notes', ctx.v.notes.slice());
+    ctx.keepCfg = { kind:'roll', name:'Melody', bpm:() => bpm };
     const kept = ctx.recall('notes');
     if (kept && kept.length) ctx.v.setNotes(kept); else ctx.motif();
   }
@@ -306,6 +308,7 @@ LESSONS.push({
       UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
       UI.slider('Tempo', 60, 140, bpm, 1, v => { bpm = v; ctx.transport.bpm = v; }, v => v + ' BPM')
     );
+    ctx.keepCfg = { kind:'roll', name:'Line over chords', bpm:() => bpm };
     ctx.load(ctx.recall('which') || 'safe');
   }
 });
@@ -434,6 +437,11 @@ LESSONS.push({
     ctx.stage(
       UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } })
     );
+    ctx.saveInstrument = () => {
+      cur.notes = ctx.v.notes.slice();
+      ctx.keep('cur', { key:cur.key, prog:cur.prog.slice(), bpm:cur.bpm, notes:cur.notes.slice() });
+    };
+    ctx.keepCfg = { kind:'roll', name:'Sketch', bpm:() => cur.bpm };
     const back = ctx.recall('cur');
     if (back) {
       cur = { key:back.key, prog:back.prog.slice(), bpm:back.bpm, notes:back.notes.slice() };

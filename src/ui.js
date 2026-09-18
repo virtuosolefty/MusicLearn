@@ -247,6 +247,7 @@ const APP = (() => {
     leaving.forEach(fn => { try { fn(); } catch (e) {} });
     leaving = [];
     clearTimers(); transport.stop();
+    if (V.clearPaint) V.clearPaint();
     $('#hudTag').textContent = L.tag;
     $('#stageCtl').innerHTML = '';
     $('#stageHint').textContent = L.hint || 'Drag to orbit · pinch or scroll to zoom';
@@ -375,6 +376,11 @@ const APP = (() => {
       w.appendChild(p);
     }
 
+    /* filled in after init, because what a lesson lets you keep depends on
+       state the lesson only has once it has started (its tempo, its key) */
+    const studioSlot = UI.el('div');
+    w.appendChild(studioSlot);
+
     /* ── quiz ── */
     {
       const q = UI.el('div', 'quiz');
@@ -458,6 +464,17 @@ const APP = (() => {
 
     /* the 3D instrument gets set up last, so it can talk to the DOM above */
     if (L.init) L.init(ctx);
+
+    /* ── keep what you made ── */
+    if (ctx.keepCfg && typeof STUDIO !== 'undefined') {
+      const p = UI.el('div', 'panel studio-panel');
+      p.appendChild(UI.html('h4', null, 'Keep this'));
+      p.appendChild(UI.html('p', null,
+        'Undo is Ctrl+Z (⌘Z), and shift with it to redo. Saved ideas stay in this browser; ' +
+        'the MIDI file drops straight into a DAW at the tempo shown.'));
+      p.appendChild(STUDIO.build(ctx, ctx.keepCfg));
+      studioSlot.appendChild(p);
+    }
     /* and the button mirror after that, so it reflects the loaded pattern and
        the view the lesson actually ended up with — then follows it from there */
     buildA11y(ctx);

@@ -57,6 +57,7 @@ LESSONS.push({
     const sync = () => {
       ctx.keep('pattern', ctx.v.state.map(r => r.slice()));
       ctx.syncA11y();
+      if (ctx.contentChanged) ctx.contentChanged();
     };
     ctx.saveInstrument = sync;
     ctx.preset = kind => {
@@ -90,6 +91,7 @@ LESSONS.push({
     const saved = ctx.recall('pattern');
     if (saved) saved.forEach((row, l) => ctx.v.pattern(l, row));
     ctx.v.onCell(sync);
+    ctx.keepCfg = { kind:'grid', kinds:['kick','snare','hat'], name:'Beat', bpm:() => bpm };
     ctx.read('one bar of 4/4\n16 boxes  \u00B7  press play');
   }
 });
@@ -149,6 +151,7 @@ LESSONS.push({
     ctx.load = k => {
       P[k].forEach((row, l) => ctx.v.pattern(l, row));
       ctx.keep('kit', k);
+      if (ctx.contentChanged) ctx.contentChanged();
       ctx.read(k + ' pattern loaded');
     };
     ctx.v.onCell(() => {});
@@ -167,6 +170,7 @@ LESSONS.push({
     };
     ctx.stage(UI.toggle('▶ Play', play),
       UI.slider('Tempo', 60, 160, bpm, 1, v => { bpm = v; ctx.transport.bpm = v; }, v => v + ' BPM'));
+    ctx.keepCfg = { kind:'grid', kinds:['kick','snare','hat'], name:'Groove', bpm:() => bpm };
   }
 });
 
@@ -777,7 +781,10 @@ LESSONS.push({
     let preset = st.preset === undefined ? '1,5,6,4' : st.preset;
     let playing = false;
     const root = 48;
-    const store = () => ctx.keep('state', { keyType, seq:seq.slice(), sevens, preset });
+    const store = () => {
+      ctx.keep('state', { keyType, seq:seq.slice(), sevens, preset });
+      if (ctx.contentChanged) ctx.contentChanged();
+    };
     const RN = () => T.rootFor(root, keyType === 'major' ? 'major' : 'minor');
     const chordAt = d => {
       const c = T.diatonic(root, keyType)[d - 1];
@@ -835,6 +842,17 @@ LESSONS.push({
       degSel
     );
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN(), keyType) + T.oct(m)); });
+    /* what is worth keeping here is the progression itself — four chords a bar
+       each, exported in the key you are hearing */
+    ctx.keepCfg = { kind:'chords', name:'Progression', bpm:() => 96,
+      read: () => ({ chords:seq.map(d => chordAt(d).notes), keyType, seq:seq.slice(), sevens }),
+      write: d => {
+        if (!d.seq) return;
+        keyType = d.keyType || 'major'; seq = d.seq.slice(); sevens = !!d.sevens;
+        preset = null; store();
+        if (ctx.pills) ctx.pills.show(-1);
+        showChord(0);
+      } };
     showChord(0);
   }
 });

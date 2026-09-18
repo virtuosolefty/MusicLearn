@@ -802,15 +802,16 @@ const V = (() => {
   /* Anything that can change an instrument announces it once per tick, so the
      accessible button panel can follow the instrument instead of being told
      about each change by hand at every call site. */
-  let onChange = null, pinged = false, notifying = false;
+  let watchers = [], pinged = false, notifying = false;
   function ping() {
-    if (pinged || notifying || !onChange) return;
+    if (pinged || notifying || !watchers.length) return;
     pinged = true;
     /* a timer, not an animation frame: a background tab stops painting, but the
        buttons a screen reader is walking still have to describe the truth */
     setTimeout(() => {
       pinged = false; notifying = true;
-      try { onChange(); } finally { notifying = false; }
+      try { watchers.forEach(f => { try { f(); } catch (e) {} }); }
+      finally { notifying = false; }
     }, 0);
   }
   /* wrap a view so its own chaining still works, but every call pings */
@@ -847,8 +848,11 @@ const V = (() => {
     if (lightRim) { lightRim.color.setHex(C.accent); lightRim.intensity = C.rimI; }
   }
   const a11y = () => (current && current.a11y) ? current.a11y() : null;
-  const onPaint = cb => { onChange = cb; };
-  return { mount, set, label, setTheme, a11y, onPaint,
+  /* several things follow the instrument: the accessible panel, and whatever
+     is offering to save or undo what is on it */
+  const onPaint = cb => { watchers.push(cb); };
+  const clearPaint = () => { watchers = []; };
+  return { mount, set, label, setTheme, a11y, onPaint, clearPaint,
            get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
            get orbit() { return orb; }, resize };

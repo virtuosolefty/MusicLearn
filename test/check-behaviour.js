@@ -94,6 +94,7 @@ function recorder() {
 const theory = read('src/theory.js');
 const uiSrc = read('src/ui.js');
 const practiceSrc = read('src/practice.js');
+const studioSrc = read('src/studio.js');
 const lessonSrc = ['src/lessons-level1.js','src/lessons-level2.js','src/lessons-level3.js',
                    'src/simple-level1.js','src/simple-level2.js'].map(read).join('\n');
 
@@ -116,10 +117,10 @@ const Vmock = { set:(kind, cfg) => {
 
 const sandbox = new Function('A', 'V', 'document', 'window', 'localStorage',
   theory.replace(/^const A = \(\(\)[\s\S]*$/m, '') + '\n' +
-  uiSrc + '\n' + practiceSrc + '\n' + lessonSrc +
-  '\nreturn { LESSONS, UI, T, APP, PRACTICE };');
-const { LESSONS, UI, T, APP, PRACTICE } = sandbox(Amock, Vmock, global.document, global.window,
-                                                  global.localStorage);
+  uiSrc + '\n' + practiceSrc + '\n' + studioSrc + '\n' + lessonSrc +
+  '\nreturn { LESSONS, UI, T, APP, PRACTICE, STUDIO };');
+const { LESSONS, UI, T, APP, PRACTICE, STUDIO } = sandbox(Amock, Vmock, global.document,
+                                                          global.window, global.localStorage);
 PRACTICE.plan(LESSONS);
 
 /* a lesson context, backed by a store that survives a "re-render" the way the
@@ -419,6 +420,104 @@ head('Mistake review');
   eq(q.concept, 'min7', 'a concept outside the lesson pool can still be asked');
   ok(q.options.indexOf(q.answer) >= 0, 'and it is added to the options');
   PRACTICE.clear();
+}
+
+/* ═══ 9. the MIDI it writes is a file a DAW will open ═══ */
+head('MIDI export');
+{
+  /* decode what we just encoded: a file that only this code can read is no use */
+  function parse(bytes) {
+    const str = (o, n) => String.fromCharCode.apply(null, Array.from(bytes.slice(o, o + n)));
+    const u32 = o => (bytes[o] << 24 | bytes[o + 1] << 16 | bytes[o + 2] << 8 | bytes[o + 3]) >>> 0;
+    const u16 = o => bytes[o] << 8 | bytes[o + 1];
+    const hdr = { magic:str(0, 4), len:u32(4), format:u16(8), tracks:u16(10), division:u16(12) };
+    const chunks = [];
+    let pos = 14;
+    while (pos < bytes.length) {
+      const id = str(pos, 4), len = u32(pos + 4);
+      chunks.push({ id, len, at:pos + 8 });
+      pos += 8 + len;
+    }
+    const evs = [], meta = [];
+    chunks.forEach(c => {
+      let p = c.at, t = 0, guard = 0;
+      const vlq = () => { let v = 0, b; do { b = bytes[p++]; v = (v << 7) | (b & 0x7F); } while (b & 0x80); return v; };
+      while (p < c.at + c.len && guard++ < 5000) {
+        t += vlq();
+        const st = bytes[p++];
+        if (st === 0xFF) {
+          const type = bytes[p++], l = vlq();
+          meta.push({ type, data:Array.from(bytes.slice(p, p + l)) });
+          p += l;
+          if (type === 0x2F) break;
+          continue;
+        }
+        evs.push({ t, cmd:st & 0xF0, ch:st & 0x0F, note:bytes[p++], vel:bytes[p++] });
+      }
+    });
+    return { hdr, chunks, evs, meta, bytes:bytes.length };
+  }
+
+  const grid = { rows:[[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+                       [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+                       [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0]],
+                 kinds:['kick','snare','hat'] };
+  const notes = STUDIO.notesFrom('grid', grid);
+  eq(notes.length, 4 + 2 + 8, 'a drum pattern turns into one note per hit');
+  const f = parse(STUDIO.midi(notes, { bpm:96, name:'Beat', ch:9 }));
+  eq(f.hdr.magic, 'MThd', 'the file starts with a MIDI header');
+  eq(f.hdr.len, 6, 'the header is the standard six bytes');
+  eq(f.hdr.format, 1, 'written as format 1');
+  eq(f.hdr.tracks, 2, 'a tempo track and a note track');
+  eq(f.hdr.division, STUDIO.PPQ, 'ticks per quarter note are declared');
+  eq(f.chunks.length, 2, 'and both chunks are present');
+  eq(f.evs.filter(e => e.cmd === 0x90).length, f.evs.filter(e => e.cmd === 0x80).length,
+     'every note that starts also stops');
+  eq(f.evs.length, notes.length * 2, 'no events are lost or invented');
+  ok(f.evs.every(e => e.ch === 9), 'drums are written to the GM drum channel');
+  eq([...new Set(f.evs.map(e => e.note))].sort((a, b) => a - b).join(','), '36,38,42',
+     'on the GM kick, snare and hat notes');
+  /* a 16th box is a quarter of a quarter note */
+  const kicks = f.evs.filter(e => e.cmd === 0x90 && e.note === 36).map(e => e.t);
+  eq(kicks.join(','), [0, 4, 8, 12].map(s => s * STUDIO.PPQ / 4).join(','),
+     'four on the floor lands on the beats');
+  /* tempo meta carries the right microseconds per quarter note */
+  const tempo = f.meta.filter(m => m.type === 0x51)[0];
+  ok(!!tempo, 'the file states its tempo');
+  const us = (tempo.data[0] << 16) | (tempo.data[1] << 8) | tempo.data[2];
+  eq(Math.round(60000000 / us), 96, 'and it is the tempo the lesson was playing at');
+
+  /* delta times longer than 127 ticks need multi-byte encoding */
+  const far = STUDIO.PPQ * 8;
+  const g = parse(STUDIO.midi([{ note:60, t:0, dur:120 }, { note:62, t:far, dur:120 }],
+                              { bpm:120, ch:0 }));
+  eq(g.evs.filter(e => e.cmd === 0x90).map(e => e.t).join(','), '0,' + STUDIO.PPQ * 8,
+     'a note eight beats later still lands eight beats later');
+  ok(g.evs.every(e => e.ch === 0), 'pitched parts are written to channel 1');
+
+  /* melodies and chords */
+  const roll = STUDIO.notesFrom('roll', { notes:[{ step:0, midi:60, len:2 }, { step:4, midi:63, len:1 }] });
+  eq(roll.map(n => n.note + '@' + n.t).join(' '), '60@0 63@480', 'roll steps become ticks');
+  ok(roll[0].dur > roll[1].dur, 'and a longer note stays longer');
+  const chords = STUDIO.notesFrom('chords', { chords:[[48,52,55],[53,57,60]] });
+  eq(chords.length, 6, 'each chord exports all of its notes');
+  eq(chords[3].t, STUDIO.PPQ * 4, 'with one bar per chord');
+
+  /* undo keeps its own history, and a no-op edit is not an edit */
+  let state = { n:1 };
+  const h = STUDIO.history(() => JSON.parse(JSON.stringify(state)), s => { state = s; });
+  ok(!h.canUndo, 'nothing to undo to begin with');
+  state = { n:2 }; h.changed();
+  state = { n:3 }; h.changed();
+  h.changed();                      /* nothing moved */
+  ok(h.canUndo, 'an edit can be undone');
+  h.undo(); eq(state.n, 2, 'undo steps back one edit, not two');
+  h.undo(); eq(state.n, 1, 'and again');
+  ok(!h.canUndo, 'until there is nothing left to undo');
+  ok(h.canRedo, 'and everything undone can be redone');
+  h.redo(); eq(state.n, 2, 'redo steps forward');
+  state = { n:9 }; h.changed();
+  ok(!h.canRedo, 'a fresh edit drops the redo trail');
 }
 
 console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));
