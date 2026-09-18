@@ -1,8 +1,8 @@
 # MusicLearn — Producer Theory Lab
 
-An interactive music theory course for producers. Twenty-two lessons, each attached to a 3D
+An interactive music theory course for producers. Twenty-two lessons, each attached to an
 instrument you can play, with every sound generated live in the browser. No build step, no
-framework, no dependencies to install — it is one HTML file, a stylesheet, and eight scripts.
+framework, no dependencies to install — it is one HTML file, a stylesheet, and eleven scripts.
 
 ![The Scales lesson in the light theme](docs/light.png)
 
@@ -18,7 +18,12 @@ Every lesson drives a WebGL stage that changes instrument to match the topic:
 | **Piano roll** | melody writing, melody over chords, beat-block | draw notes on scale rows, see the contour ribbon, hear them over chord slabs |
 
 Patterns, progressions and generated ideas survive a reading-level or theme switch, so changing
-how a lesson is explained never throws away what you built in it.
+how a lesson is explained never throws away what you built in it — including edits you made to a
+preset, which is what is kept rather than the preset's name.
+
+Every instrument also has a **flat view**: the same keyboard, grid or roll drawn face-on, with a
+name on every key and labelled lanes. Phones start there; on a desktop it is a toggle under the
+stage. The circle of fifths has no face-on equivalent and keeps its 3D wheel.
 
 Audio is a small Web Audio synth (triangle/saw voices, filter, envelope, convolution reverb)
 plus a look-ahead step clock, so playback stays in time without blocking the UI.
@@ -64,6 +69,30 @@ worked through it; alongside it the sidebar keeps a **drill score** from the fir
 each question and from the ear-training drills, and flags any lesson you got something wrong in
 with an amber `!` so you know what to revisit. You can reset a lesson's questions at any time.
 
+## Practise it, then review what you missed
+
+Fourteen lessons carry a short round under the text: **hear an example, name it, then build the
+same thing on the instrument** — play that interval back from a given root, stack that chord, put
+that pattern on the kick lane. Both halves are marked, and what you get wrong is recorded against
+the *concept*, not the lesson.
+
+Those misses collect into a **Review** page reachable from the sidebar. It asks the same idea
+again with different notes, in a different key, on whichever instrument that concept belongs to —
+switching the stage between a keyboard question and a drum-grid one as it goes. A concept leaves
+the list after three right answers in a row, so the page empties as the gaps close. Alongside it
+a table shows each concept's record, its last six attempts and its trend, so improvement is
+visible rather than asserted.
+
+## Keeping what you make
+
+The six lessons with something worth keeping — the two drum-grid lessons, the three piano-roll
+ones and the progression builder — carry a **Keep this** panel:
+
+- **Undo and redo**, on the buttons or `Ctrl+Z` / `Shift+Ctrl+Z`.
+- **Save** named ideas, which stay in this browser and can be reloaded later.
+- **Export MIDI** — a standard MIDI file at the tempo shown, drums on the General MIDI drum
+  channel with the right kick, snare and hat notes, so it drops straight into a DAW.
+
 ## Running it
 
 Open `index.html` in a browser. That is the whole setup.
@@ -80,7 +109,7 @@ the default branch, root folder).
 
 ## Single-file build
 
-`build.js` inlines the stylesheet and all eight scripts into one file:
+`build.js` inlines the stylesheet and all eleven scripts into one file:
 
 ```bash
 node build.js              # → dist/musiclearn.html   standalone, open it anywhere
@@ -97,10 +126,14 @@ variant is generated on demand and not tracked.
 index.html              the app shell — markup, fonts, script order
 build.js                single-file bundler
 test/check-theory.js    theory and lesson-data assertions across all twelve keys
+test/check-behaviour.js what the lessons DO — mode switches, presets, controls, MIDI, practice
 src/styles.css          design tokens; light palette on :root, dark under the toggle + media query
 src/theory.js           T = pitch/scale/chord maths · A = synth, drum voices, look-ahead clock
 src/scenes.js           V = one WebGL canvas with four swappable instruments + both palettes
 src/ui.js               UI = control builders · APP = nav, rendering, progress, mode, theme
+src/practice.js         PRACTICE = hear it / name it / build it, and the record of what you missed
+src/studio.js           STUDIO = undo, saved ideas, and the MIDI file writer
+src/flat.js             FLAT = the same instruments drawn face-on, from the a11y descriptor
 src/lessons-level1.js   LESSONS 1–9    (producer text, 3D wiring, quizzes)
 src/lessons-level2.js   LESSONS 10–17
 src/lessons-level3.js   LESSONS 18–22
@@ -149,6 +182,13 @@ tree. Each key, pad and tile is a focusable `<button>` with a spoken label ("C4,
 buttons, and the readout above the lesson is a polite live region, so what the instrument just
 did is announced as text.
 
+Those buttons are built *after* the lesson has loaded and re-read from the instrument after every
+change, so what a screen reader announces is the instrument's real state rather than a guess about
+what the last tap did. Only attributes that actually changed are rewritten, so a running playhead
+repainting many times a second does not make a screen reader chatter through the loop. The flat
+view is drawn from the same descriptor, which is why it follows every lesson without any lesson
+knowing it exists.
+
 ## Accuracy
 
 Theory here is **generated, not typed**: scales, chords, intervals, diatonic sets, roman numerals
@@ -157,13 +197,30 @@ contradicts the notes it plays. Note names are spelled by letter degree, which i
 reads C–E♭–G rather than C–D♯–G.
 
 ```bash
-node test/check-theory.js      # 579 assertions, all twelve keys
+node test/check-theory.js      # 581 assertions, all twelve keys
+node test/check-behaviour.js   # 646 assertions, what the lessons do
 ```
 
-That covers the engine in every key plus the lesson data (answer indices in range, distinct
+The first covers the engine in every key plus the lesson data (answer indices in range, distinct
 options, no note-set answers that are merely reorderings of each other, both reading levels
-present). All 22 lessons are also walked in a headless browser in both reading levels and both
-themes, clicking every control and every quiz option.
+present).
+
+The second runs the real lesson code against a recording stand-in for the stage, and covers the
+things that break when two parts of the app describe the same thing differently:
+
+- a chord's name, its written notes and the notes it plays agree, in every scale and on every degree;
+- switching reading level keeps an edited progression, and every control comes back showing what
+  is actually loaded;
+- a preset change is saved and announced to the accessible panel, which exposes the same number of
+  steps the lesson is really using;
+- the two reading levels' questions score separately;
+- ear training never lights a key it did not play, in any drill, at any register;
+- a practice round's notes always fit the keyboard that lesson puts on stage;
+- the review asks the concept you missed, with different notes, still among several options;
+- the MIDI it writes decodes back to the notes, channels and tempo it claims.
+
+All 22 lessons are also walked in a headless browser in both reading levels, both themes and both
+instrument views, clicking every control and every quiz option.
 
 What it does not cover: pedagogy, lesson ordering and the wording of explanations — this has not
 had a music-educator review. Conventions used, references, and the list of corrections already
@@ -175,12 +232,15 @@ applied are in [docs/SOURCES.md](docs/SOURCES.md). Corrections are welcome via
 Honest list of what this is not, so nobody is misled:
 
 - **Not reviewed by a music educator.** The maths is verified; the teaching is not peer-reviewed.
-- **Ear training is one lesson, not a thread.** Lesson 22 has five drills with varied roots and a
-  hard mode; earlier lessons could each end with a small listening contrast and do not yet.
+- **Eight lessons have no practice round.** The fourteen whose own instrument can express what
+  they teach have one. Meter, inversions, borrowed chords, the circle and the three melody
+  lessons do not — their ideas need a build step that has not been designed yet.
 - **The beginner path is harmony-heavy.** Pulse, subdivision, note length and rests come first,
   but melody and bass writing arrive late — after modes and extensions rather than before them.
-- **No saving or MIDI export.** Work survives a mode or theme switch within a session; it is not
-  written to a file, and there is no undo.
+- **Saved work is per browser.** Ideas and progress live in `localStorage`: no account, no sync,
+  and clearing site data clears them. MIDI export is the way to take work with you.
+- **Nothing is scheduled.** The review shows what you have missed, but there is no spacing
+  algorithm deciding when to ask again — you choose when to open it.
 - **Genre references are broad.** Where a lesson says a style "uses" something, it is pointing at
   a tendency, not citing a specific record.
 
