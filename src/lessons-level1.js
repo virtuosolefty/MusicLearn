@@ -799,7 +799,8 @@ LESSONS.push({
       ctx.v.clear().marks(scale, 'ghost').marks(c.notes.filter(n => n <= 72), 'chord')
         .mark(c.root, 'root').apply().clearExtras();
       ctx.v.spelling(T.keyMap(RN(), keyType));
-      ctx.v.tag(c.num + '   ' + c.label, 0, 3.4);
+      /* no floating chip here: the readout already shows the whole sequence
+         with this slot bracketed, plus the chord and its notes */
       ctx.read(seq.map((d, j) => (j === i ? '[' : ' ') + chordAt(d).num + (j === i ? ']' : ' ')).join(' ') +
         '\n' + c.label + '  \u00B7  ' + c.spell.join(' ') +
         (keyType === 'harmonicMinor' ? '\nharmonic minor \u2014 raised 7th' : ''));

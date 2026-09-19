@@ -21,7 +21,10 @@ const V = (() => {
       labGreen:'#0B7A52', labOn:'#FFFFFF',
       labBg:'rgba(255,255,255,.93)', labBorder:'#C0D4C8',
       ambC:0xF4FAF7, ambI:1.18, keyC:0xFFFFFF, keyI:0.7,
-      fillC:0xD9E8FF, fillI:0.3, rimI:0.25, floorO:0.28, lit:1
+      fillC:0xD9E8FF, fillI:0.3, rimI:0.25, floorO:0.5, lit:1,
+      gridLine:'#93B8A4',
+      poolInner:'rgba(20,56,40,0.26)', poolMid:'rgba(20,56,40,0.12)',
+      poolO:0.85, poolAdd:false
     },
     dark:{
       clear:0x0A1210, fog:0x0A1210, floor:0x1C2A24,
@@ -35,7 +38,10 @@ const V = (() => {
       labGreen:'#6EE7B7', labOn:'#FFFFFF',
       labBg:'rgba(9,16,13,.88)', labBorder:'#36483F',
       ambC:0xD6E6DE, ambI:0.72, keyC:0xFFF6E8, keyI:1.05,
-      fillC:0x88A8FF, fillI:0.42, rimI:0.8, floorO:0.5, lit:0.62
+      fillC:0x88A8FF, fillI:0.42, rimI:0.8, floorO:0.7, lit:0.62,
+      gridLine:'#3E5A4C',
+      poolInner:'rgba(52,211,153,0.22)', poolMid:'rgba(52,211,153,0.08)',
+      poolO:1, poolAdd:true
     }
   };
   let theme = 'light';
@@ -47,7 +53,8 @@ const V = (() => {
   }
 
   let renderer, scene, camera, root, current = null, running = false, last = 0;
-  let lightAmb = null, lightKey = null, lightFill = null, lightRim = null, floorMat = null;
+  let lightAmb = null, lightKey = null, lightFill = null, lightRim = null;
+  let floorMat = null, poolMat = null;
   let cvs, W = 1, H = 1, ray = null, ptr = null;
   /* plain object, so this module can be defined even if the Three.js CDN fails */
   const orb = { tgt:{ x:0, y:0, z:0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
@@ -92,6 +99,47 @@ const V = (() => {
        matches what the key actually looks like on screen */
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) * (C.lit || 1) > 0.52 ? '#16261E' : '#FFFFFF';
   }
+  /* A square of grid lines whose alpha falls away towards the edges, so the
+     floor has no visible boundary and no hard horizon. */
+  function gridTexture() {
+    const S = 512, cells = 28, cell = S / cells;
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, S, S);
+    g.strokeStyle = C.gridLine; g.lineWidth = 1;
+    for (let i = 0; i <= cells; i++) {
+      const p = Math.round(i * cell) + 0.5;
+      g.globalAlpha = (i % 4 === 0) ? 0.85 : 0.35;         /* every fourth line reads as a bar */
+      g.beginPath(); g.moveTo(p, 0); g.lineTo(p, S); g.stroke();
+      g.beginPath(); g.moveTo(0, p); g.lineTo(S, p); g.stroke();
+    }
+    /* fade to nothing at the edges */
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'destination-in';
+    const fade = g.createRadialGradient(S / 2, S / 2, S * 0.08, S / 2, S / 2, S * 0.5);
+    fade.addColorStop(0, 'rgba(0,0,0,1)');
+    fade.addColorStop(0.55, 'rgba(0,0,0,0.75)');
+    fade.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = fade; g.fillRect(0, 0, S, S);
+    const t = new THREE.CanvasTexture(c);
+    t.minFilter = THREE.LinearFilter;
+    return t;
+  }
+  /* The light the instrument stands in — or the shadow it casts, depending
+     on which way round the room is lit. */
+  function poolTexture() {
+    const S = 256;
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    const r = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    r.addColorStop(0, C.poolInner);
+    r.addColorStop(0.45, C.poolMid);
+    r.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = r; g.fillRect(0, 0, S, S);
+    const t = new THREE.CanvasTexture(c);
+    t.minFilter = THREE.LinearFilter;
+    return t;
+  }
   function disposeDeep(obj) {
     obj.traverse(n => {
       if (n.geometry) n.geometry.dispose();
@@ -121,11 +169,22 @@ const V = (() => {
     lightFill = new THREE.DirectionalLight(C.fillC, C.fillI); lightFill.position.set(-9, 6, -6); scene.add(lightFill);
     lightRim = new THREE.PointLight(C.accent, C.rimI, 40); lightRim.position.set(0, 3, -13); scene.add(lightRim);
 
-    // faint floor so the objects sit somewhere
-    const fg = new THREE.PlaneGeometry(90, 90, 30, 30);
-    floorMat = new THREE.LineBasicMaterial({ color:C.floor, transparent:true, opacity:C.floorO });
-    const floor = new THREE.LineSegments(new THREE.WireframeGeometry(fg), floorMat);
+    /* The room the instruments stand in: a grid that fades out instead of
+       ending in a hard square, and a pool of light underneath — a glow in the
+       dark theme, a soft shadow in the light one. Both are canvas textures, so
+       they are regenerated when the theme changes and cost nothing to draw. */
+    floorMat = new THREE.MeshBasicMaterial({
+      map:gridTexture(), transparent:true, opacity:C.floorO,
+      depthWrite:false, fog:false });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), floorMat);
     floor.rotation.x = -Math.PI / 2; floor.position.y = -2.6; scene.add(floor);
+
+    poolMat = new THREE.MeshBasicMaterial({
+      map:poolTexture(), transparent:true, opacity:C.poolO,
+      depthWrite:false, fog:false,
+      blending:C.poolAdd ? THREE.AdditiveBlending : THREE.NormalBlending });
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(46, 30), poolMat);
+    pool.rotation.x = -Math.PI / 2; pool.position.set(0, -2.55, 0); scene.add(pool);
 
     bindPointer();
     resize();
@@ -864,7 +923,16 @@ const V = (() => {
     if (!renderer) return;
     renderer.setClearColor(C.clear, 1);
     if (scene && scene.fog) scene.fog.color.setHex(C.fog);
-    if (floorMat) { floorMat.color.setHex(C.floor); floorMat.opacity = C.floorO; }
+    if (floorMat) {
+      if (floorMat.map) floorMat.map.dispose();
+      floorMat.map = gridTexture(); floorMat.opacity = C.floorO; floorMat.needsUpdate = true;
+    }
+    if (poolMat) {
+      if (poolMat.map) poolMat.map.dispose();
+      poolMat.map = poolTexture(); poolMat.opacity = C.poolO;
+      poolMat.blending = C.poolAdd ? THREE.AdditiveBlending : THREE.NormalBlending;
+      poolMat.needsUpdate = true;
+    }
     if (lightAmb) { lightAmb.color.setHex(C.ambC); lightAmb.intensity = C.ambI; }
     if (lightKey) { lightKey.color.setHex(C.keyC); lightKey.intensity = C.keyI; }
     if (lightFill) { lightFill.color.setHex(C.fillC); lightFill.intensity = C.fillI; }

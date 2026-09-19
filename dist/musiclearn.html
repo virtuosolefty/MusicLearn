@@ -21,7 +21,7 @@
   --bg:#FFFFFF;        --bg-2:#F3F8F5;
   --panel:#FFFFFF;     --panel-2:#EEF5F0;   --panel-3:#E3EEE7;
   --line:#D7E4DC;      --line-2:#C0D4C8;    --line-soft:#E8F0EB;
-  --stage-1:#F8FCFA;   --stage-2:#E7F0EB;
+  --stage-1:#F8FCFA;   --stage-2:#E7F0EB;   --vignette:rgba(23,58,43,.10);
   --glass:rgba(255,255,255,.86);
   --fade-0:rgba(247,251,249,0); --fade-1:rgba(247,251,249,.95);
   /* ink */
@@ -43,7 +43,7 @@
     --bg:#0B1210;        --bg-2:#0F1815;
     --panel:#141E1A;     --panel-2:#1A2721;   --panel-3:#22302A;
     --line:#27362F;      --line-2:#36483F;    --line-soft:#1C2924;
-    --stage-1:#142219;   --stage-2:#070D0B;
+    --stage-1:#142219;   --stage-2:#070D0B;   --vignette:rgba(0,0,0,.42);
     --glass:rgba(9,16,13,.74);
     --fade-0:rgba(9,16,13,0); --fade-1:rgba(9,16,13,.93);
     --text:#E9F3ED;      --text-2:#B2C6BB;    --muted:#7C9488;   --text-strong:#FFFFFF;
@@ -61,7 +61,7 @@
   --bg:#0B1210;        --bg-2:#0F1815;
   --panel:#141E1A;     --panel-2:#1A2721;   --panel-3:#22302A;
   --line:#27362F;      --line-2:#36483F;    --line-soft:#1C2924;
-  --stage-1:#142219;   --stage-2:#070D0B;
+  --stage-1:#142219;   --stage-2:#070D0B;   --vignette:rgba(0,0,0,.42);
   --glass:rgba(9,16,13,.74);
   --fade-0:rgba(9,16,13,0); --fade-1:rgba(9,16,13,.93);
   --text:#E9F3ED;      --text-2:#B2C6BB;    --muted:#7C9488;   --text-strong:#FFFFFF;
@@ -453,6 +453,62 @@ td.hi{color:var(--accent-2)}
 .synced::before{
   content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);
   box-shadow:0 0 0 3px var(--accent-soft);
+}
+
+/* a soft vignette over the stage, so the instrument sits in a room
+   rather than on a flat field. Sits under the HUD, never takes clicks. */
+.stage::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:radial-gradient(120% 85% at 50% 38%, transparent 42%, var(--vignette) 100%);
+}
+.hud, .stage-foot{z-index:2}
+
+/* ── Home: the day at a glance ─────────────────────────────── */
+.nav button.home-item{margin-bottom:4px}
+.nav button.home-item .num{font-size:14px;color:var(--accent-2)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:18px 0 4px}
+.stat{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius);
+  padding:13px 12px;display:flex;flex-direction:column;gap:3px;min-width:0;
+}
+.stat b{
+  font-family:"Bricolage Grotesque",sans-serif;font-size:21px;font-weight:700;
+  color:var(--text-strong);line-height:1.05;letter-spacing:-.01em;
+}
+.stat span{
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+  font-family:"Bricolage Grotesque",sans-serif;
+}
+
+.week{display:flex;gap:7px;margin:4px 0 2px}
+.week .day{
+  flex:1;height:38px;border-radius:9px;background:var(--panel-3);
+  border:1px solid var(--line);display:grid;place-items:center;
+}
+.week .day i{
+  font-style:normal;font-size:11px;font-family:"IBM Plex Mono",monospace;color:var(--muted);
+}
+.week .day.on{background:var(--accent-soft);border-color:var(--accent);}
+.week .day.on i{color:var(--accent-2);font-weight:600}
+
+.masterlist{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.mrow{
+  display:grid;grid-template-columns:1fr 130px auto;gap:11px;align-items:center;
+  padding:9px 11px;background:var(--panel);border:1px solid var(--line-soft);border-radius:11px;
+}
+.mname{min-width:0;display:flex;flex-direction:column;gap:2px}
+.mname b{font-size:13.5px;color:var(--text);font-weight:600}
+.mname span{font-size:11px;color:var(--muted)}
+.mbar{display:flex;align-items:center;gap:8px}
+.mbar .mono{font-size:11px;color:var(--muted);min-width:32px;text-align:right}
+.prog-bar.mini{flex:1;height:6px}
+.mrow button.b{padding:6px 12px;font-size:11.5px}
+
+@media (max-width:760px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .mrow{grid-template-columns:1fr auto;row-gap:7px}
+  .mbar{grid-column:1 / -1}
 }
 
 </style>
@@ -1050,7 +1106,10 @@ const V = (() => {
       labGreen:'#0B7A52', labOn:'#FFFFFF',
       labBg:'rgba(255,255,255,.93)', labBorder:'#C0D4C8',
       ambC:0xF4FAF7, ambI:1.18, keyC:0xFFFFFF, keyI:0.7,
-      fillC:0xD9E8FF, fillI:0.3, rimI:0.25, floorO:0.28, lit:1
+      fillC:0xD9E8FF, fillI:0.3, rimI:0.25, floorO:0.5, lit:1,
+      gridLine:'#93B8A4',
+      poolInner:'rgba(20,56,40,0.26)', poolMid:'rgba(20,56,40,0.12)',
+      poolO:0.85, poolAdd:false
     },
     dark:{
       clear:0x0A1210, fog:0x0A1210, floor:0x1C2A24,
@@ -1064,7 +1123,10 @@ const V = (() => {
       labGreen:'#6EE7B7', labOn:'#FFFFFF',
       labBg:'rgba(9,16,13,.88)', labBorder:'#36483F',
       ambC:0xD6E6DE, ambI:0.72, keyC:0xFFF6E8, keyI:1.05,
-      fillC:0x88A8FF, fillI:0.42, rimI:0.8, floorO:0.5, lit:0.62
+      fillC:0x88A8FF, fillI:0.42, rimI:0.8, floorO:0.7, lit:0.62,
+      gridLine:'#3E5A4C',
+      poolInner:'rgba(52,211,153,0.22)', poolMid:'rgba(52,211,153,0.08)',
+      poolO:1, poolAdd:true
     }
   };
   let theme = 'light';
@@ -1076,7 +1138,8 @@ const V = (() => {
   }
 
   let renderer, scene, camera, root, current = null, running = false, last = 0;
-  let lightAmb = null, lightKey = null, lightFill = null, lightRim = null, floorMat = null;
+  let lightAmb = null, lightKey = null, lightFill = null, lightRim = null;
+  let floorMat = null, poolMat = null;
   let cvs, W = 1, H = 1, ray = null, ptr = null;
   /* plain object, so this module can be defined even if the Three.js CDN fails */
   const orb = { tgt:{ x:0, y:0, z:0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
@@ -1121,6 +1184,47 @@ const V = (() => {
        matches what the key actually looks like on screen */
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) * (C.lit || 1) > 0.52 ? '#16261E' : '#FFFFFF';
   }
+  /* A square of grid lines whose alpha falls away towards the edges, so the
+     floor has no visible boundary and no hard horizon. */
+  function gridTexture() {
+    const S = 512, cells = 28, cell = S / cells;
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, S, S);
+    g.strokeStyle = C.gridLine; g.lineWidth = 1;
+    for (let i = 0; i <= cells; i++) {
+      const p = Math.round(i * cell) + 0.5;
+      g.globalAlpha = (i % 4 === 0) ? 0.85 : 0.35;         /* every fourth line reads as a bar */
+      g.beginPath(); g.moveTo(p, 0); g.lineTo(p, S); g.stroke();
+      g.beginPath(); g.moveTo(0, p); g.lineTo(S, p); g.stroke();
+    }
+    /* fade to nothing at the edges */
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'destination-in';
+    const fade = g.createRadialGradient(S / 2, S / 2, S * 0.08, S / 2, S / 2, S * 0.5);
+    fade.addColorStop(0, 'rgba(0,0,0,1)');
+    fade.addColorStop(0.55, 'rgba(0,0,0,0.75)');
+    fade.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = fade; g.fillRect(0, 0, S, S);
+    const t = new THREE.CanvasTexture(c);
+    t.minFilter = THREE.LinearFilter;
+    return t;
+  }
+  /* The light the instrument stands in — or the shadow it casts, depending
+     on which way round the room is lit. */
+  function poolTexture() {
+    const S = 256;
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d');
+    const r = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    r.addColorStop(0, C.poolInner);
+    r.addColorStop(0.45, C.poolMid);
+    r.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = r; g.fillRect(0, 0, S, S);
+    const t = new THREE.CanvasTexture(c);
+    t.minFilter = THREE.LinearFilter;
+    return t;
+  }
   function disposeDeep(obj) {
     obj.traverse(n => {
       if (n.geometry) n.geometry.dispose();
@@ -1150,11 +1254,22 @@ const V = (() => {
     lightFill = new THREE.DirectionalLight(C.fillC, C.fillI); lightFill.position.set(-9, 6, -6); scene.add(lightFill);
     lightRim = new THREE.PointLight(C.accent, C.rimI, 40); lightRim.position.set(0, 3, -13); scene.add(lightRim);
 
-    // faint floor so the objects sit somewhere
-    const fg = new THREE.PlaneGeometry(90, 90, 30, 30);
-    floorMat = new THREE.LineBasicMaterial({ color:C.floor, transparent:true, opacity:C.floorO });
-    const floor = new THREE.LineSegments(new THREE.WireframeGeometry(fg), floorMat);
+    /* The room the instruments stand in: a grid that fades out instead of
+       ending in a hard square, and a pool of light underneath — a glow in the
+       dark theme, a soft shadow in the light one. Both are canvas textures, so
+       they are regenerated when the theme changes and cost nothing to draw. */
+    floorMat = new THREE.MeshBasicMaterial({
+      map:gridTexture(), transparent:true, opacity:C.floorO,
+      depthWrite:false, fog:false });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), floorMat);
     floor.rotation.x = -Math.PI / 2; floor.position.y = -2.6; scene.add(floor);
+
+    poolMat = new THREE.MeshBasicMaterial({
+      map:poolTexture(), transparent:true, opacity:C.poolO,
+      depthWrite:false, fog:false,
+      blending:C.poolAdd ? THREE.AdditiveBlending : THREE.NormalBlending });
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(46, 30), poolMat);
+    pool.rotation.x = -Math.PI / 2; pool.position.set(0, -2.55, 0); scene.add(pool);
 
     bindPointer();
     resize();
@@ -1893,7 +2008,16 @@ const V = (() => {
     if (!renderer) return;
     renderer.setClearColor(C.clear, 1);
     if (scene && scene.fog) scene.fog.color.setHex(C.fog);
-    if (floorMat) { floorMat.color.setHex(C.floor); floorMat.opacity = C.floorO; }
+    if (floorMat) {
+      if (floorMat.map) floorMat.map.dispose();
+      floorMat.map = gridTexture(); floorMat.opacity = C.floorO; floorMat.needsUpdate = true;
+    }
+    if (poolMat) {
+      if (poolMat.map) poolMat.map.dispose();
+      poolMat.map = poolTexture(); poolMat.opacity = C.poolO;
+      poolMat.blending = C.poolAdd ? THREE.AdditiveBlending : THREE.NormalBlending;
+      poolMat.needsUpdate = true;
+    }
     if (lightAmb) { lightAmb.color.setHex(C.ambC); lightAmb.intensity = C.ambI; }
     if (lightKey) { lightKey.color.setHex(C.keyC); lightKey.intensity = C.keyI; }
     if (lightFill) { lightFill.color.setHex(C.fillC); lightFill.intensity = C.fillI; }
@@ -1908,6 +2032,154 @@ const V = (() => {
            get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
            get orbit() { return orb; }, resize };
+})();
+
+
+/* ── src/mastery.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   MASTERY — what you know, how well, and when to see it again.
+
+   PRACTICE records every answer. This turns that log into two numbers
+   per skill: a mastery score, and a date it is next worth practising.
+   From those it builds the day's workout.
+
+   The formulas are the same ones server/store.js uses, deliberately:
+   with the local server running the numbers agree, and without it the
+   browser still schedules on its own. Change one, change both.
+   ═══════════════════════════════════════════════════════════════ */
+const MASTERY = (() => {
+  const DAY = 86400000;
+  /* right answers push the next review further out; a wrong one brings it
+     back to today. Days, indexed by how many you have got right in a row. */
+  const LADDER = [0, 1, 2, 4, 8, 16, 30];
+
+  /* accuracy with a weak prior (so one lucky answer is not mastery),
+     plus recent form, plus how long ago you last saw it */
+  function score(e) {
+    const n = (e.right || 0) + (e.wrong || 0);
+    const acc = ((e.right || 0) + 1) / (n + 2);
+    const runs = e.runs || [];
+    const tail = runs.slice(-5);
+    const recent = tail.length ? tail.reduce((a, b) => a + b, 0) / tail.length : acc;
+    const ageDays = e.seen ? (Date.now() - e.seen) / DAY : 30;
+    const fresh = Math.max(0, 1 - ageDays / 45);
+    return Math.round(Math.min(1, Math.max(0, 0.5 * acc + 0.35 * recent + 0.15 * fresh)) * 100) / 100;
+  }
+  const streakOf = e => {
+    const r = e.runs || [];
+    let n = 0;
+    for (let i = r.length - 1; i >= 0 && r[i] === 1; i--) n++;
+    return n;
+  };
+  function dueAt(e) {
+    const s = streakOf(e);
+    const days = s === 0 ? 0 : LADDER[Math.min(s, LADDER.length - 1)];
+    return (e.seen || Date.now()) + days * DAY;
+  }
+  /* "in 2 days", "today", "overdue" — the only form of this a learner needs */
+  function when(due) {
+    const d = Math.round((due - Date.now()) / DAY);
+    if (d <= -1) return 'overdue';
+    if (d <= 0) return 'today';
+    if (d === 1) return 'tomorrow';
+    return 'in ' + d + ' days';
+  }
+
+  const entries = () => (typeof PRACTICE === 'undefined' ? [] : PRACTICE.entries());
+
+  /* every practised skill, weakest first */
+  function board() {
+    return entries().map(e => ({
+      lesson:e.lesson, kind:e.kind, concept:e.concept, label:e.label,
+      right:e.right || 0, wrong:e.wrong || 0,
+      mastery:score(e), due:dueAt(e), streak:streakOf(e),
+      trend:(typeof PRACTICE !== 'undefined' && PRACTICE.trend) ? PRACTICE.trend(e) : null
+    })).sort((a, b) => a.mastery - b.mastery || a.due - b.due);
+  }
+  const dueNow = () => board().filter(s => s.due <= Date.now());
+
+  /* ── the day's workout ──────────────────────────────────────
+     Due first, then the weakest, then something new from a lesson they
+     have already reached — so a session is never only revision and never
+     only novelty. One item is about a minute. */
+  function workout(minutes, reachedIds) {
+    const want = Math.max(4, Math.min(12, Math.round(minutes || 10)));
+    const seen = {}, out = [];
+    const take = s => {
+      const k = s.lesson + '|' + s.kind + '|' + s.concept;
+      if (seen[k] || out.length >= want) return;
+      seen[k] = 1;
+      out.push({ lesson:s.lesson, kind:s.kind, concept:s.concept, label:s.label });
+    };
+    const all = board();
+    all.filter(s => s.due <= Date.now()).forEach(take);   /* due */
+    all.filter(s => s.mastery < 0.7).forEach(take);       /* shaky */
+    /* then fresh questions from lessons that have a round and have been reached */
+    if (out.length < want && typeof PRACTICE !== 'undefined') {
+      const reached = reachedIds && reachedIds.length ? reachedIds : Object.keys(PRACTICE.PLAN);
+      reached.filter(id => PRACTICE.PLAN[id]).forEach(id => {
+        if (out.length >= want) return;
+        const plan = PRACTICE.PLAN[id];
+        out.push({ lesson:id, kind:plan.kind, concept:null, label:'something new' });
+      });
+    }
+    return out.slice(0, want);
+  }
+
+  /* ── days practised, for the week strip and the streak ── */
+  const DKEY = 'rbx-theory-days-v1';
+  const today = () => new Date().toISOString().slice(0, 10);
+  function days() {
+    try { return JSON.parse(localStorage.getItem(DKEY) || '[]') || []; } catch (e) { return []; }
+  }
+  function touch() {
+    try {
+      const d = days(), t = today();
+      if (d[d.length - 1] === t) return;
+      d.push(t);
+      localStorage.setItem(DKEY, JSON.stringify(d.slice(-400)));
+    } catch (e) {}
+  }
+  function streak() {
+    const d = days(), set = {};
+    d.forEach(x => { set[x] = 1; });
+    let n = 0;
+    for (let i = 0; ; i++) {
+      const day = new Date(Date.now() - i * DAY).toISOString().slice(0, 10);
+      if (set[day]) n++;
+      else if (i > 0) break;
+      else break;
+    }
+    return n;
+  }
+  /* the last seven days, oldest first, for the strip */
+  function week() {
+    const set = {};
+    days().forEach(x => { set[x] = 1; });
+    const out = [];
+    for (let i = 6; i >= 0; i--) {
+      const dt = new Date(Date.now() - i * DAY);
+      const key = dt.toISOString().slice(0, 10);
+      out.push({ day:key, on:!!set[key],
+                 letter:['S','M','T','W','T','F','S'][dt.getDay()] });
+    }
+    return out;
+  }
+
+  function summary() {
+    const b = board();
+    const avg = b.length ? b.reduce((s, x) => s + x.mastery, 0) / b.length : 0;
+    return {
+      skills:b.length,
+      mastery:Math.round(avg * 100),
+      due:b.filter(s => s.due <= Date.now()).length,
+      weak:b.filter(s => s.mastery < 0.7).length,
+      streak:streak()
+    };
+  }
+
+  return { LADDER, score, dueAt, when, board, dueNow, workout,
+           days, touch, streak, week, summary };
 })();
 
 
@@ -2046,7 +2318,7 @@ const APP = (() => {
     theme = (effTheme() === 'dark') ? 'light' : 'dark';
     try { localStorage.setItem(TKEY, theme); } catch (e) {}
     applyTheme();
-    render();   /* rebuilds the 3D view so its materials pick up the new palette */
+    draw();   /* rebuilds the 3D view so its materials pick up the new palette */
   }
 
   /* progress, stored per viewer only — fine if it comes back empty */
@@ -2076,6 +2348,7 @@ const APP = (() => {
       rb.classList.toggle('primary', n > 0);
     }
     document.querySelectorAll('#nav button').forEach(b => {
+      if (!b.dataset.id) return;                 /* the Home entry is not a lesson */
       b.classList.toggle('done', !!done[b.dataset.id]);
       const t = drillTally(b.dataset.id);
       b.classList.toggle('review', t.wrong.length > 0);
@@ -2094,6 +2367,12 @@ const APP = (() => {
   function buildNav() {
     const nav = $('#nav');
     nav.innerHTML = '';
+    const hb = UI.el('button', 'home-item');
+    hb.type = 'button';
+    hb.innerHTML = '<span class="num">\u2302</span><span>Today</span><span class="tick"></span>';
+    hb.title = 'Your streak, what is due, and the day\u2019s practice';
+    hb.addEventListener('click', () => { openHome(); closeRail(); });
+    nav.appendChild(hb);
     let seen = null;
     LESSONS.forEach((L, i) => {
       const key = L.part || L.level;
@@ -2200,19 +2479,9 @@ const APP = (() => {
     return ctx;
   }
 
-  function render() {
-    const L = LESSONS[idx];
-    const ctx = openStage(L);
-
-    /* ── prose ── */
-    const S = (mode === 'simple' && L.simple) ? L.simple : null;
-    const lede = (S && S.lede) || L.lede;
-    const blocks = (S && S.blocks) || L.blocks || [];
-    const quiz = (S && S.quiz) || L.quiz;
-    const art = $('#console');
-    art.innerHTML = '';
-    const w = UI.el('div', 'wrap');
-
+  /* reading level on the left, theme on the right — the same bar on every
+     page, so neither control moves as you walk through the course */
+  function modeBar(redraw) {
     const bar = UI.el('div', 'modebar');
     bar.appendChild(UI.html('span', 'lab', 'Explain it'));
     const seg = UI.el('div', 'seg');
@@ -2222,7 +2491,7 @@ const APP = (() => {
       b.setAttribute('aria-pressed', mode === pair[0] ? 'true' : 'false');
       b.addEventListener('click', () => {
         if (mode === pair[0]) return;
-        mode = pair[0]; saveMode(); render();
+        mode = pair[0]; saveMode(); redraw();
       });
       seg.appendChild(b);
     });
@@ -2236,7 +2505,23 @@ const APP = (() => {
     tb.title = 'Switch to the ' + (effTheme() === 'dark' ? 'light' : 'dark') + ' theme';
     tb.addEventListener('click', toggleTheme);
     bar.appendChild(tb);
-    w.appendChild(bar);
+    return bar;
+  }
+
+  function render() {
+    const L = LESSONS[idx];
+    const ctx = openStage(L);
+
+    /* ── prose ── */
+    const S = (mode === 'simple' && L.simple) ? L.simple : null;
+    const lede = (S && S.lede) || L.lede;
+    const blocks = (S && S.blocks) || L.blocks || [];
+    const quiz = (S && S.quiz) || L.quiz;
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap');
+
+    w.appendChild(modeBar(render));
 
     const crumb = UI.html('div', 'crumb',
       '<b>' + partName(L) + '</b> &nbsp;·&nbsp; Lesson ' + (idx + 1) + ' of ' + LESSONS.length +
@@ -2474,6 +2759,8 @@ const APP = (() => {
   function syncA11y(ctx) {
     const d = V.a11y && V.a11y();
     if (typeof FLAT !== 'undefined') FLAT.paint();
+    /* no instrument at all — a page with no stage, or WebGL that never loaded */
+    if (!d) { if (a11yShape !== '') buildA11y(ctx); return; }
     if (shapeOf(d) !== a11yShape) { buildA11y(ctx); return; }
     /* only write what actually changed: the playhead repaints the stage many
        times a second, and rewriting an unchanged aria-label makes a screen
@@ -2570,6 +2857,226 @@ const APP = (() => {
     host.appendChild(wrap);
   }
 
+  /* Every concept belongs to an instrument. A mixed round — review, or the
+     day's workout — swaps the stage under the question so the thing being
+     asked about is the thing on screen. */
+  function stageFor(ctx, cur) {
+    const owner = LESSONS.filter(x => x.id === cur.lesson)[0];
+    if (!owner) return;
+    const want = owner.stage.view, cfg = owner.stage.cfg || {};
+    ctx.v = V.set(want, cfg);
+    ctx.hint(owner.hint || '');
+    $('#hudTag').textContent = owner.title;
+    if (want === 'grid') ctx.v.clearAll();
+    ctx.syncA11y();
+  }
+
+  /* ── Home: what to do today ─────────────────────────────────
+     Everything on this page is derived — nothing here is a second copy of
+     progress. The workout comes from MASTERY, which reads the practice log;
+     "needs work" is the same board sorted weakest first; the ideas are
+     STUDIO's saves. So it cannot drift out of step with the lessons. */
+  /* what the day's workout is allowed to ask about: everything up to the
+     furthest lesson reached, whether or not it was ticked. Walking past a
+     lesson counts — people forget to tick, and nobody should be quizzed on
+     a chapter they have not opened. */
+  function reachedIds() {
+    let far = idx;
+    LESSONS.forEach((L, i) => { if (done[L.id] && i > far) far = i; });
+    return LESSONS.slice(0, far + 1).map(L => L.id);
+  }
+  function nextLesson() {
+    const at = LESSONS.findIndex(L => !done[L.id]);
+    return at < 0 ? Math.min(idx, LESSONS.length - 1) : at;
+  }
+  function statCard(value, label, hint) {
+    const c = UI.el('div', 'stat');
+    c.appendChild(UI.html('b', null, value));
+    c.appendChild(UI.html('span', null, label));
+    if (hint) c.title = hint;
+    return c;
+  }
+  function bar(pct) {
+    const w = UI.el('div', 'prog-bar mini');
+    const i = UI.el('i'); i.style.width = Math.round(pct) + '%';
+    w.appendChild(i);
+    return w;
+  }
+
+  let workoutMins = 10;
+  function renderHome() {
+    const L = { id:'home', title:'Home', tag:'Today',
+                hint:'Your practice, at a glance',
+                stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } } };
+    const ctx = openStage(L);
+    const sum = (typeof MASTERY !== 'undefined') ? MASTERY.summary()
+              : { skills:0, mastery:0, due:0, weak:0, streak:0 };
+    const ticked = LESSONS.filter(x => done[x.id]).length;
+    ctx.read(sum.due ? sum.due + ' to revisit today' : 'nothing overdue');
+
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap');
+
+    /* the reading-level and theme bar belongs here too — it is the first page
+       a new learner sees, and the first thing some of them need to change */
+    w.appendChild(modeBar(() => renderHome()));
+
+    w.appendChild(UI.html('div', 'crumb', '<b>Today</b> &nbsp;·&nbsp; your practice at a glance'));
+    w.appendChild(UI.html('h2', null, sum.streak > 1
+      ? 'Day ' + sum.streak + ' in a row'
+      : 'Welcome back'));
+    w.appendChild(UI.html('p', 'lede', sum.skills
+      ? 'Ten minutes on the right things beats an hour on the wrong ones. Below is what ' +
+        'this browser thinks you should practise now, worked out from what you have ' +
+        'already answered — due first, then whatever is shakiest.'
+      : 'Start anywhere. Every lesson has a playable instrument and a short practice round ' +
+        'at the bottom; once you have answered a few, this page starts planning your day.'));
+
+    /* ── the numbers ── */
+    const stats = UI.el('div', 'stats');
+    stats.append(
+      statCard(ticked + ' / ' + LESSONS.length, 'lessons done'),
+      statCard(sum.mastery + '%', 'average mastery',
+        'Across every concept you have practised: accuracy, recent form and how fresh it is.'),
+      statCard(String(sum.due), 'due now', 'Concepts whose review date has arrived.'),
+      statCard(String(sum.streak), sum.streak === 1 ? 'day streak' : 'day streak'));
+    w.appendChild(stats);
+
+    /* ── the week ── */
+    if (typeof MASTERY !== 'undefined') {
+      const strip = UI.el('div', 'week');
+      MASTERY.week().forEach(d => {
+        const c = UI.el('div', 'day' + (d.on ? ' on' : ''));
+        c.appendChild(UI.html('i', null, d.letter));
+        c.title = d.on ? 'Practised ' + d.day : 'Nothing on ' + d.day;
+        strip.appendChild(c);
+      });
+      const box = UI.el('div', 'panel');
+      box.appendChild(UI.html('h4', null, 'The last seven days'));
+      box.appendChild(strip);
+      box.appendChild(UI.html('p', 'small',
+        'A day lights up when you answer at least one practice question. Short and often ' +
+        'beats long and rare — that is the whole trick with this material.'));
+      w.appendChild(box);
+    }
+
+    /* ── pick up where you left off ── */
+    {
+      const at = nextLesson(), N = LESSONS[at];
+      const p = UI.el('div', 'panel');
+      p.appendChild(UI.html('h4', null, ticked ? 'Pick up where you left off' : 'Start here'));
+      p.appendChild(UI.html('p', null,
+        '<b>' + N.title + '</b> &nbsp;·&nbsp; ' + partName(N) + ' &nbsp;·&nbsp; lesson ' +
+        (at + 1) + ' of ' + LESSONS.length));
+      p.appendChild(UI.row(
+        UI.btn('Open ' + N.title + ' →', () => go(at), { primary:true }),
+        ticked < LESSONS.length && at > 0
+          ? UI.btn('Back to lesson 1', () => go(0)) : null));
+      w.appendChild(p);
+    }
+
+    /* ── today's practice ── */
+    {
+      const p = UI.el('div', 'panel try practice-panel');
+      p.appendChild(UI.html('h4', null, 'Today’s practice'));
+      const plan = (typeof MASTERY !== 'undefined')
+        ? MASTERY.workout(workoutMins, reachedIds()) : [];
+      /* a round of one question is not a workout — until there is some history
+         to schedule from, say so rather than offering a thin one */
+      const started = (typeof PRACTICE !== 'undefined') && PRACTICE.entries().length;
+      if (!plan.length || (!started && plan.length < 3)) {
+        p.appendChild(UI.html('p', null,
+          'Nothing to plan yet. Open a lesson and play one practice round at the bottom of ' +
+          'it — after that this page will know what to give you.'));
+      } else {
+        p.appendChild(UI.html('p', null,
+          plan.length + ' question' + (plan.length === 1 ? '' : 's') + ', about ' +
+          plan.length + ' minute' + (plan.length === 1 ? '' : 's') + '. ' +
+          'Listen, name it, then build it on the instrument above. Each one comes back with ' +
+          'different notes, because the thing being learned is the relationship.'));
+        const pick = UI.chips(
+          [{ label:'5 min', value:5 }, { label:'10 min', value:10 }, { label:'15 min', value:15 }],
+          v => { workoutMins = Number(v); renderHome(); }, workoutMins);
+        p.appendChild(UI.row(pick));
+        const host = UI.el('div');
+        p.appendChild(host);
+        host.appendChild(PRACTICE.build(ctx, {
+          queue:plan,
+          onStage: cur => stageFor(ctx, cur),
+          onDone: () => { renderHome(); }
+        }));
+      }
+      w.appendChild(p);
+    }
+
+    /* ── needs work ── */
+    if (typeof MASTERY !== 'undefined') {
+      const board = MASTERY.board().filter(s => s.mastery < 0.9).slice(0, 6);
+      if (board.length) {
+        const box = UI.el('div', 'panel');
+        box.appendChild(UI.html('h4', null, 'Needs work'));
+        box.appendChild(UI.html('p', 'small',
+          'Weakest first. The date is when it is worth seeing again — right answers push it ' +
+          'further out, a wrong one brings it back to today.'));
+        const list = UI.el('div', 'masterlist');
+        board.forEach(s => {
+          const owner = LESSONS.filter(x => x.id === s.lesson)[0];
+          const r = UI.el('div', 'mrow');
+          const nm = UI.el('div', 'mname');
+          nm.appendChild(UI.html('b', null, s.label));
+          nm.appendChild(UI.html('span', null,
+            (owner ? owner.title : s.lesson) + ' · ' + MASTERY.when(s.due)));
+          r.appendChild(nm);
+          const m = UI.el('div', 'mbar');
+          m.appendChild(bar(s.mastery * 100));
+          m.appendChild(UI.html('span', 'mono', Math.round(s.mastery * 100) + '%'));
+          r.appendChild(m);
+          const open = UI.btn('Practise', () => { if (owner) go(LESSONS.indexOf(owner)); });
+          open.title = owner ? 'Open ' + owner.title : '';
+          r.appendChild(open);
+          list.appendChild(r);
+        });
+        box.appendChild(list);
+        w.appendChild(box);
+      }
+    }
+
+    /* ── what you have made ── */
+    if (typeof STUDIO !== 'undefined' && STUDIO.saves.length) {
+      const box = UI.el('div', 'panel');
+      box.appendChild(UI.html('h4', null, 'Ideas you have kept'));
+      box.appendChild(UI.html('p', 'small',
+        'Saved in this browser. Open the lesson to load one back onto the instrument, ' +
+        'or export it as MIDI from there.'));
+      const list = UI.el('div', 'masterlist');
+      STUDIO.saves.slice(-8).reverse().forEach(s => {
+        const owner = LESSONS.filter(x => x.id === s.lesson)[0];
+        const r = UI.el('div', 'mrow');
+        const nm = UI.el('div', 'mname');
+        nm.appendChild(UI.html('b', null, s.name || 'untitled'));
+        nm.appendChild(UI.html('span', null, owner ? owner.title : s.lesson));
+        r.appendChild(nm);
+        r.appendChild(UI.el('div', 'mbar'));
+        const open = UI.btn('Open', () => { if (owner) go(LESSONS.indexOf(owner)); });
+        r.appendChild(open);
+        list.appendChild(r);
+      });
+      box.appendChild(list);
+      w.appendChild(box);
+    }
+
+    art.appendChild(w);
+    buildA11y(ctx);
+    if (V.onPaint) V.onPaint(() => syncA11y(ctx));
+    applyFlat();
+    document.querySelectorAll('#nav button').forEach(b =>
+      b.setAttribute('aria-current', b.dataset.id ? 'false' : 'true'));
+    $('#main').scrollTop = 0;
+    progress();
+    try { location.hash = 'home'; } catch (e) {}
+  }
+
   /* ── Review: the concepts you have missed, asked again with fresh notes ──
      A concept leaves this list after three right answers in a row, so the page
      empties as the gaps close rather than nagging forever. */
@@ -2618,16 +3125,7 @@ const APP = (() => {
     host.appendChild(PRACTICE.build(ctx, {
       queue:due,
       /* each concept belongs to an instrument — put that one on the stage */
-      onStage: cur => {
-        const owner = LESSONS.filter(x => x.id === cur.lesson)[0];
-        if (!owner) return;
-        const want = owner.stage.view, cfg = owner.stage.cfg || {};
-        ctx.v = V.set(want, cfg);
-        ctx.hint(owner.hint || '');
-        $('#hudTag').textContent = owner.title;
-        if (want === 'grid') ctx.v.clearAll();
-        ctx.syncA11y();
-      },
+      onStage: cur => stageFor(ctx, cur),
       onDone: () => { renderReview(); }
     }));
   }
@@ -2661,12 +3159,19 @@ const APP = (() => {
   }
 
   function go(i) {
-    reviewing = false;
+    page = 'lesson';
     idx = Math.max(0, Math.min(LESSONS.length - 1, i));
     render();
   }
-  let reviewing = false;
-  function openReview() { reviewing = true; renderReview(); closeRail(); }
+  /* which of the three pages is on screen: a lesson, the review, or home */
+  let page = 'lesson';
+  function openReview() { page = 'review'; renderReview(); closeRail(); }
+  function openHome() { page = 'home'; renderHome(); }
+  function draw() {
+    if (page === 'home') renderHome();
+    else if (page === 'review') renderReview();
+    else render();
+  }
 
   /* Start over — the ticks, the answers and the review list. Saved musical
      ideas are the learner's own work, not progress, so they are left alone;
@@ -2675,7 +3180,7 @@ const APP = (() => {
     done = {}; save();
     drills = {}; saveDrills();
     if (typeof PRACTICE !== 'undefined') PRACTICE.clear();
-    reviewing = false;
+    page = 'lesson';
     render();
   }
   function wireReset() {
@@ -2727,8 +3232,10 @@ const APP = (() => {
     buildNav();
     const hash = (location.hash || '').replace('#', '');
     const at = LESSONS.findIndex(l => l.id === hash);
-    idx = at >= 0 ? at : 0;
-    render();
+    idx = at >= 0 ? at : nextLesson();
+    /* Home is the landing page: it says what is due and hands out the day's
+       practice. A link straight to a lesson still opens that lesson. */
+    if (at >= 0) { page = 'lesson'; render(); } else openHome();
 
     $('#menuBtn').addEventListener('click', () => {
       const open = $('#rail').dataset.open !== 'true';
@@ -2752,7 +3259,7 @@ const APP = (() => {
     document.addEventListener('pointerdown', () => A.resume(), { once:true });
     try {
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      const onSys = () => { if (!theme) { applyTheme(); render(); } };
+      const onSys = () => { if (!theme) { applyTheme(); draw(); } };
       if (mq.addEventListener) mq.addEventListener('change', onSys);
       else if (mq.addListener) mq.addListener(onSys);
     } catch (e) {}
@@ -2762,14 +3269,15 @@ const APP = (() => {
   /* called when the local server hands over a record after the app booted */
   function rehydrate() {
     load(); loadMode(); loadDrills(); loadTheme();
-    applyTheme(); progress(); render();
+    applyTheme(); progress(); draw();
     const el = $('#synced');
     if (el && typeof SYNC !== 'undefined' && SYNC.on) {
       el.hidden = false;
       el.textContent = 'Saving to your local server' + (SYNC.user ? ' \u00B7 ' + SYNC.user.name : '');
     }
   }
-  return { boot, go, qKey, rehydrate, get idx() { return idx; } };
+  return { boot, go, home:openHome, review:openReview, qKey, rehydrate,
+           get idx() { return idx; } };
 })();
 
 
@@ -2807,6 +3315,7 @@ const PRACTICE = (() => {
     if (e.runs.length > 12) e.runs = e.runs.slice(-12);
     e.seen = Date.now();
     save();
+    if (typeof MASTERY !== 'undefined') MASTERY.touch();
     /* the server, when there is one, keeps mastery and the review schedule */
     if (typeof SYNC !== 'undefined' && SYNC.on) {
       SYNC.attempt({ lesson:lessonId, kind, concept, label, ok:!!ok });
@@ -4491,7 +5000,8 @@ LESSONS.push({
       ctx.v.clear().marks(scale, 'ghost').marks(c.notes.filter(n => n <= 72), 'chord')
         .mark(c.root, 'root').apply().clearExtras();
       ctx.v.spelling(T.keyMap(RN(), keyType));
-      ctx.v.tag(c.num + '   ' + c.label, 0, 3.4);
+      /* no floating chip here: the readout already shows the whole sequence
+         with this slot bracketed, plus the chord and its notes */
       ctx.read(seq.map((d, j) => (j === i ? '[' : ' ') + chordAt(d).num + (j === i ? ']' : ' ')).join(' ') +
         '\n' + c.label + '  \u00B7  ' + c.spell.join(' ') +
         (keyType === 'harmonicMinor' ? '\nharmonic minor \u2014 raised 7th' : ''));

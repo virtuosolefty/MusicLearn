@@ -31,6 +31,7 @@ const PRACTICE = (() => {
     if (e.runs.length > 12) e.runs = e.runs.slice(-12);
     e.seen = Date.now();
     save();
+    if (typeof MASTERY !== 'undefined') MASTERY.touch();
     /* the server, when there is one, keeps mastery and the review schedule */
     if (typeof SYNC !== 'undefined' && SYNC.on) {
       SYNC.attempt({ lesson:lessonId, kind, concept, label, ok:!!ok });

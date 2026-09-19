@@ -132,7 +132,7 @@ const APP = (() => {
     theme = (effTheme() === 'dark') ? 'light' : 'dark';
     try { localStorage.setItem(TKEY, theme); } catch (e) {}
     applyTheme();
-    render();   /* rebuilds the 3D view so its materials pick up the new palette */
+    draw();   /* rebuilds the 3D view so its materials pick up the new palette */
   }
 
   /* progress, stored per viewer only — fine if it comes back empty */
@@ -162,6 +162,7 @@ const APP = (() => {
       rb.classList.toggle('primary', n > 0);
     }
     document.querySelectorAll('#nav button').forEach(b => {
+      if (!b.dataset.id) return;                 /* the Home entry is not a lesson */
       b.classList.toggle('done', !!done[b.dataset.id]);
       const t = drillTally(b.dataset.id);
       b.classList.toggle('review', t.wrong.length > 0);
@@ -180,6 +181,12 @@ const APP = (() => {
   function buildNav() {
     const nav = $('#nav');
     nav.innerHTML = '';
+    const hb = UI.el('button', 'home-item');
+    hb.type = 'button';
+    hb.innerHTML = '<span class="num">\u2302</span><span>Today</span><span class="tick"></span>';
+    hb.title = 'Your streak, what is due, and the day\u2019s practice';
+    hb.addEventListener('click', () => { openHome(); closeRail(); });
+    nav.appendChild(hb);
     let seen = null;
     LESSONS.forEach((L, i) => {
       const key = L.part || L.level;
@@ -286,19 +293,9 @@ const APP = (() => {
     return ctx;
   }
 
-  function render() {
-    const L = LESSONS[idx];
-    const ctx = openStage(L);
-
-    /* ── prose ── */
-    const S = (mode === 'simple' && L.simple) ? L.simple : null;
-    const lede = (S && S.lede) || L.lede;
-    const blocks = (S && S.blocks) || L.blocks || [];
-    const quiz = (S && S.quiz) || L.quiz;
-    const art = $('#console');
-    art.innerHTML = '';
-    const w = UI.el('div', 'wrap');
-
+  /* reading level on the left, theme on the right — the same bar on every
+     page, so neither control moves as you walk through the course */
+  function modeBar(redraw) {
     const bar = UI.el('div', 'modebar');
     bar.appendChild(UI.html('span', 'lab', 'Explain it'));
     const seg = UI.el('div', 'seg');
@@ -308,7 +305,7 @@ const APP = (() => {
       b.setAttribute('aria-pressed', mode === pair[0] ? 'true' : 'false');
       b.addEventListener('click', () => {
         if (mode === pair[0]) return;
-        mode = pair[0]; saveMode(); render();
+        mode = pair[0]; saveMode(); redraw();
       });
       seg.appendChild(b);
     });
@@ -322,7 +319,23 @@ const APP = (() => {
     tb.title = 'Switch to the ' + (effTheme() === 'dark' ? 'light' : 'dark') + ' theme';
     tb.addEventListener('click', toggleTheme);
     bar.appendChild(tb);
-    w.appendChild(bar);
+    return bar;
+  }
+
+  function render() {
+    const L = LESSONS[idx];
+    const ctx = openStage(L);
+
+    /* ── prose ── */
+    const S = (mode === 'simple' && L.simple) ? L.simple : null;
+    const lede = (S && S.lede) || L.lede;
+    const blocks = (S && S.blocks) || L.blocks || [];
+    const quiz = (S && S.quiz) || L.quiz;
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap');
+
+    w.appendChild(modeBar(render));
 
     const crumb = UI.html('div', 'crumb',
       '<b>' + partName(L) + '</b> &nbsp;·&nbsp; Lesson ' + (idx + 1) + ' of ' + LESSONS.length +
@@ -560,6 +573,8 @@ const APP = (() => {
   function syncA11y(ctx) {
     const d = V.a11y && V.a11y();
     if (typeof FLAT !== 'undefined') FLAT.paint();
+    /* no instrument at all — a page with no stage, or WebGL that never loaded */
+    if (!d) { if (a11yShape !== '') buildA11y(ctx); return; }
     if (shapeOf(d) !== a11yShape) { buildA11y(ctx); return; }
     /* only write what actually changed: the playhead repaints the stage many
        times a second, and rewriting an unchanged aria-label makes a screen
@@ -656,6 +671,226 @@ const APP = (() => {
     host.appendChild(wrap);
   }
 
+  /* Every concept belongs to an instrument. A mixed round — review, or the
+     day's workout — swaps the stage under the question so the thing being
+     asked about is the thing on screen. */
+  function stageFor(ctx, cur) {
+    const owner = LESSONS.filter(x => x.id === cur.lesson)[0];
+    if (!owner) return;
+    const want = owner.stage.view, cfg = owner.stage.cfg || {};
+    ctx.v = V.set(want, cfg);
+    ctx.hint(owner.hint || '');
+    $('#hudTag').textContent = owner.title;
+    if (want === 'grid') ctx.v.clearAll();
+    ctx.syncA11y();
+  }
+
+  /* ── Home: what to do today ─────────────────────────────────
+     Everything on this page is derived — nothing here is a second copy of
+     progress. The workout comes from MASTERY, which reads the practice log;
+     "needs work" is the same board sorted weakest first; the ideas are
+     STUDIO's saves. So it cannot drift out of step with the lessons. */
+  /* what the day's workout is allowed to ask about: everything up to the
+     furthest lesson reached, whether or not it was ticked. Walking past a
+     lesson counts — people forget to tick, and nobody should be quizzed on
+     a chapter they have not opened. */
+  function reachedIds() {
+    let far = idx;
+    LESSONS.forEach((L, i) => { if (done[L.id] && i > far) far = i; });
+    return LESSONS.slice(0, far + 1).map(L => L.id);
+  }
+  function nextLesson() {
+    const at = LESSONS.findIndex(L => !done[L.id]);
+    return at < 0 ? Math.min(idx, LESSONS.length - 1) : at;
+  }
+  function statCard(value, label, hint) {
+    const c = UI.el('div', 'stat');
+    c.appendChild(UI.html('b', null, value));
+    c.appendChild(UI.html('span', null, label));
+    if (hint) c.title = hint;
+    return c;
+  }
+  function bar(pct) {
+    const w = UI.el('div', 'prog-bar mini');
+    const i = UI.el('i'); i.style.width = Math.round(pct) + '%';
+    w.appendChild(i);
+    return w;
+  }
+
+  let workoutMins = 10;
+  function renderHome() {
+    const L = { id:'home', title:'Home', tag:'Today',
+                hint:'Your practice, at a glance',
+                stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } } };
+    const ctx = openStage(L);
+    const sum = (typeof MASTERY !== 'undefined') ? MASTERY.summary()
+              : { skills:0, mastery:0, due:0, weak:0, streak:0 };
+    const ticked = LESSONS.filter(x => done[x.id]).length;
+    ctx.read(sum.due ? sum.due + ' to revisit today' : 'nothing overdue');
+
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap');
+
+    /* the reading-level and theme bar belongs here too — it is the first page
+       a new learner sees, and the first thing some of them need to change */
+    w.appendChild(modeBar(() => renderHome()));
+
+    w.appendChild(UI.html('div', 'crumb', '<b>Today</b> &nbsp;·&nbsp; your practice at a glance'));
+    w.appendChild(UI.html('h2', null, sum.streak > 1
+      ? 'Day ' + sum.streak + ' in a row'
+      : 'Welcome back'));
+    w.appendChild(UI.html('p', 'lede', sum.skills
+      ? 'Ten minutes on the right things beats an hour on the wrong ones. Below is what ' +
+        'this browser thinks you should practise now, worked out from what you have ' +
+        'already answered — due first, then whatever is shakiest.'
+      : 'Start anywhere. Every lesson has a playable instrument and a short practice round ' +
+        'at the bottom; once you have answered a few, this page starts planning your day.'));
+
+    /* ── the numbers ── */
+    const stats = UI.el('div', 'stats');
+    stats.append(
+      statCard(ticked + ' / ' + LESSONS.length, 'lessons done'),
+      statCard(sum.mastery + '%', 'average mastery',
+        'Across every concept you have practised: accuracy, recent form and how fresh it is.'),
+      statCard(String(sum.due), 'due now', 'Concepts whose review date has arrived.'),
+      statCard(String(sum.streak), sum.streak === 1 ? 'day streak' : 'day streak'));
+    w.appendChild(stats);
+
+    /* ── the week ── */
+    if (typeof MASTERY !== 'undefined') {
+      const strip = UI.el('div', 'week');
+      MASTERY.week().forEach(d => {
+        const c = UI.el('div', 'day' + (d.on ? ' on' : ''));
+        c.appendChild(UI.html('i', null, d.letter));
+        c.title = d.on ? 'Practised ' + d.day : 'Nothing on ' + d.day;
+        strip.appendChild(c);
+      });
+      const box = UI.el('div', 'panel');
+      box.appendChild(UI.html('h4', null, 'The last seven days'));
+      box.appendChild(strip);
+      box.appendChild(UI.html('p', 'small',
+        'A day lights up when you answer at least one practice question. Short and often ' +
+        'beats long and rare — that is the whole trick with this material.'));
+      w.appendChild(box);
+    }
+
+    /* ── pick up where you left off ── */
+    {
+      const at = nextLesson(), N = LESSONS[at];
+      const p = UI.el('div', 'panel');
+      p.appendChild(UI.html('h4', null, ticked ? 'Pick up where you left off' : 'Start here'));
+      p.appendChild(UI.html('p', null,
+        '<b>' + N.title + '</b> &nbsp;·&nbsp; ' + partName(N) + ' &nbsp;·&nbsp; lesson ' +
+        (at + 1) + ' of ' + LESSONS.length));
+      p.appendChild(UI.row(
+        UI.btn('Open ' + N.title + ' →', () => go(at), { primary:true }),
+        ticked < LESSONS.length && at > 0
+          ? UI.btn('Back to lesson 1', () => go(0)) : null));
+      w.appendChild(p);
+    }
+
+    /* ── today's practice ── */
+    {
+      const p = UI.el('div', 'panel try practice-panel');
+      p.appendChild(UI.html('h4', null, 'Today’s practice'));
+      const plan = (typeof MASTERY !== 'undefined')
+        ? MASTERY.workout(workoutMins, reachedIds()) : [];
+      /* a round of one question is not a workout — until there is some history
+         to schedule from, say so rather than offering a thin one */
+      const started = (typeof PRACTICE !== 'undefined') && PRACTICE.entries().length;
+      if (!plan.length || (!started && plan.length < 3)) {
+        p.appendChild(UI.html('p', null,
+          'Nothing to plan yet. Open a lesson and play one practice round at the bottom of ' +
+          'it — after that this page will know what to give you.'));
+      } else {
+        p.appendChild(UI.html('p', null,
+          plan.length + ' question' + (plan.length === 1 ? '' : 's') + ', about ' +
+          plan.length + ' minute' + (plan.length === 1 ? '' : 's') + '. ' +
+          'Listen, name it, then build it on the instrument above. Each one comes back with ' +
+          'different notes, because the thing being learned is the relationship.'));
+        const pick = UI.chips(
+          [{ label:'5 min', value:5 }, { label:'10 min', value:10 }, { label:'15 min', value:15 }],
+          v => { workoutMins = Number(v); renderHome(); }, workoutMins);
+        p.appendChild(UI.row(pick));
+        const host = UI.el('div');
+        p.appendChild(host);
+        host.appendChild(PRACTICE.build(ctx, {
+          queue:plan,
+          onStage: cur => stageFor(ctx, cur),
+          onDone: () => { renderHome(); }
+        }));
+      }
+      w.appendChild(p);
+    }
+
+    /* ── needs work ── */
+    if (typeof MASTERY !== 'undefined') {
+      const board = MASTERY.board().filter(s => s.mastery < 0.9).slice(0, 6);
+      if (board.length) {
+        const box = UI.el('div', 'panel');
+        box.appendChild(UI.html('h4', null, 'Needs work'));
+        box.appendChild(UI.html('p', 'small',
+          'Weakest first. The date is when it is worth seeing again — right answers push it ' +
+          'further out, a wrong one brings it back to today.'));
+        const list = UI.el('div', 'masterlist');
+        board.forEach(s => {
+          const owner = LESSONS.filter(x => x.id === s.lesson)[0];
+          const r = UI.el('div', 'mrow');
+          const nm = UI.el('div', 'mname');
+          nm.appendChild(UI.html('b', null, s.label));
+          nm.appendChild(UI.html('span', null,
+            (owner ? owner.title : s.lesson) + ' · ' + MASTERY.when(s.due)));
+          r.appendChild(nm);
+          const m = UI.el('div', 'mbar');
+          m.appendChild(bar(s.mastery * 100));
+          m.appendChild(UI.html('span', 'mono', Math.round(s.mastery * 100) + '%'));
+          r.appendChild(m);
+          const open = UI.btn('Practise', () => { if (owner) go(LESSONS.indexOf(owner)); });
+          open.title = owner ? 'Open ' + owner.title : '';
+          r.appendChild(open);
+          list.appendChild(r);
+        });
+        box.appendChild(list);
+        w.appendChild(box);
+      }
+    }
+
+    /* ── what you have made ── */
+    if (typeof STUDIO !== 'undefined' && STUDIO.saves.length) {
+      const box = UI.el('div', 'panel');
+      box.appendChild(UI.html('h4', null, 'Ideas you have kept'));
+      box.appendChild(UI.html('p', 'small',
+        'Saved in this browser. Open the lesson to load one back onto the instrument, ' +
+        'or export it as MIDI from there.'));
+      const list = UI.el('div', 'masterlist');
+      STUDIO.saves.slice(-8).reverse().forEach(s => {
+        const owner = LESSONS.filter(x => x.id === s.lesson)[0];
+        const r = UI.el('div', 'mrow');
+        const nm = UI.el('div', 'mname');
+        nm.appendChild(UI.html('b', null, s.name || 'untitled'));
+        nm.appendChild(UI.html('span', null, owner ? owner.title : s.lesson));
+        r.appendChild(nm);
+        r.appendChild(UI.el('div', 'mbar'));
+        const open = UI.btn('Open', () => { if (owner) go(LESSONS.indexOf(owner)); });
+        r.appendChild(open);
+        list.appendChild(r);
+      });
+      box.appendChild(list);
+      w.appendChild(box);
+    }
+
+    art.appendChild(w);
+    buildA11y(ctx);
+    if (V.onPaint) V.onPaint(() => syncA11y(ctx));
+    applyFlat();
+    document.querySelectorAll('#nav button').forEach(b =>
+      b.setAttribute('aria-current', b.dataset.id ? 'false' : 'true'));
+    $('#main').scrollTop = 0;
+    progress();
+    try { location.hash = 'home'; } catch (e) {}
+  }
+
   /* ── Review: the concepts you have missed, asked again with fresh notes ──
      A concept leaves this list after three right answers in a row, so the page
      empties as the gaps close rather than nagging forever. */
@@ -704,16 +939,7 @@ const APP = (() => {
     host.appendChild(PRACTICE.build(ctx, {
       queue:due,
       /* each concept belongs to an instrument — put that one on the stage */
-      onStage: cur => {
-        const owner = LESSONS.filter(x => x.id === cur.lesson)[0];
-        if (!owner) return;
-        const want = owner.stage.view, cfg = owner.stage.cfg || {};
-        ctx.v = V.set(want, cfg);
-        ctx.hint(owner.hint || '');
-        $('#hudTag').textContent = owner.title;
-        if (want === 'grid') ctx.v.clearAll();
-        ctx.syncA11y();
-      },
+      onStage: cur => stageFor(ctx, cur),
       onDone: () => { renderReview(); }
     }));
   }
@@ -747,12 +973,19 @@ const APP = (() => {
   }
 
   function go(i) {
-    reviewing = false;
+    page = 'lesson';
     idx = Math.max(0, Math.min(LESSONS.length - 1, i));
     render();
   }
-  let reviewing = false;
-  function openReview() { reviewing = true; renderReview(); closeRail(); }
+  /* which of the three pages is on screen: a lesson, the review, or home */
+  let page = 'lesson';
+  function openReview() { page = 'review'; renderReview(); closeRail(); }
+  function openHome() { page = 'home'; renderHome(); }
+  function draw() {
+    if (page === 'home') renderHome();
+    else if (page === 'review') renderReview();
+    else render();
+  }
 
   /* Start over — the ticks, the answers and the review list. Saved musical
      ideas are the learner's own work, not progress, so they are left alone;
@@ -761,7 +994,7 @@ const APP = (() => {
     done = {}; save();
     drills = {}; saveDrills();
     if (typeof PRACTICE !== 'undefined') PRACTICE.clear();
-    reviewing = false;
+    page = 'lesson';
     render();
   }
   function wireReset() {
@@ -813,8 +1046,10 @@ const APP = (() => {
     buildNav();
     const hash = (location.hash || '').replace('#', '');
     const at = LESSONS.findIndex(l => l.id === hash);
-    idx = at >= 0 ? at : 0;
-    render();
+    idx = at >= 0 ? at : nextLesson();
+    /* Home is the landing page: it says what is due and hands out the day's
+       practice. A link straight to a lesson still opens that lesson. */
+    if (at >= 0) { page = 'lesson'; render(); } else openHome();
 
     $('#menuBtn').addEventListener('click', () => {
       const open = $('#rail').dataset.open !== 'true';
@@ -838,7 +1073,7 @@ const APP = (() => {
     document.addEventListener('pointerdown', () => A.resume(), { once:true });
     try {
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      const onSys = () => { if (!theme) { applyTheme(); render(); } };
+      const onSys = () => { if (!theme) { applyTheme(); draw(); } };
       if (mq.addEventListener) mq.addEventListener('change', onSys);
       else if (mq.addListener) mq.addListener(onSys);
     } catch (e) {}
@@ -848,12 +1083,13 @@ const APP = (() => {
   /* called when the local server hands over a record after the app booted */
   function rehydrate() {
     load(); loadMode(); loadDrills(); loadTheme();
-    applyTheme(); progress(); render();
+    applyTheme(); progress(); draw();
     const el = $('#synced');
     if (el && typeof SYNC !== 'undefined' && SYNC.on) {
       el.hidden = false;
       el.textContent = 'Saving to your local server' + (SYNC.user ? ' \u00B7 ' + SYNC.user.name : '');
     }
   }
-  return { boot, go, qKey, rehydrate, get idx() { return idx; } };
+  return { boot, go, home:openHome, review:openReview, qKey, rehydrate,
+           get idx() { return idx; } };
 })();

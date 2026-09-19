@@ -104,6 +104,30 @@ you have to name it *and* build it.
 question answers and the review list — and deliberately leaves your saved ideas alone, because
 those are work, not progress.
 
+## Today — what to practise, and when
+
+The app opens on **Today**, the first entry in the sidebar. Nothing on it is a second copy of your
+progress: every number is derived from the practice log, so it cannot drift out of step with the
+lessons.
+
+- **Where you left off** — the first lesson you have not ticked, one tap away.
+- **Today's practice** — a workout built for you: whatever is *due*, then whatever is *shakiest*,
+  then something new from a lesson you have already reached. Pick 5, 10 or 15 minutes. It runs the
+  same hear-it / name-it / build-it round the lessons use, swapping the instrument under each
+  question so the thing being asked about is the thing on screen.
+- **Needs work** — your weakest concepts with a mastery bar and the date each is next worth
+  seeing.
+- **The last seven days** — a day lights up when you answer at least one practice question.
+- **Ideas you have kept** — your saved patterns, with a way back into the lesson that made them.
+
+Two numbers drive all of it, per concept:
+
+**Mastery** is accuracy with a weak prior — so one lucky answer is not mastery — plus your recent
+five answers, plus how fresh it is. **The next review date** climbs a ladder as you get it right:
+1, 2, 4, 8, 16, then 30 days. One wrong answer drops it back to today. `src/mastery.js` computes
+both in the browser; `server/store.js` computes them the same way for the optional local server,
+and a test asserts the two ladders agree.
+
 ## Keeping what you make
 
 The six lessons with something worth keeping — the two drum-grid lessons, the three piano-roll
@@ -197,6 +221,7 @@ src/theory.js           T = pitch/scale/chord maths · A = synth, drum voices, l
 src/scenes.js           V = one WebGL canvas with four swappable instruments + both palettes
 src/ui.js               UI = control builders · APP = nav, rendering, progress, mode, theme
 src/practice.js         PRACTICE = hear it / name it / build it, and the record of what you missed
+src/mastery.js          MASTERY = mastery scores, review dates, the day's workout, the streak
 src/studio.js           STUDIO = undo, saved ideas, and the MIDI file writer
 src/flat.js             FLAT = the same instruments drawn face-on, from the a11y descriptor
 src/lessons-level1.js   LESSONS 1–9    (producer text, 3D wiring, quizzes)
@@ -305,12 +330,11 @@ Honest list of what this is not, so nobody is misled:
   lessons do not — their ideas need a build step that has not been designed yet.
 - **Practice does not cover every lesson.** Sixteen of the twenty-six carry a hear-it/name-it/
   build-it round; the rest end at the quiz.
-- **No spaced review in the browser yet.** The local server computes mastery and next-review
-  dates, but the app does not yet schedule a daily workout from them.
 - **Saved work is per browser.** Ideas and progress live in `localStorage`: no account, no sync,
   and clearing site data clears them. MIDI export is the way to take work with you.
-- **Nothing is scheduled.** The review shows what you have missed, but there is no spacing
-  algorithm deciding when to ask again — you choose when to open it.
+- **The schedule is a heuristic, not a study.** The ladder (1, 2, 4, 8, 16, 30 days) and the
+  mastery weighting are reasonable spacing defaults, not values tuned against outcome data from
+  real learners.
 - **Genre references are broad.** Where a lesson says a style "uses" something, it is pointing at
   a tendency, not citing a specific record.
 

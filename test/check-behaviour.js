@@ -94,6 +94,7 @@ function recorder() {
 const theory = read('src/theory.js');
 const uiSrc = read('src/ui.js');
 const practiceSrc = read('src/practice.js');
+const masterySrc = read('src/mastery.js');
 const studioSrc = read('src/studio.js');
 const flatSrc = read('src/flat.js');
 const scenesSrc = read('src/scenes.js');
@@ -121,9 +122,9 @@ const Vmock = { set:(kind, cfg) => {
 
 const sandbox = new Function('A', 'V', 'document', 'window', 'localStorage',
   theory.replace(/^const A = \(\(\)[\s\S]*$/m, '') + '\n' +
-  uiSrc + '\n' + practiceSrc + '\n' + studioSrc + '\n' + flatSrc + '\n' + lessonSrc +
-  '\nreturn { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT };');
-const { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT } =
+  uiSrc + '\n' + practiceSrc + '\n' + masterySrc + '\n' + studioSrc + '\n' + flatSrc + '\n' + lessonSrc +
+  '\nreturn { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY };');
+const { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY } =
   sandbox(Amock, Vmock, global.document, global.window, global.localStorage);
 PRACTICE.plan(LESSONS);
 
@@ -598,6 +599,73 @@ head('Ear training feeds the review');
   eq([...new Set(all.map(e => e.kind))].sort().join(','),
      'chord,degree,interval,progression,scale', 'all five drills are covered');
   PRACTICE.clear();
+}
+
+/* ═══ Mastery, review dates and the day's workout ═══════════════ */
+head('What to practise today');
+{
+  PRACTICE.clear();
+  const DAY = 86400000;
+  /* a perfect record and a hopeless one, so the ordering has something to say */
+  for (let i = 0; i < 6; i++) PRACTICE.record('intervals', 'interval', 7, 'perfect 5th', true);
+  for (let i = 0; i < 4; i++) PRACTICE.record('chords', 'chord', 'min', 'minor triad', false);
+  PRACTICE.record('scales', 'scale', 'major', 'major scale', true);
+
+  const board = MASTERY.board();
+  eq(board.length, 3, 'every practised concept is on the board');
+  ok(board[0].label === 'minor triad', 'and the weakest is first');
+  ok(board[board.length - 1].mastery > board[0].mastery,
+     'mastery rises with a better record (' + board[0].mastery + ' \u2192 ' +
+     board[board.length - 1].mastery + ')');
+  ok(board.every(s => s.mastery >= 0 && s.mastery <= 1), 'mastery stays inside 0..1');
+
+  /* the ladder: right answers push the next date out, a wrong one pulls it back */
+  const five = board.filter(s => s.label === 'perfect 5th')[0];
+  const min3 = board.filter(s => s.label === 'minor triad')[0];
+  ok(five.due - Date.now() > 10 * DAY, 'six right in a row is not asked again for weeks');
+  ok(min3.due <= Date.now(), 'something you keep missing is due now');
+  eq(MASTERY.when(min3.due), 'today', 'and is described as due today');
+  eq(MASTERY.when(Date.now() + 1.2 * DAY), 'tomorrow', 'tomorrow reads as tomorrow');
+  eq(MASTERY.when(Date.now() - 2 * DAY), 'overdue', 'a missed date reads as overdue');
+
+  /* the workout: due and shaky first, and every item asks about a real concept */
+  const plan = MASTERY.workout(10, ['intervals', 'chords', 'scales']);
+  ok(plan.length >= 4 && plan.length <= 12, 'a workout is between 4 and 12 questions');
+  eq(plan[0].concept, 'min', 'and it opens with the thing that is due');
+  let bad = 0;
+  plan.forEach(item => {
+    if (item.concept == null) return;          /* "something new" has no fixed concept */
+    const cfg = PRACTICE.queued(item);
+    if (!PRACTICE.MAKERS[cfg.kind]) { bad++; return; }
+    const q = PRACTICE.MAKERS[cfg.kind](cfg, cfg.only);
+    if (String(q.concept) !== String(item.concept)) bad++;
+  });
+  eq(bad, 0, 'every workout item turns back into a question about that same concept');
+  const ids = plan.map(i => i.lesson + '|' + i.kind + '|' + i.concept);
+  eq(new Set(ids).size, ids.length, 'and nothing is asked twice in one workout');
+
+  /* the week strip and the streak */
+  MASTERY.touch();
+  eq(MASTERY.week().length, 7, 'the strip is seven days long');
+  eq(MASTERY.week()[6].on, true, 'answering a question lights up today');
+  ok(MASTERY.streak() >= 1, 'and starts a streak');
+  const sum = MASTERY.summary();
+  eq(sum.skills, 3, 'the summary counts the skills');
+  ok(sum.due >= 1, 'and says how many are due');
+  ok(sum.mastery >= 0 && sum.mastery <= 100, 'average mastery is a percentage');
+  PRACTICE.clear();
+}
+
+/* the browser and the server must agree about when to ask again */
+head('Client and server schedule the same way');
+{
+  const store = read('server/store.js');
+  const ladder = /LADDER\s*=\s*\[([^\]]+)\]/.exec(store);
+  ok(!!ladder, 'the server declares a review ladder');
+  if (ladder) {
+    eq(ladder[1].split(',').map(x => x.trim()).join(','), MASTERY.LADDER.join(','),
+       'and it is the same ladder the browser uses');
+  }
 }
 
 console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));
