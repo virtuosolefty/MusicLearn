@@ -277,6 +277,7 @@ const STUDIO = (() => {
     return wrap;
   }
 
-  return { build, midi, download, canDownload, notesFrom, history, put, drop, forLesson, DRUM, PPQ,
+  return { build, midi, download, canDownload, notesFrom, history, put, drop, forLesson,
+           reload:loadSaves, DRUM, PPQ,
            get saves() { return saves; } };
 })();

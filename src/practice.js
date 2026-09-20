@@ -421,7 +421,8 @@ const PRACTICE = (() => {
   };
   const plan = lessons => lessons.forEach(L => { if (PLAN[L.id]) L.practice = PLAN[L.id]; });
 
-  return { build, record, misses, forLesson, entries, trend, clear, watch, MAKERS, plan, PLAN,
+  return { build, record, misses, forLesson, entries, trend, clear, watch, reload:load,
+           MAKERS, plan, PLAN,
            queued, RHYTHMS,
            get log() { return log; } };
 })();

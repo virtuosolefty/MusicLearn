@@ -1273,7 +1273,7 @@ const APP = (() => {
     } else {
       V.mount(document.querySelector('#gl'));
     }
-    load(); loadMode(); loadDrills(); loadDepth(); applyTheme();
+    reread(); applyTheme();
     if (typeof PRACTICE !== 'undefined') {
       PRACTICE.plan(LESSONS);
       /* a practice answer can finish a lesson off, from any page */
@@ -1281,7 +1281,7 @@ const APP = (() => {
     }
     buildNav();
     wireSettings();
-    const asked = loadIntake();
+    const asked = !!(function () { try { return localStorage.getItem(IKEY); } catch (e) { return null; } })();
     const hash = (location.hash || '').replace('#', '');
     const at = LESSONS.findIndex(l => l.id === hash);
     idx = at >= 0 ? at : nextLesson();
@@ -1320,9 +1320,18 @@ const APP = (() => {
     new ResizeObserver(() => { if (V.resize) V.resize(); fitFlat(); })
       .observe(document.querySelector('#stage'));
   }
+  /* Everything that keeps its own copy of storage has to be told to read it
+     again — the modules load at parse time, which is before the server has
+     answered. Forgetting this is how a restored browser gets its lesson ticks
+     back and a Today page that says 0%. */
+  function reread() {
+    load(); loadMode(); loadDrills(); loadDepth(); loadTheme(); loadIntake();
+    if (typeof PRACTICE !== 'undefined' && PRACTICE.reload) PRACTICE.reload();
+    if (typeof STUDIO !== 'undefined' && STUDIO.reload) STUDIO.reload();
+  }
   /* called when the local server hands over a record after the app booted */
   function rehydrate() {
-    load(); loadMode(); loadDrills(); loadTheme();
+    reread();
     applyTheme(); progress(); draw();
     const el = $('#synced');
     if (el && typeof SYNC !== 'undefined' && SYNC.on) {
