@@ -68,6 +68,9 @@ function jsonStore(file) {
       return Object.keys(db.users).map(k => {
         const u = db.users[k];
         return { id:u.id, name:u.name, createdAt:u.createdAt,
+                 /* when this record was last written to — a browser that has
+                    lost its id needs this to find which record is its own */
+                 updatedAt:(u.progress && u.progress.updatedAt) || u.createdAt,
                  lessons:Object.keys(u.progress.lessons || {}).length,
                  skills:Object.keys(u.skills || {}).length };
       });
@@ -110,6 +113,7 @@ function jsonStore(file) {
         right:0, wrong:0, runs:[], streak:0, attempts:[]
       });
       s.label = a.label || s.label;
+      s.lesson = a.lesson || s.lesson;      /* which chapter asked it */
       s[a.ok ? 'right' : 'wrong']++;
       s.streak = a.ok ? s.streak + 1 : 0;
       s.runs.push(a.ok ? 1 : 0);

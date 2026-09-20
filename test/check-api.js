@@ -121,6 +121,31 @@ const head = t => console.log('\n' + t);
   const nonsense = await call('/api/nonsense');
   eq(nonsense.status, 404, 'an unknown endpoint is a clean 404');
 
+  head('Finding your record again after a wiped browser');
+  {
+    /* the id lives in the browser, so a cleared one has to ask the server
+       whose machine this is \u2014 the listing is what it asks */
+    const list = await call('/api/users');
+    const mine = (list.body.users || []).filter(u => u.id === uid)[0];
+    ok(!!mine, 'the learner is in the listing');
+    ok(mine && mine.updatedAt >= mine.createdAt,
+       'with a last-written time, which is how the newest record is picked');
+    ok(mine && (mine.lessons + mine.skills) > 0,
+       'and a count of work, so an empty shell is never adopted over it');
+    const empty = await call('/api/users', { method:'POST', body:{ name:'Nobody' } });
+    const after = await call('/api/users');
+    const shell = (after.body.users || []).filter(u => u.id === empty.body.id)[0];
+    eq(shell.lessons + shell.skills, 0, 'a brand new record has no work in it');
+
+    /* and everything the scheduler runs on has to come back with it */
+    const prof = await call('/api/profile/' + uid);
+    ok(prof.body.skills.length > 0, 'the profile carries the skills');
+    ok(prof.body.skills.every(k => k.lesson || (k.attempts || []).some(a => a.lesson)),
+       'each one knows which chapter asked it, so the practice log can be rebuilt');
+    ok(prof.body.stats && Array.isArray(prof.body.stats.days) && prof.body.stats.days.length,
+       'and the days practised, which is what the streak counts');
+  }
+
   console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));
   server.close();
   try { fs.unlinkSync(tmp); } catch (e) {}

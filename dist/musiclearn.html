@@ -660,6 +660,8 @@ const SYNC = (() => {
     flat:'rbx-theory-flat-v1'
   };
   const UID = 'rbx-theory-user-v1';
+  /* written by MASTERY, derived by the server from its own session rows */
+  const DAYS = 'rbx-theory-days-v1';
   let base = '', on = false, uid = null, me = null, timer = null;
 
   const read = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -692,6 +694,29 @@ const SYNC = (() => {
       const saves = profile.projects.filter(x => x.kind === 'studio').map(x => x.data);
       if (saves.length) write(KEYS.saves, JSON.stringify(saves));
     }
+    /* The practice log is what the scheduler runs on, so a restored browser
+       that got its lesson ticks back but not this would come back with an
+       empty Today page. The server keeps it per skill; the log keys it per
+       lesson, so the lesson comes off the skill, or off its last attempt. */
+    const skills = profile.skills || [];
+    if (skills.length) {
+      const log = {};
+      skills.forEach(k => {
+        const from = (k.attempts || []).filter(a => a.lesson);
+        const lesson = k.lesson || (from.length ? from[from.length - 1].lesson : null);
+        if (!lesson) return;
+        log[lesson + '|' + k.kind + '|' + k.concept] = {
+          lesson, kind:k.kind, concept:k.concept, label:k.label,
+          right:k.right || 0, wrong:k.wrong || 0,
+          runs:(k.runs || []).slice(-12), seen:k.lastSeen || Date.now()
+        };
+      });
+      if (Object.keys(log).length) write(KEYS.practice, JSON.stringify(log));
+    }
+    /* and the days practised, which is what the streak counts */
+    const days = (profile.stats && profile.stats.days) || [];
+    const on = days.filter(d => d.answered > 0).map(d => d.day);
+    if (on.length) write(DAYS, JSON.stringify(on));
     me = profile.user;
   }
 
@@ -737,6 +762,24 @@ const SYNC = (() => {
     } catch (e) {}
   }
 
+  /* A browser with no id of its own — a fresh profile, or storage the learner
+     wiped — asks the server whose machine this is. The record with work in it
+     and the newest write wins; an empty shell never does. This is what makes
+     "clear your browser and your progress comes back" true, and it is only
+     safe because this server is one person's localhost with no accounts. */
+  function adopt() {
+    return ask('/api/users', { timeout:2500 })
+      .then(r => {
+        const used = (r && r.users || []).filter(u => (u.lessons || 0) + (u.skills || 0) > 0);
+        if (!used.length) return null;
+        used.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+        uid = used[0].id;
+        write(UID, uid);
+        return ask('/api/profile/' + uid, { timeout:2500 }).catch(() => null);
+      })
+      .catch(() => null);
+  }
+
   /* practice attempts go up one at a time: they are what mastery is made of */
   function attempt(a) {
     if (!on || !uid) return;
@@ -761,7 +804,7 @@ const SYNC = (() => {
         on = true;
         watch(); armFlush();        /* before anything else can write */
         uid = read(UID);
-        return uid ? ask('/api/profile/' + uid, { timeout:2500 }).catch(() => null) : null;
+        return uid ? ask('/api/profile/' + uid, { timeout:2500 }).catch(() => null) : adopt();
       })
       .then(profile => {
         if (on && !profile) {

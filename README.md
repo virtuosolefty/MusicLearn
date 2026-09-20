@@ -204,8 +204,13 @@ No dependencies and nothing to install: it is `server/index.js` plus `server/sto
 whole database is a readable JSON file at `server/data/musiclearn.json`.
 
 Open `http://localhost:8787` and the sidebar says *Saving to your local server*. Nothing else
-changes. Wipe your browser storage, reload, and your lessons, drill answers and preferences come
-back.
+changes. Wipe your browser storage, reload, and your lessons, drill answers, practice record,
+streak and preferences come back.
+
+That works because the browser's id is not the only copy of who you are: a browser arriving with
+no id asks the server whose machine this is, and adopts the newest record that has work in it —
+never an empty one. It is safe here only because this server is one person's localhost with no
+accounts, which is also why it is the first thing to change if this ever grows real ones.
 
 **Entities** — the model a real backend would need, already in place:
 
