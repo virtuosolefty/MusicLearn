@@ -32,12 +32,18 @@ const PRACTICE = (() => {
     e.seen = Date.now();
     save();
     if (typeof MASTERY !== 'undefined') MASTERY.touch();
+    watchers.forEach(fn => { try { fn(e); } catch (err) {} });
     /* the server, when there is one, keeps mastery and the review schedule */
     if (typeof SYNC !== 'undefined' && SYNC.on) {
       SYNC.attempt({ lesson:lessonId, kind, concept, label, ok:!!ok });
     }
     return e;
   }
+  /* anyone who needs to know the moment an answer lands — the page that ticks
+     a lesson off, the dashboard that redraws its streak */
+  const watchers = [];
+  const watch = fn => { watchers.push(fn); };
+
   const entries = () => Object.keys(log).map(k => log[k]);
   /* what is worth revisiting: missed at least once, and not yet answered
      right three times in a row since */
@@ -415,7 +421,7 @@ const PRACTICE = (() => {
   };
   const plan = lessons => lessons.forEach(L => { if (PLAN[L.id]) L.practice = PLAN[L.id]; });
 
-  return { build, record, misses, forLesson, entries, trend, clear, MAKERS, plan, PLAN,
+  return { build, record, misses, forLesson, entries, trend, clear, watch, MAKERS, plan, PLAN,
            queued, RHYTHMS,
            get log() { return log; } };
 })();

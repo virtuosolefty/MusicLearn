@@ -668,5 +668,57 @@ head('Client and server schedule the same way');
   }
 }
 
+/* ═══ The "Do" view: what a lesson opens as ════════════════════ */
+head('Every lesson has something to do without reading first');
+{
+  let noTry = [], noTrySimple = [];
+  LESSONS.forEach(L => {
+    if (!(L.blocks || []).some(b => b.try)) noTry.push(L.id);
+    if (L.simple && !(L.simple.blocks || []).some(b => b.try)) noTrySimple.push(L.id);
+  });
+  eq(noTry.join(',') || 'none', 'none',
+     'the producer text of every lesson carries an interactive panel');
+  eq(noTrySimple.join(',') || 'none', 'none',
+     'and so does every simple-mode rewrite \u2014 the Do view is never empty');
+
+  /* the split the page makes: try blocks stay, prose folds away */
+  const L = LESSONS[0];
+  const doing = L.blocks.filter(b => b.try), reading = L.blocks.filter(b => !b.try);
+  eq(doing.length + reading.length, L.blocks.length, 'every block lands on one side of the split');
+  ok(reading.length > 0, 'and there is prose to fold away');
+}
+
+/* ═══ The three questions asked on a first visit ═══════════════ */
+head('First-run intake');
+{
+  const src = read('src/ui.js');
+  const entry = /const ENTRY = \[([\s\S]*?)\];/.exec(src);
+  ok(!!entry, 'the intake declares its entry points');
+  if (entry) {
+    const ids = [...entry[1].matchAll(/id:'([a-z-]+)'/g)].map(m => m[1]);
+    eq(ids.length, 3, 'three of them');
+    ids.forEach(id => ok(LESSONS.some(L => L.id === id),
+      'entry point "' + id + '" is a real lesson'));
+    /* and they must be in teaching order, or "start here" would go backwards */
+    const ranks = ids.map(id => LESSONS.findIndex(L => L.id === id));
+    eq(ranks.slice().sort((a, b) => a - b).join(','), ranks.join(','),
+       'and they run in curriculum order');
+  }
+}
+
+/* ═══ An answer tells the page about itself ════════════════════ */
+head('Practice answers notify the page');
+{
+  PRACTICE.clear();
+  let seen = 0, last = null;
+  PRACTICE.watch(e => { seen++; last = e; });
+  PRACTICE.record('chords', 'chord', 'maj', 'major triad', true);
+  eq(seen, 1, 'a recorded answer reaches the watcher');
+  eq(last && last.lesson, 'chords', 'and carries the entry it just wrote');
+  PRACTICE.record('chords', 'chord', 'maj', 'major triad', false);
+  eq(seen, 2, 'a wrong one does too \u2014 that is what un-ticks nothing and re-queues it');
+  PRACTICE.clear();
+}
+
 console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));
 process.exit(fail ? 1 : 0);

@@ -123,6 +123,11 @@ Measured on the current build (26 lessons), not estimated.
 
 ## 3. Recommendations, in priority order
 
+> **Status, 2026-09-20.** P0.2, P0.3, P0.4 and P0.5 are built. Measured after: average lesson
+> 3,512px → **1,784px** at 390px (670 → 217 visible words, 6.7 → 3.4 screens); chrome above the
+> lesson title 215px → **64px**; three questions on a first visit; lessons tick themselves off the
+> quiz and the practice round. P0.1 — the session-end screen — is still the biggest thing missing.
+
 Effort is rough: **S** = an afternoon, **M** = a day or two, **L** = a week+.
 
 ### P0 — do these first

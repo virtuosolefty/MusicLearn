@@ -144,6 +144,7 @@ const APP = (() => {
     try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {}
   }
   function progress() {
+    sweep();
     const n = Object.keys(done).filter(k => done[k]).length;
     $('#progTxt').textContent = n + ' / ' + LESSONS.length;
     $('#progBar').style.width = (100 * n / LESSONS.length) + '%';
@@ -160,6 +161,13 @@ const APP = (() => {
       rb.textContent = n ? '↻ Review ' + n + (n === 1 ? ' miss' : ' misses')
                          : '↻ Review · all clear';
       rb.classList.toggle('primary', n > 0);
+    }
+    const mk = $('#markBtn');
+    if (mk && LESSONS[idx]) {
+      const got = !!done[LESSONS[idx].id];
+      mk.textContent = got ? 'Done \u2713' : 'Mark done anyway';
+      mk.classList.toggle('on', got);
+      mk.disabled = got;
     }
     document.querySelectorAll('#nav button').forEach(b => {
       if (!b.dataset.id) return;                 /* the Home entry is not a lesson */
@@ -251,6 +259,39 @@ const APP = (() => {
     saveDrills();
   }
 
+  /* Which quiz the learner is actually being shown */
+  const quizFor = L => ((mode === 'simple' && L.simple && L.simple.quiz) ? L.simple.quiz : (L.quiz || []));
+
+  /* A lesson ticks itself off when the work is done, not when a button is
+     pressed: every question answered and two thirds of them right, plus —
+     where the lesson has one — a practice concept landed. Chapters with
+     neither (the ear-training ones) count a correct drill run. "Complete"
+     should say something about what you can do. */
+  function earned(L) {
+    const rec = drills[L.id] || {};
+    const quiz = quizFor(L);
+    let any = false;
+    if (quiz.length) {
+      const keys = quiz.map(qKey);
+      if (!keys.every(k => rec[k] !== undefined)) return false;
+      if (keys.filter(k => rec[k]).length * 3 < quiz.length * 2) return false;
+      any = true;
+    }
+    if (L.practice && typeof PRACTICE !== 'undefined') {
+      if (!PRACTICE.forLesson(L.id).some(e => (e.right || 0) > 0)) return false;
+      any = true;
+    }
+    if (!any) any = Object.keys(rec).some(k => k[0] === 'd' && rec[k]);
+    return any;
+  }
+  /* sweep them all — an answer in the review can finish off a lesson too */
+  function sweep() {
+    let moved = false;
+    LESSONS.forEach(L => { if (!done[L.id] && earned(L)) { done[L.id] = true; moved = true; } });
+    if (moved) save();
+    return moved;
+  }
+
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
   const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
 
@@ -293,33 +334,139 @@ const APP = (() => {
     return ctx;
   }
 
-  /* reading level on the left, theme on the right — the same bar on every
-     page, so neither control moves as you walk through the course */
-  function modeBar(redraw) {
-    const bar = UI.el('div', 'modebar');
-    bar.appendChild(UI.html('span', 'lab', 'Explain it'));
-    const seg = UI.el('div', 'seg');
-    [['simple', 'Like I\u2019m 5'], ['pro', 'Producer']].forEach(pair => {
-      const b = UI.el('button', null, pair[1]);
-      b.type = 'button';
-      b.setAttribute('aria-pressed', mode === pair[0] ? 'true' : 'false');
-      b.addEventListener('click', () => {
-        if (mode === pair[0]) return;
-        mode = pair[0]; saveMode(); redraw();
+  /* Reading level and theme are settings, not lesson content: they live behind
+     one button in the stage foot instead of a bar that wrapped to three lines
+     at the top of every lesson. Built once; it survives every re-render. */
+  function wireSettings() {
+    const btn = $('#setBtn'), pop = $('#setPop');
+    if (!btn || !pop) return;
+    const seg = (label, items, get, set) => {
+      const row = UI.el('div', 'setrow');
+      row.appendChild(UI.html('span', 'lab', label));
+      const g = UI.el('div', 'seg');
+      const bs = items.map(it => {
+        const b = UI.el('button', null, it.label);
+        b.type = 'button';
+        b.addEventListener('click', () => { if (get() !== it.value) { set(it.value); paint(); } });
+        g.appendChild(b);
+        return { b, value:it.value };
       });
-      seg.appendChild(b);
+      row.appendChild(g);
+      row.show = () => bs.forEach(o =>
+        o.b.setAttribute('aria-pressed', get() === o.value ? 'true' : 'false'));
+      return row;
+    };
+    const level = seg('Explain it',
+      [{ label:'Like I\u2019m 5', value:'simple' }, { label:'Producer', value:'pro' }],
+      () => mode, v => { mode = v; saveMode(); draw(); });
+    const look = seg('Theme',
+      [{ label:'\u2600 Light', value:'light' }, { label:'\u263E Dark', value:'dark' }],
+      effTheme, v => { theme = v; try { localStorage.setItem(TKEY, theme); } catch (e) {} applyTheme(); draw(); });
+    const note = UI.html('p', 'sethint', '');
+    pop.append(level, look, note);
+    function paint() {
+      level.show(); look.show();
+      note.textContent = mode === 'simple'
+        ? 'Small steps, nothing skipped \u2014 the lab and the sound are the same either way.'
+        : 'Full producer detail \u2014 the lab and the sound are the same either way.';
+    }
+    const open = v => {
+      pop.hidden = !v;
+      btn.setAttribute('aria-expanded', v ? 'true' : 'false');
+      btn.classList.toggle('on', v);
+      if (v) paint();
+    };
+    btn.addEventListener('click', e => { e.stopPropagation(); open(pop.hidden); });
+    pop.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', () => { if (!pop.hidden) open(false); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !pop.hidden) { open(false); btn.focus(); }
     });
-    bar.appendChild(seg);
-    bar.appendChild(UI.html('span', 'lab',
-      mode === 'simple' ? 'small steps, nothing skipped' : 'full detail'));
-    bar.appendChild(UI.el('span', 'spacer'));
-    const tb = UI.el('button', 'theme-btn');
-    tb.type = 'button';
-    tb.textContent = effTheme() === 'dark' ? '\u2600 Light' : '\u263E Dark';
-    tb.title = 'Switch to the ' + (effTheme() === 'dark' ? 'light' : 'dark') + ' theme';
-    tb.addEventListener('click', toggleTheme);
-    bar.appendChild(tb);
-    return bar;
+    paint();
+  }
+
+  /* how much of a lesson is showing: 'do' is the spine (try it, practise it,
+     check yourself), 'read' opens the explanation too. Remembered. */
+  let depth = 'do';
+  const RKEY = 'rbx-theory-depth-v1';
+  function loadDepth() {
+    try { const v = localStorage.getItem(RKEY); if (v === 'do' || v === 'read') depth = v; }
+    catch (e) {}
+  }
+  function saveDepth() { try { localStorage.setItem(RKEY, depth); } catch (e) {} }
+  const wordsIn = t => String(t || '').replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
+  function proseWords(blocks) {
+    let n = 0;
+    blocks.forEach(b => {
+      n += wordsIn(b.h) + wordsIn(b.p) + wordsIn(b.small);
+      if (b.note) n += wordsIn(b.note.h) + wordsIn(b.note.p);
+      if (b.table) (b.table.rows || []).forEach(r => r.forEach(c => { n += wordsIn(c); }));
+      (b.keys || []).forEach(k => { n += wordsIn(k); });
+    });
+    return n;
+  }
+
+  /* one lesson block — prose, note, table, key list, or an interactive panel */
+  function paintBlock(b, host, ctx, L) {
+    if (b.h) host.appendChild(UI.html('h3', null, b.h));
+    if (b.p) host.appendChild(UI.html('p', null, b.p));
+    if (b.small) host.appendChild(UI.html('p', 'small', b.small));
+    if (b.note) {
+      const p = UI.el('div', 'panel');
+      p.appendChild(UI.html('h4', null, b.note.h || 'Worth knowing'));
+      p.appendChild(UI.html('p', null, b.note.p));
+      host.appendChild(p);
+    }
+    if (b.table) {
+      const tw = UI.el('div', 'tablewrap'), t = UI.el('table');
+      const th = UI.el('tr');
+      b.table.head.forEach(h => th.appendChild(UI.html('th', null, h)));
+      const hd = UI.el('thead'); hd.appendChild(th); t.appendChild(hd);
+      const tb = UI.el('tbody');
+      b.table.rows.forEach(r => {
+        const tr = UI.el('tr');
+        r.forEach((c, i) => tr.appendChild(UI.html('td', i === 0 ? 'hi' : null, c)));
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb); tw.appendChild(t); host.appendChild(tw);
+    }
+    if (b.keys) {
+      const ul = UI.el('ul', 'keys');
+      b.keys.forEach(k => ul.appendChild(UI.html('li', null, '<span>' + k + '</span>')));
+      host.appendChild(ul);
+    }
+    if (b.try) {
+      /* simple mode reuses the lesson's own interactive controls */
+      const build = b.try.build ||
+        ((L.blocks || []).filter(x => x.try)[0] || { try:{} }).try.build;
+      const p = UI.el('div', 'panel try');
+      p.appendChild(UI.html('h4', null, b.try.h || 'Try it'));
+      if (b.try.p) p.appendChild(UI.html('p', null, b.try.p));
+      const slot = UI.el('div', 'ctl');
+      p.appendChild(slot);
+      host.appendChild(p);
+      const made = build ? build(ctx) : null;
+      (Array.isArray(made) ? made : [made]).forEach(k => k && slot.appendChild(k));
+    }
+  }
+
+  /* The "what this is" notice. In full on Home, where somebody arriving for the
+     first time will actually read it; one line on a lesson, where 140px of it on
+     every chapter is just something to scroll past. */
+  function footNote(full) {
+    const body =
+      '<b>Free, and not the course.</b> The curriculum shape follows the Red Bow Music ' +
+      '<em>All The Music Theory A Producer Needs</em> syllabus, but every explanation, ' +
+      'exercise and line of code here is original \u2014 none of that course\u2019s material is ' +
+      'reproduced. Nothing is sold here and nothing is tracked: your progress and your saved ' +
+      'ideas stay in this browser. Every note you hear is generated live in it too. ' +
+      '<a href="https://redbowmusic.com/" target="_blank" rel="noopener">The course itself is here</a>.';
+    if (full) return UI.html('div', 'foot', body);
+    const d = UI.el('details', 'foot mini');
+    const sum = UI.el('summary');
+    sum.innerHTML = 'Free, and not the course \u00b7 <span>what this is</span>';
+    d.append(sum, UI.html('div', null, body));
+    return d;
   }
 
   function render() {
@@ -335,8 +482,6 @@ const APP = (() => {
     art.innerHTML = '';
     const w = UI.el('div', 'wrap');
 
-    w.appendChild(modeBar(render));
-
     const crumb = UI.html('div', 'crumb',
       '<b>' + partName(L) + '</b> &nbsp;·&nbsp; Lesson ' + (idx + 1) + ' of ' + LESSONS.length +
       ' &nbsp;·&nbsp; ' + L.tag);
@@ -344,48 +489,30 @@ const APP = (() => {
     w.appendChild(UI.html('h2', null, L.title));
     w.appendChild(UI.html('p', 'lede', lede));
 
-    blocks.forEach(b => {
-      if (b.h) w.appendChild(UI.html('h3', null, b.h));
-      if (b.p) w.appendChild(UI.html('p', null, b.p));
-      if (b.small) w.appendChild(UI.html('p', 'small', b.small));
-      if (b.note) {
-        const p = UI.el('div', 'panel');
-        p.appendChild(UI.html('h4', null, b.note.h || 'Worth knowing'));
-        p.appendChild(UI.html('p', null, b.note.p));
-        w.appendChild(p);
-      }
-      if (b.table) {
-        const tw = UI.el('div', 'tablewrap'), t = UI.el('table');
-        const th = UI.el('tr');
-        b.table.head.forEach(h => th.appendChild(UI.html('th', null, h)));
-        const hd = UI.el('thead'); hd.appendChild(th); t.appendChild(hd);
-        const tb = UI.el('tbody');
-        b.table.rows.forEach(r => {
-          const tr = UI.el('tr');
-          r.forEach((c, i) => tr.appendChild(UI.html('td', i === 0 ? 'hi' : null, c)));
-          tb.appendChild(tr);
-        });
-        t.appendChild(tb); tw.appendChild(t); w.appendChild(tw);
-      }
-      if (b.keys) {
-        const ul = UI.el('ul', 'keys');
-        b.keys.forEach(k => ul.appendChild(UI.html('li', null, '<span>' + k + '</span>')));
-        w.appendChild(ul);
-      }
-      if (b.try) {
-        /* simple mode reuses the lesson's own interactive controls */
-        const build = b.try.build ||
-          ((L.blocks || []).filter(x => x.try)[0] || { try:{} }).try.build;
-        const p = UI.el('div', 'panel try');
-        p.appendChild(UI.html('h4', null, b.try.h || 'Try it'));
-        if (b.try.p) p.appendChild(UI.html('p', null, b.try.p));
-        const host = UI.el('div', 'ctl');
-        p.appendChild(host);
-        w.appendChild(p);
-        const made = build ? build(ctx) : null;
-        (Array.isArray(made) ? made : [made]).forEach(k => k && host.appendChild(k));
-      }
-    });
+    /* A lesson is something you do. The explanation is one expander under the
+       lede — open or shut as you last left it — so the instrument, the practice
+       round and the questions are reachable without scrolling past an essay. */
+    const doing = blocks.filter(b => b.try);
+    const reading = blocks.filter(b => !b.try);
+    if (reading.length) {
+      const det = UI.el('details', 'readmore');
+      det.open = (depth === 'read');
+      const n = proseWords(reading);
+      const sum = UI.el('summary');
+      sum.innerHTML = '<span class="rl">' + (det.open ? 'The full explanation' : 'Read the full explanation') +
+        '</span><span class="wc">' + n + ' words \u00b7 ' + Math.max(1, Math.round(n / 200)) + ' min</span>';
+      det.appendChild(sum);
+      const body = UI.el('div', 'readbody');
+      reading.forEach(b => paintBlock(b, body, ctx, L));
+      det.appendChild(body);
+      det.addEventListener('toggle', () => {
+        depth = det.open ? 'read' : 'do'; saveDepth();
+        const lab = sum.querySelector('.rl');
+        if (lab) lab.textContent = det.open ? 'The full explanation' : 'Read the full explanation';
+      });
+      w.appendChild(det);
+    }
+    doing.forEach(b => paintBlock(b, w, ctx, L));
 
     /* ── practice: hear it, name it, build it ── */
     if (L.practice && typeof PRACTICE !== 'undefined') {
@@ -453,10 +580,18 @@ const APP = (() => {
         if (rec[key] !== undefined) settle(rec[key] ? Q.c : null);
         q.appendChild(box);
       });
-      const mark = UI.btn(done[L.id] ? 'Done ✓' : 'Mark this lesson done ✓', () => {
+      /* the tick is earned, not claimed — the button is only an override, and
+         the line above it says out loud what the app is waiting for */
+      q.appendChild(UI.html('p', 'small earned-note',
+        L.practice
+          ? 'This lesson ticks itself off once you have answered the questions and landed ' +
+            'one concept in the practice round above.'
+          : 'This lesson ticks itself off once you have answered the questions.'));
+      const mark = UI.btn(done[L.id] ? 'Done \u2713' : 'Mark done anyway', () => {
         done[L.id] = true; save(); progress();
-        mark.textContent = 'Done ✓'; mark.classList.add('on');
-      }, { primary:!done[L.id] });
+      }, { primary:false });
+      mark.id = 'markBtn';
+      mark.title = 'Tick it off without finishing the questions';
       retry = UI.btn('↻ Try these again', () => { retryQuiz(L.id); render(); });
       retry.title = 'Clear this lesson’s answers and start the questions over';
       chrome();
@@ -478,13 +613,7 @@ const APP = (() => {
     } else pg.appendChild(UI.el('span'));
     w.appendChild(pg);
 
-    w.appendChild(UI.html('div', 'foot',
-      '<b>Free, and not the course.</b> The curriculum shape follows the Red Bow Music ' +
-      '<em>All The Music Theory A Producer Needs</em> syllabus, but every explanation, ' +
-      'exercise and line of code here is original — none of that course’s material is ' +
-      'reproduced. Nothing is sold here and nothing is tracked: your progress and your saved ' +
-      'ideas stay in this browser. Every note you hear is generated live in it too. ' +
-      '<a href="https://redbowmusic.com/" target="_blank" rel="noopener">The course itself is here</a>.'));
+    w.appendChild(footNote(false));
     art.appendChild(w);
 
     /* the 3D instrument gets set up last, so it can talk to the DOM above */
@@ -609,7 +738,11 @@ const APP = (() => {
       body.appendChild(UI.html('p', 'hint', 'This lesson has no instrument to operate.'));
       return;
     }
-    if (sum) sum.textContent = d.title + ' \u2014 buttons (keyboard and screen-reader friendly)';
+    if (sum) {
+      sum.textContent = d.title + ' \u2014 buttons';
+      sum.setAttribute('aria-label',
+        d.title + ' \u2014 buttons, keyboard and screen-reader friendly');
+    }
     body.appendChild(UI.html('p', 'hint',
       'These do exactly what tapping the 3D stage does. Tab to move, Enter or Space to play. ' +
       'Results are announced in the readout above the lesson.'));
@@ -685,6 +818,97 @@ const APP = (() => {
     ctx.syncA11y();
   }
 
+  /* ── First run: three questions, each of which changes something ──────
+     Every app in this category asks before it shows. These are the only three
+     answers that actually steer anything here, so they are the only three
+     asked, they fit on one screen, and the whole thing is skippable. */
+  const IKEY = 'rbx-theory-intake-v1';
+  let startAt = 0;                 /* the lesson the learner chose to begin at */
+  function loadIntake() {
+    try {
+      const v = JSON.parse(localStorage.getItem(IKEY) || 'null');
+      if (v && typeof v.start === 'number') startAt = Math.max(0, Math.min(LESSONS.length - 1, v.start));
+      return !!v;
+    } catch (e) { return false; }
+  }
+  function saveIntake(v) { try { localStorage.setItem(IKEY, JSON.stringify(v)); } catch (e) {} }
+
+  const ENTRY = [
+    { label:'I\u2019m new to all of this', id:'grid',
+      note:'Start at the beginning \u2014 beats and bars first.' },
+    { label:'I can find my way around a piano roll', id:'intervals',
+      note:'Skip to the notes themselves. The first four chapters stay open behind you.' },
+    { label:'I know my scales and chords', id:'inversions',
+      note:'Start at the harmony toolkit. Everything earlier stays open behind you.' }
+  ];
+
+  function renderIntake() {
+    const L = { id:'intake', title:'Welcome', tag:'Setup',
+                hint:'Three questions, then you are in',
+                stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } } };
+    const ctx = openStage(L);
+    ctx.read('press a key \u2014 it already works');
+
+    let pick = { start:ENTRY[0].id, mode:'simple', minutes:10 };
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap');
+    w.appendChild(UI.html('div', 'crumb', '<b>Welcome</b> &nbsp;·&nbsp; three questions'));
+    w.appendChild(UI.html('h2', null, 'Where should this start?'));
+    w.appendChild(UI.html('p', 'lede',
+      'Twenty-six chapters, a playable instrument in every one, and a page that works out what ' +
+      'you should practise each day. Answer these and it opens in the right place \u2014 or skip ' +
+      'them and start at chapter one.'));
+
+    const ask = (h, p, items, fn, start) => {
+      const box = UI.el('div', 'panel ask');
+      box.appendChild(UI.html('h4', null, h));
+      const why = UI.html('p', 'small', p);
+      box.appendChild(UI.chips(items, (v, i, it) => { fn(v); why.textContent = it.note || p; }, start));
+      box.appendChild(why);
+      w.appendChild(box);
+    };
+    ask('How much music theory do you already have?',
+        ENTRY[0].note,
+        ENTRY.map(e => ({ label:e.label, value:e.id, note:e.note })),
+        v => { pick.start = v; }, pick.start);
+    ask('How should it be explained?',
+        'Small steps, nothing skipped. You can switch at any time from the button on the stage.',
+        [{ label:'Like I\u2019m 5', value:'simple',
+           note:'Small steps, nothing skipped. You can switch at any time from the button on the stage.' },
+         { label:'Producer', value:'pro',
+           note:'Straight to the producer detail. You can switch at any time from the button on the stage.' }],
+        v => { pick.mode = v; }, pick.mode);
+    ask('How long do you want to practise a day?',
+        'Ten minutes is about eight questions \u2014 the default.',
+        [{ label:'5 minutes', value:5, note:'Short and often. Four or five questions a day.' },
+         { label:'10 minutes', value:10, note:'Ten minutes is about eight questions \u2014 the default.' },
+         { label:'15 minutes', value:15, note:'A longer sitting \u2014 about twelve questions.' }],
+        v => { pick.minutes = Number(v); }, pick.minutes);
+
+    const start = UI.btn('Start \u2192', () => {
+      mode = pick.mode; saveMode();
+      workoutMins = pick.minutes;
+      const at = LESSONS.findIndex(x => x.id === pick.start);
+      startAt = at < 0 ? 0 : at;
+      saveIntake({ start:startAt, mode:pick.mode, minutes:pick.minutes, at:Date.now() });
+      go(startAt);
+    }, { primary:true });
+    const skip = UI.btn('Skip \u2014 just take me in', () => {
+      startAt = 0;
+      saveIntake({ start:0, skipped:true, at:Date.now() });
+      go(0);
+    });
+    w.appendChild(UI.row(start, skip));
+    w.appendChild(UI.html('p', 'small',
+      'Nothing is locked either way: every chapter is in the sidebar from the first second, and ' +
+      'none of this leaves your browser.'));
+    art.appendChild(w);
+    buildA11y(ctx);
+    applyFlat();
+    $('#main').scrollTop = 0;
+  }
+
   /* ── Home: what to do today ─────────────────────────────────
      Everything on this page is derived — nothing here is a second copy of
      progress. The workout comes from MASTERY, which reads the practice log;
@@ -699,9 +923,14 @@ const APP = (() => {
     LESSONS.forEach((L, i) => { if (done[L.id] && i > far) far = i; });
     return LESSONS.slice(0, far + 1).map(L => L.id);
   }
+  /* the next thing to do: the first unfinished lesson at or after the point
+     the learner said they wanted to start, and only then anything skipped
+     before it */
   function nextLesson() {
-    const at = LESSONS.findIndex(L => !done[L.id]);
-    return at < 0 ? Math.min(idx, LESSONS.length - 1) : at;
+    const on = LESSONS.findIndex((L, i) => i >= startAt && !done[L.id]);
+    if (on >= 0) return on;
+    const any = LESSONS.findIndex(L => !done[L.id]);
+    return any < 0 ? Math.min(idx, LESSONS.length - 1) : any;
   }
   function statCard(value, label, hint) {
     const c = UI.el('div', 'stat');
@@ -734,8 +963,6 @@ const APP = (() => {
 
     /* the reading-level and theme bar belongs here too — it is the first page
        a new learner sees, and the first thing some of them need to change */
-    w.appendChild(modeBar(() => renderHome()));
-
     w.appendChild(UI.html('div', 'crumb', '<b>Today</b> &nbsp;·&nbsp; your practice at a glance'));
     w.appendChild(UI.html('h2', null, sum.streak > 1
       ? 'Day ' + sum.streak + ' in a row'
@@ -880,6 +1107,7 @@ const APP = (() => {
       w.appendChild(box);
     }
 
+    w.appendChild(footNote(true));
     art.appendChild(w);
     buildA11y(ctx);
     if (V.onPaint) V.onPaint(() => syncA11y(ctx));
@@ -984,6 +1212,7 @@ const APP = (() => {
   function draw() {
     if (page === 'home') renderHome();
     else if (page === 'review') renderReview();
+    else if (page === 'intake') renderIntake();
     else render();
   }
 
@@ -994,8 +1223,11 @@ const APP = (() => {
     done = {}; save();
     drills = {}; saveDrills();
     if (typeof PRACTICE !== 'undefined') PRACTICE.clear();
-    page = 'lesson';
-    render();
+    /* starting over means being asked the three questions again */
+    try { localStorage.removeItem(IKEY); } catch (e) {}
+    startAt = 0; idx = 0;
+    page = 'intake';
+    renderIntake();
   }
   function wireReset() {
     const b = $('#resetBtn');
@@ -1041,15 +1273,23 @@ const APP = (() => {
     } else {
       V.mount(document.querySelector('#gl'));
     }
-    load(); loadMode(); loadDrills(); applyTheme();
-    if (typeof PRACTICE !== 'undefined') PRACTICE.plan(LESSONS);
+    load(); loadMode(); loadDrills(); loadDepth(); applyTheme();
+    if (typeof PRACTICE !== 'undefined') {
+      PRACTICE.plan(LESSONS);
+      /* a practice answer can finish a lesson off, from any page */
+      if (PRACTICE.watch) PRACTICE.watch(() => { if (sweep()) progress(); });
+    }
     buildNav();
+    wireSettings();
+    const asked = loadIntake();
     const hash = (location.hash || '').replace('#', '');
     const at = LESSONS.findIndex(l => l.id === hash);
     idx = at >= 0 ? at : nextLesson();
-    /* Home is the landing page: it says what is due and hands out the day's
-       practice. A link straight to a lesson still opens that lesson. */
-    if (at >= 0) { page = 'lesson'; render(); } else openHome();
+    /* A link straight to a lesson opens that lesson. Otherwise: the three
+       questions on a first visit, and Home every time after that. */
+    if (at >= 0) { page = 'lesson'; render(); }
+    else if (!asked && !Object.keys(done).length) { page = 'intake'; renderIntake(); }
+    else openHome();
 
     $('#menuBtn').addEventListener('click', () => {
       const open = $('#rail').dataset.open !== 'true';

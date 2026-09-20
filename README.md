@@ -28,9 +28,26 @@ stage. The circle of fifths has no face-on equivalent and keeps its 3D wheel.
 Audio is a small Web Audio synth (triangle/saw voices, filter, envelope, convolution reverb)
 plus a look-ahead step clock, so playback stays in time without blocking the UI.
 
+## How a lesson opens
+
+A lesson opens as the thing you **do**: the one-line lede, the interactive panel, the practice
+round and the questions — around 220 words. The explanation sits under the lede behind one
+expander that says how long it is (*"Read the full explanation · 357 words · 2 min"*), and stays
+open or shut as you last left it. Nothing is hidden from anyone who wants it; it is just no longer
+standing in front of the instrument. At 390px this took the average lesson from 3,512px of
+scrolling to 1,784px.
+
+## First run
+
+A first visit asks three questions, each of which changes something: how much theory you already
+have (which sets where the course opens), how it should be explained (the reading level), and how
+long you want to practise a day (the length of the daily workout). One screen, skippable, never
+shown again — and **Reset progress** brings it back. Nothing is locked either way: all 26 chapters
+are in the sidebar from the first second.
+
 ## Two reading levels
 
-A switch at the top of every lesson flips the text between:
+The **Aa** button in the stage foot flips the text between:
 
 - **Like I'm 5** — numbered steps and everyday analogies (apple vs strawberry for simple vs
   compound meter), written for someone who has never read a theory page. It is *longer* than the
@@ -42,7 +59,7 @@ switch mid-lesson without losing your place.
 
 ## Two themes
 
-A light/dark toggle sits next to the reading-level switch. With no explicit choice the page
+The light/dark toggle sits in that same **Aa** panel. With no explicit choice the page
 follows the device setting; once you pick one it is remembered. The 3D stage is repainted too —
 each theme has its own palette, lighting rig and label ink, so text drawn on a key always
 contrasts with that key.
@@ -100,9 +117,17 @@ a per-drill breakdown (right, asked, recent runs, and the item you miss most) in
 lumped score, and it means a note you cannot hear turns up in the review like anything else, where
 you have to name it *and* build it.
 
+### A tick you earn
+
+A lesson ticks itself off when the work is done, not when a button is pressed: every question
+answered with at least two thirds right, plus — where the lesson has a practice round — one
+concept landed in it. The chapters that are pure ear training count a correct drill run instead.
+The line above the questions says out loud what the page is waiting for, and **Mark done anyway**
+stays as an override. "Complete" should say something about what you can do.
+
 **Reset progress** sits at the bottom of the sidebar and asks twice. It clears lesson ticks,
-question answers and the review list — and deliberately leaves your saved ideas alone, because
-those are work, not progress.
+question answers, the review list and the three first-run answers — and deliberately leaves your
+saved ideas alone, because those are work, not progress.
 
 ## Today — what to practise, and when
 
@@ -229,6 +254,7 @@ src/lessons-level2.js   LESSONS 10–17
 src/lessons-level3.js   LESSONS 18–22
 src/simple-level1.js    SIMPLE text for lessons 1–11
 src/simple-level2.js    SIMPLE text for lessons 12–22
+docs/UX-BENCHMARK.md    how this compares with Yousician, Simply Piano, flowkey, Melodics et al
 docs/SOURCES.md         conventions, references, corrections log
 docs/                   README screenshots
 ```
