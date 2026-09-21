@@ -545,7 +545,7 @@ head('Flat view');
   const views = (scenesSrc.match(/a11y\(\)\s*\{/g) || []).length;
   const shapes = (scenesSrc.match(/shape:'[a-z]+'/g) || []).map(s => s.slice(7, -1));
   eq(shapes.length + 1, views, 'every view but one declares a shape');
-  eq(shapes.slice().sort().join(','), 'grid,keys,roll', 'and they are the three it can draw');
+  eq(shapes.slice().sort().join(','), 'grid,keys,path,roll', 'and they are the four it can draw');
   /* the one that does not is the circle — a wheel has no face-on version */
   const wheelLesson = LESSONS.filter(L => L.stage.view === 'wheel').map(L => L.id);
   eq(wheelLesson.join(','), 'circle', 'the only view without one is the circle of fifths');

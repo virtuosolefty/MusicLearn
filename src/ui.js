@@ -9,22 +9,33 @@ const UI = (() => {
     return n;
   };
   const html = (tag, cls, h) => { const n = el(tag, cls); n.innerHTML = h; return n; };
+  /* a label with its icon, if the label names one (see icons.js) */
+  const setLabel = (b, text) => {
+    if (typeof ICONS !== 'undefined') return ICONS.label(b, text);
+    if (/</.test(text)) b.innerHTML = text; else b.textContent = text;
+    return b;
+  };
 
   function btn(text, fn, o) {
     o = o || {};
     const b = el('button', 'b' + (o.primary ? ' primary' : ''));
-    if (/</.test(text)) b.innerHTML = text; else b.textContent = text;
+    setLabel(b, text);
     b.type = 'button';
     b.addEventListener('click', () => { A.resume(); fn(b); });
     return b;
   }
   function toggle(text, fn, on) {
-    const b = el('button', 'b' + (on ? ' on' : ''), text);
+    const b = el('button', 'b' + (on ? ' on' : ''));
+    /* a play toggle says Stop, with a stop icon, while it is playing */
+    const playing = /^\u25B6 /.test(text) ? '\u25A0 Stop' : text;
+    const show = x => setLabel(b, x ? playing : text);
+    show(on);
     b.type = 'button'; b.setAttribute('aria-pressed', on ? 'true' : 'false');
     let v = !!on;
     b.addEventListener('click', () => {
       A.resume(); v = !v;
       b.classList.toggle('on', v); b.setAttribute('aria-pressed', v ? 'true' : 'false');
+      show(v);
       fn(v, b);
     });
     return b;
@@ -89,7 +100,7 @@ const UI = (() => {
   const row = (...kids) => { const r = el('div', 'ctl'); kids.forEach(k => k && r.appendChild(k)); return r; };
   const note = t => html('p', 'small', t);
 
-  return { el, html, btn, toggle, chips, slider, select, row, note };
+  return { el, html, btn, toggle, chips, slider, select, row, note, label:setLabel };
 })();
 
 /* ═══════════════════════════════════════════════════════════════
@@ -97,6 +108,31 @@ const UI = (() => {
    ═══════════════════════════════════════════════════════════════ */
 const APP = (() => {
   const $ = s => document.querySelector(s);
+  const icon = (n, cls) => (typeof ICONS !== 'undefined' ? ICONS.svg(n, cls) : '');
+  const iconLive = (n, cls) => (typeof ICONS !== 'undefined' ? ICONS.inline(n, cls) : '');
+  const escHtml = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  /* The readout is read at a glance while playing: the first line large, the
+     rest as small detail underneath — not a right-aligned block of mono. */
+  function setReadout(text) {
+    const el = $('#readout'); if (!el) return;
+    const lines = String(text == null ? '' : text).split('\n');
+    el.innerHTML = '<b>' + escHtml(lines[0]) + '</b>' +
+      lines.slice(1).filter(l => l.trim()).map(l => '<span>' + escHtml(l) + '</span>').join('');
+  }
+
+  /* Right and wrong each get a sound as well as a colour and a word: a short
+     two-note chime, or a soft low pluck. Never a buzzer. */
+  function chime(ok) {
+    if (typeof INSTRUMENTS === 'undefined') return;
+    A.resume();
+    if (ok) {
+      INSTRUMENTS.play('bell', 88, 0.35, { gain:0.5 });
+      setTimeout(() => INSTRUMENTS.play('bell', 95, 0.5, { gain:0.45 }), 90);
+    } else {
+      INSTRUMENTS.play('pluck', 45, 0.3, { gain:0.45 });
+    }
+  }
   let idx = 0, done = {}, timers = [], transport = A.transport();
   /* reading level: 'simple' explains every lesson from zero, 'pro' is the
      producer-facing text. The 3D lab and its audio are identical in both. */
@@ -158,14 +194,14 @@ const APP = (() => {
     if (rb && typeof PRACTICE !== 'undefined') {
       const n = PRACTICE.misses().length;
       rb.hidden = !n && !PRACTICE.entries().length;
-      rb.textContent = n ? '↻ Review ' + n + (n === 1 ? ' miss' : ' misses')
-                         : '↻ Review · all clear';
+      UI.label(rb, n ? '\u21BB Review ' + n + (n === 1 ? ' miss' : ' misses')
+                     : '\u21BB Review \u00b7 all clear');
       rb.classList.toggle('primary', n > 0);
     }
     const mk = $('#markBtn');
     if (mk && LESSONS[idx]) {
       const got = !!done[LESSONS[idx].id];
-      mk.textContent = got ? 'Done \u2713' : 'Mark done anyway';
+      UI.label(mk, got ? 'Done \u2713' : 'Mark done anyway');
       mk.classList.toggle('on', got);
       mk.disabled = got;
     }
@@ -175,7 +211,13 @@ const APP = (() => {
       const t = drillTally(b.dataset.id);
       b.classList.toggle('review', t.wrong.length > 0);
       const tk = b.querySelector('.tick');
-      if (tk) tk.textContent = t.wrong.length ? '!' : '\u2713';
+      if (tk) {
+        if (t.wrong.length) {
+          tk.innerHTML = '<span class="flag" role="img" aria-label="Missed a question here \u2014 worth revisiting"></span>';
+        } else {
+          tk.innerHTML = icon('check');
+        }
+      }
       b.title = t.total
         ? t.right + ' of ' + t.total + ' drill answers right' + (t.wrong.length ? ' \u00B7 worth revisiting' : '')
         : '';
@@ -191,14 +233,14 @@ const APP = (() => {
     nav.innerHTML = '';
     const hb = UI.el('button', 'home-item');
     hb.type = 'button';
-    hb.innerHTML = '<span class="num">\u2302</span><span>Today</span><span class="tick"></span>';
+    hb.innerHTML = '<span class="num">' + icon('home') + '</span><span>Today</span><span class="tick"></span>';
     hb.title = 'Your streak, what is due, and the day\u2019s practice';
     hb.addEventListener('click', () => { openHome(); closeRail(); });
     nav.appendChild(hb);
     if (typeof RACK !== 'undefined') {
       const sb = UI.el('button', 'studio-item');
       sb.type = 'button';
-      sb.innerHTML = '<span class="num">\u25A6</span><span>Studio</span><span class="tick"></span>';
+      sb.innerHTML = '<span class="num">' + icon('studio') + '</span><span>Studio</span><span class="tick"></span>';
       sb.title = 'A channel rack of your own \u2014 build a beat, mix it, export it';
       sb.addEventListener('click', () => { openStudio(); closeRail(); });
       nav.appendChild(sb);
@@ -219,7 +261,7 @@ const APP = (() => {
       const b = UI.el('button');
       b.type = 'button'; b.dataset.id = L.id;
       b.innerHTML = '<span class="num">' + (i + 1) + '</span><span>' + L.title +
-                    '</span><span class="tick">✓</span>';
+                    '</span><span class="tick">' + icon('check') + '</span>';
       b.addEventListener('click', () => { go(i); closeRail(); });
       nav.appendChild(b);
     });
@@ -294,10 +336,84 @@ const APP = (() => {
   }
   /* sweep them all — an answer in the review can finish off a lesson too */
   function sweep() {
-    let moved = false;
-    LESSONS.forEach(L => { if (!done[L.id] && earned(L)) { done[L.id] = true; moved = true; } });
-    if (moved) save();
+    const moved = [];
+    LESSONS.forEach(L => { if (!done[L.id] && earned(L)) { done[L.id] = true; moved.push(L.id); } });
+    if (moved.length) save();
     return moved;
+  }
+
+  /* ── the moment something is finished ──────────────────────────
+     A card over the page, a sound, and confetti from the stage — sized to
+     the achievement: small for a lesson, larger for a whole stage, largest
+     for a week in a row. Esc, the scrim or the button closes it; focus goes
+     to its main action and comes back where it was. */
+  let celebrating = null;
+  function celebrate(o) {
+    if (celebrating) celebrating.close();
+    const back = document.activeElement;
+    const box = UI.el('div', 'celebrate');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-labelledby', 'celebrateTitle');
+    const card = UI.el('div', 'card');
+    card.appendChild(UI.html('div', 'badge', iconLive(o.icon || 'check')));
+    if (o.kicker) card.appendChild(UI.html('p', 'kicker', escHtml(o.kicker)));
+    const h = UI.html('h3', null, escHtml(o.title)); h.id = 'celebrateTitle';
+    card.appendChild(h);
+    if (o.body) card.appendChild(UI.html('p', null, o.body));
+    if (o.streak > 1) card.appendChild(UI.html('div', 'streak',
+      icon('spark') + '<span>Day ' + o.streak + ' in a row</span>'));
+    const acts = UI.el('div', 'acts');
+    const close = () => {
+      if (!box.parentNode) return;
+      box.remove(); document.removeEventListener('keydown', onKey, true);
+      celebrating = null;
+      if (back && back.focus && document.contains(back)) back.focus();
+    };
+    const onKey = e => {
+      if (e.key === 'Escape') { e.preventDefault(); close(); }
+      if (e.key === 'Tab') {                 /* keep focus inside the card */
+        const f = Array.from(card.querySelectorAll('button'));
+        if (!f.length) return;
+        const i = f.indexOf(document.activeElement);
+        if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+        else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+      }
+    };
+    (o.actions || [{ label:'Keep going', primary:true }]).forEach(a => {
+      acts.appendChild(UI.btn(a.label, () => { close(); if (a.run) a.run(); }, { primary:!!a.primary }));
+    });
+    card.appendChild(acts);
+    box.appendChild(card);
+    box.addEventListener('click', e => { if (e.target === box) close(); });
+    document.body.appendChild(box);
+    document.addEventListener('keydown', onKey, true);
+    const first = acts.querySelector('button.primary') || acts.querySelector('button');
+    if (first) first.focus();
+    chime(true);
+    if (V.fx) V.fx.confetti(o.size || 'small');
+    celebrating = { close };
+    return celebrating;
+  }
+  const streakNow = () => (typeof MASTERY !== 'undefined' ? MASTERY.streak() : 0);
+  function celebrateLesson(L) {
+    const i = LESSONS.indexOf(L);
+    const stageDone = L.part && LESSONS.filter(x => x.part === L.part).every(x => done[x.id]);
+    const st = streakNow();
+    const nx = nextLesson(), N = LESSONS[nx];
+    const all = LESSONS.every(x => done[x.id]);
+    celebrate({
+      kicker: all ? 'Course complete' : stageDone ? 'Stage complete' : 'Lesson ' + (i + 1) + ' done',
+      title: all ? 'Every lesson, done' : stageDone ? partName(L) : L.title,
+      body: all ? 'All ' + LESSONS.length + ' lessons are ticked off. The review keeps what you learned fresh.'
+          : stageDone ? 'Every lesson in this stage is done. Next up: <b>' + escHtml(N.title) + '</b>.'
+          : 'Next up: <b>' + escHtml(N.title) + '</b>.',
+      streak: st,
+      size: st === 7 || all ? 'huge' : stageDone ? 'large' : 'small',
+      actions: all || !N || N.id === L.id
+        ? [{ label:'Back to Today', primary:true, run:() => openHome() }]
+        : [{ label:'Next lesson \u2192', primary:true, run:() => go(nx) }, { label:'Stay here' }]
+    });
   }
 
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
@@ -318,7 +434,7 @@ const APP = (() => {
     $('#hudTag').textContent = L.tag;
     $('#stageCtl').innerHTML = '';
     $('#stageHint').textContent = L.hint || 'Drag to orbit · pinch or scroll to zoom';
-    $('#readout').textContent = 'loading…';
+    setReadout('loading\u2026');
 
     const v = V.set(L.stage.view, L.stage.cfg || {});
     /* An instrument on the stage should sound when it is pressed. A lesson
@@ -330,7 +446,8 @@ const APP = (() => {
     if (v && typeof v.onKey === 'function') v.onKey(m => { A.resume(); A.note(m); });
     const ctx = {
       v, L, T, A, UI, transport, later,
-      read: t => { $('#readout').textContent = t; },
+      read: t => setReadout(t),
+      chime,
       hint: t => { $('#stageHint').textContent = t; },
       stage: (...kids) => { kids.forEach(k => k && $('#stageCtl').appendChild(k)); },
       seq: opts => { transport.stop(); transport.start(opts); },
@@ -362,7 +479,8 @@ const APP = (() => {
       row.appendChild(UI.html('span', 'lab', label));
       const g = UI.el('div', 'seg');
       const bs = items.map(it => {
-        const b = UI.el('button', null, it.label);
+        const b = UI.el('button');
+        UI.label(b, it.label);
         b.type = 'button';
         b.addEventListener('click', () => { if (get() !== it.value) { set(it.value); paint(); } });
         g.appendChild(b);
@@ -569,25 +687,55 @@ const APP = (() => {
         const box = UI.el('div', 'q');
         box.appendChild(UI.html('p', 'qt', '<span class="qn">Q' + (qi + 1) + '</span>' + Q.q));
         const opts = UI.el('div', 'opts');
-        const why = UI.html('p', 'why', Q.why); why.hidden = true;
-        const settle = picked => {
+        const why = UI.el('div', 'why'); why.hidden = true;
+        const say = UI.el('p', 'say');
+        why.append(say, UI.html('p', null, Q.why));
+        /* three channels, never colour alone: the option changes colour, it
+           carries a word and an icon, and the explanation opens with a verdict */
+        const settle = (picked, live) => {
+          const ok = picked === Q.c;
           Array.from(opts.children).forEach((o, oi) => {
             o.disabled = true;
-            if (oi === Q.c) o.classList.add('right');
-            if (picked != null && oi === picked && picked !== Q.c) o.classList.add('wrong');
+            const mark = (cls, name, word) => {
+              if (o.querySelector('.verdict')) return;
+              const v = UI.el('span', 'verdict ' + cls);
+              v.innerHTML = (live ? iconLive(name) : icon(name)) + '<span>' + word + '</span>';
+              o.appendChild(v);
+            };
+            if (oi === Q.c) {
+              o.classList.add('right');
+              mark('good', 'check', picked === Q.c ? 'Correct' : 'Answer');
+              if (live) o.classList.add(ok ? 'picked' : 'reveal');
+            }
+            if (picked != null && oi === picked && picked !== Q.c) {
+              o.classList.add('wrong');
+              mark('bad', 'cross', 'Your answer');
+              if (live) o.classList.add('picked');
+            }
           });
+          why.classList.toggle('good', ok);
+          why.classList.toggle('bad', !ok);
+          say.innerHTML = (live ? iconLive(ok ? 'check' : 'cross') : icon(ok ? 'check' : 'cross')) +
+            '<span>' + (ok ? 'Correct.' : picked == null ? 'The answer is highlighted.'
+                                                          : 'Not quite \u2014 the answer is highlighted.') + '</span>';
           why.hidden = false;
         };
         Q.a.forEach((txt, ai) => {
-          const b = UI.el('button', 'opt', txt);
+          const b = UI.el('button', 'opt');
+          b.appendChild(UI.el('span', null, txt));
           b.type = 'button';
           b.addEventListener('click', () => {
-            settle(ai);
+            const ok = ai === Q.c;
+            settle(ai, true);
+            chime(ok);
+            if (ok && V.fx) V.fx.ring(null, 'good');
             if (rec[key] === undefined) {      /* only the first answer is scored */
-              rec[key] = (ai === Q.c); saveDrills(); progress();
+              rec[key] = ok; saveDrills();
+              const moved = sweep(); progress();
+              if (moved.indexOf(L.id) >= 0) later(() => celebrateLesson(L), 700);
             }
             chrome();
-            if (Q.hear) { A.resume(); Q.hear(); }
+            if (Q.hear) later(() => { A.resume(); Q.hear(); }, 380);
           });
           opts.appendChild(b);
         });
@@ -1016,11 +1164,33 @@ const APP = (() => {
   let workoutMins = 10;
   function renderHome() {
     const L = { id:'home', title:'Home', tag:'Today',
-                hint:'Your practice, at a glance',
-                stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } } };
+                hint:'Your path \u00b7 tap a lesson to open it',
+                stage:{ view:'path', cfg:{ count:LESSONS.length } } };
     const ctx = openStage(L);
     const sum = (typeof MASTERY !== 'undefined') ? MASTERY.summary()
               : { skills:0, mastery:0, due:0, weak:0, streak:0 };
+    /* the course as a shape: every lesson a node, lit as it is finished */
+    if (ctx.v && ctx.v.nodes) {
+      const now = Date.now(), nx = nextLesson();
+      const skills = (typeof MASTERY !== 'undefined') ? MASTERY.board() : [];
+      const list = LESSONS.map((x, i) => {
+        const mine = skills.filter(k => k.lesson === x.id);
+        return {
+          title:x.title, part:x.part, done:!!done[x.id],
+          mastery:mine.length ? mine.reduce((a, k) => a + k.mastery, 0) / mine.length : null,
+          due:mine.some(k => k.due <= now), next:i === nx && !done[x.id]
+        };
+      });
+      const stages = [];
+      if (typeof CURRICULUM !== 'undefined') {
+        CURRICULUM.STAGES.forEach(st => {
+          const first = LESSONS.findIndex(x => x.part === st.id);
+          if (first >= 0) stages.push({ name:st.name, first });
+        });
+        stages.sort((a, b) => a.first - b.first);
+      }
+      ctx.v.nodes(list, stages).onNode(i => go(i));
+    }
     const ticked = LESSONS.filter(x => done[x.id]).length;
     ctx.read(sum.due ? sum.due + ' to revisit today' : 'nothing overdue');
 
@@ -1048,14 +1218,17 @@ const APP = (() => {
       statCard(sum.mastery + '%', 'average mastery',
         'Across every concept you have practised: accuracy, recent form and how fresh it is.'),
       statCard(String(sum.due), 'due now', 'Concepts whose review date has arrived.'),
-      statCard(String(sum.streak), sum.streak === 1 ? 'day streak' : 'day streak'));
+      statCard(String(sum.streak), 'day streak'));
+    if (!ticked && !sum.skills && !sum.streak) stats.classList.add('empty');
     w.appendChild(stats);
 
     /* ── the week ── */
     if (typeof MASTERY !== 'undefined') {
       const strip = UI.el('div', 'week');
-      MASTERY.week().forEach(d => {
-        const c = UI.el('div', 'day' + (d.on ? ' on' : ''));
+      const wk = MASTERY.week();
+      if (wk.length && wk.every(d => d.on)) strip.classList.add('full');
+      wk.forEach((d, di) => {
+        const c = UI.el('div', 'day' + (d.on ? ' on' : '') + (di === wk.length - 1 ? ' today' : ''));
         c.appendChild(UI.html('i', null, d.letter));
         c.title = d.on ? 'Practised ' + d.day : 'Nothing on ' + d.day;
         strip.appendChild(c);
@@ -1110,9 +1283,17 @@ const APP = (() => {
         const host = UI.el('div');
         p.appendChild(host);
         host.appendChild(PRACTICE.build(ctx, {
-          queue:plan,
+          queue:plan, lazyStage:true,
           onStage: cur => stageFor(ctx, cur),
-          onDone: () => { renderHome(); }
+          onDone: () => {
+            renderHome();
+            const st = streakNow();
+            celebrate({ kicker:'Today\u2019s practice', title:'Today\u2019s practice, done',
+              body:plan.length + ' question' + (plan.length === 1 ? '' : 's') +
+                   ' answered. What you missed is waiting in your review.',
+              streak:st, size:st === 7 ? 'huge' : 'small', icon:'spark',
+              actions:[{ label:'Done', primary:true }] });
+          }
         }));
       }
       w.appendChild(p);
@@ -1180,7 +1361,7 @@ const APP = (() => {
     if (V.onPaint) V.onPaint(() => syncA11y(ctx));
     applyFlat();
     document.querySelectorAll('#nav button').forEach(b =>
-      b.setAttribute('aria-current', b.dataset.id ? 'false' : 'true'));
+      b.setAttribute('aria-current', b.classList.contains('home-item') ? 'true' : 'false'));
     $('#main').scrollTop = 0;
     progress();
     try { location.hash = 'home'; } catch (e) {}
@@ -1334,6 +1515,20 @@ const APP = (() => {
     $('#menuBtn').setAttribute('aria-expanded', 'false');
   };
 
+  /* a designed card, not a line of grey text, when the stage cannot run */
+  function noStage(title, body, action) {
+    const msg = UI.el('div', 'nogl');
+    const card = UI.el('div', 'card');
+    card.appendChild(UI.html('b', null, escHtml(title)));
+    card.appendChild(UI.html('p', null, escHtml(body)));
+    if (action) card.appendChild(UI.btn(action, () => {
+      FLAT.set(true); applyFlat(); msg.remove();
+    }, { primary:true }));
+    msg.appendChild(card);
+    const st = document.querySelector('#stage');
+    if (st) st.appendChild(msg);
+  }
+
   function boot() {
     loadTheme();
     if (V && V.setTheme) V.setTheme(effTheme());
@@ -1341,18 +1536,32 @@ const APP = (() => {
       /* keep the HUD nodes in place — only the canvas is replaced */
       const gl = document.querySelector('#gl');
       if (gl) gl.hidden = true;
-      const msg = UI.el('div', 'nogl',
-        'The 3D stage could not load, so this page is running as text only. ' +
-        'Check the connection to the Three.js CDN and reload.');
-      document.querySelector('#stage').appendChild(msg);
+      noStage('The 3D stage could not load',
+        'Lessons, sound and quizzes still work. Check your connection and reload to get the stage back.');
     } else {
-      V.mount(document.querySelector('#gl'));
+      const ok = V.mount(document.querySelector('#gl'));
+      if (ok === false) {
+        const gl = document.querySelector('#gl');
+        if (gl) gl.hidden = true;
+        noStage('This device could not start 3D',
+          'Everything still works. The flat view shows the same instrument as buttons.',
+          typeof FLAT !== 'undefined' ? 'Use the flat view' : null);
+      }
     }
+    const stEl = document.querySelector('#stage');
+    if (stEl) stEl.classList.remove('booting');
     reread(); applyTheme();
     if (typeof PRACTICE !== 'undefined') {
       PRACTICE.plan(LESSONS);
       /* a practice answer can finish a lesson off, from any page */
-      if (PRACTICE.watch) PRACTICE.watch(() => { if (sweep()) progress(); });
+      if (PRACTICE.watch) PRACTICE.watch(() => {
+        const moved = sweep();
+        if (!moved.length) return;
+        progress();
+        const L = LESSONS[idx];
+        if (page === 'lesson' && L && moved.indexOf(L.id) >= 0) later(() => celebrateLesson(L), 900);
+        else if (V.fx) V.fx.confetti('small');
+      });
     }
     buildNav();
     wireSettings();

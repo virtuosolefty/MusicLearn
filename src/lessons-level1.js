@@ -345,10 +345,13 @@ LESSONS.push({
     });
     ctx.stage(
       UI.btn('C major run', () => {
-        T.scaleNotes(60, 'major').concat([72]).forEach((m, i) =>
-          ctx.later(() => { A.note(m, .5); ctx.v.press(m); ctx.read('C major · ' + T.name(m)); }, i * 190));
+        T.scaleNotes(60, 'major').concat([72]).forEach((m, i) => {
+          if (ctx.v.fall) ctx.v.fall(m, i * 190);   /* see it coming, then hear it land */
+          ctx.later(() => { A.note(m, .5); ctx.v.press(m); ctx.read('C major · ' + T.name(m)); }, i * 190);
+        });
       }),
       UI.btn('Chromatic crawl', () => {
+        for (let i = 0; i <= 12; i++) if (ctx.v.fall) ctx.v.fall(60 + i, i * 150);
         for (let i = 0; i <= 12; i++) ctx.later(() => {
           A.note(60 + i, .35); ctx.v.press(60 + i);
           ctx.read('semitone ' + i + '  ·  ' + T.name(60 + i, flats));
@@ -533,9 +536,10 @@ LESSONS.push({
     ctx.run = () => {
       const ns = notes().concat([rootPc + 24]);
       const seq = ns.concat(ns.slice(0, -1).reverse());
-      seq.forEach((m, i) => ctx.later(() => {
-        A.note(m, .45); if (m <= 72) ctx.v.press(m);
-      }, i * 200));
+      seq.forEach((m, i) => {
+        if (m <= 72 && ctx.v.fall) ctx.v.fall(m, i * 200);
+        ctx.later(() => { A.note(m, .45); if (m <= 72) ctx.v.press(m); }, i * 200);
+      });
     };
     ctx.v.onKey(m => {
       A.note(m, 1);
@@ -614,7 +618,10 @@ LESSONS.push({
     ctx.setMode = v => { mode = v; ctx.keep('mode', v); paint(); ctx.run(); };
     ctx.run = () => {
       const ns = T.scaleNotes(rootMidi, mode).concat([rootMidi + 12]);
-      ns.forEach((m, i) => ctx.later(() => { A.note(m, .45); ctx.v.press(m); }, i * 190));
+      ns.forEach((m, i) => {
+        if (ctx.v.fall) ctx.v.fall(m, i * 190);
+        ctx.later(() => { A.note(m, .45); ctx.v.press(m); }, i * 190);
+      });
     };
     ctx.vamp = () => {
       const d = T.diatonic(rootMidi, mode)[0];

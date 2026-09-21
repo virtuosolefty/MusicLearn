@@ -310,7 +310,7 @@ const RACK = (() => {
       A.resume();
       if (playing) return stop();
       playing = true;
-      play.textContent = '■ Stop';
+      UI.label(play, '■ Stop');
       play.classList.add('on');
       pushMix(project);
       transport.start({
@@ -339,7 +339,7 @@ const RACK = (() => {
     }
     function stop() {
       playing = false; transport.stop(); clearLater();
-      play.textContent = '▶ Play';
+      UI.label(play, '▶ Play');
       play.classList.remove('on');
       playhead = -1; paintAll();
     }

@@ -275,7 +275,8 @@ src/theory.js           T = pitch/scale/chord maths · A = synth, drum voices, l
 src/mixer.js            MIXER = one gain/pan/send strip per channel, with mute and solo
 src/instruments.js      eight pitched presets and three drum kits, written as data
 src/rack.js             RACK = the channel rack, its project and its MIDI export
-src/scenes.js           V = one WebGL canvas with four swappable instruments + both palettes
+src/icons.js            ICONS = one inline SVG sprite; decorates '▶ Play'-style labels
+src/scenes.js           V = one WebGL canvas: four instruments, the Today path, effects, both palettes
 src/ui.js               UI = control builders · APP = nav, rendering, progress, mode, theme
 src/practice.js         PRACTICE = hear it / name it / build it, and the record of what you missed
 src/mastery.js          MASTERY = mastery scores, review dates, the day's workout, the streak
@@ -288,6 +289,7 @@ src/simple-level1.js    SIMPLE text for lessons 1–11
 src/simple-level2.js    SIMPLE text for lessons 12–22
 docs/UX-BENCHMARK.md    how this compares with Yousician, Simply Piano, flowkey, Melodics et al
 docs/STUDIO-PLAN.md     design for the channel rack and the three-step Make a Track chapter
+docs/UI-AUDIT.md        visual and interaction audit, with Three.js specs for the 3D changes
 docs/SOURCES.md         conventions, references, corrections log
 docs/                   README screenshots
 ```

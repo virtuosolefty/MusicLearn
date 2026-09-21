@@ -41,7 +41,7 @@
   <div class="scrim" id="scrim"></div>
 
   <main id="main">
-    <section class="stage" id="stage">
+    <section class="stage booting" id="stage">
       <canvas id="gl" aria-hidden="true"></canvas>
       <div class="flat" id="flat" hidden></div>
       <div class="hud">
@@ -49,11 +49,11 @@
         <div class="readout mono" id="readout" role="status" aria-live="polite">ready</div>
       </div>
       <div class="stage-foot">
-        <button class="b menu-btn" id="menuBtn" aria-expanded="false">☰ Lessons</button>
+        <button class="b menu-btn" id="menuBtn" aria-expanded="false"><svg class="i" aria-hidden="true"><use href="#i-menu"/></svg><span>Lessons</span></button>
         <div class="ctl" id="stageCtl"></div>
         <button class="b flat-btn" id="flatBtn" type="button" aria-pressed="false">Flat view</button>
         <button class="b set-btn" id="setBtn" type="button" aria-expanded="false"
-                aria-haspopup="true" title="Reading level and theme">Aa</button>
+                aria-haspopup="true" title="Reading level and theme"><svg class="i" aria-hidden="true"><use href="#i-settings"/></svg><span>Display</span></button>
         <div class="setpop" id="setPop" role="dialog" aria-label="Display settings" hidden></div>
         <span class="hint" id="stageHint"></span>
       </div>
@@ -68,6 +68,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>if(!window.THREE){document.write('<scr'+'ipt src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/scr'+'ipt>')}</script>
+<script src="src/icons.js"></script>
 <script src="src/sync.js"></script>
 <script src="src/theory.js"></script>
 <script src="src/mixer.js"></script>

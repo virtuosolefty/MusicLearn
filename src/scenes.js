@@ -154,11 +154,17 @@ const V = (() => {
     { color, roughness:0.52, metalness:0.12 }, o || {}));
 
   /* ── boot ────────────────────────────────────────────────── */
+  /* If Three.js loaded but this device cannot give it a WebGL context, the
+     instruments are still built — just never drawn — so the flat view, which
+     mirrors them as buttons, keeps working. mount() returns false then. */
+  let headless = false;
   function mount(canvas, h) {
     cvs = canvas; hooks = Object.assign(hooks, h || {});
     ray = new THREE.Raycaster(); ptr = new THREE.Vector2();
-    renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
-    renderer.setClearColor(C.clear, 1);
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false });
+      renderer.setClearColor(C.clear, 1);
+    } catch (e) { renderer = null; headless = true; }
     scene = new THREE.Scene();
     scene.fog = new THREE.Fog(C.fog, 26, 62);
     camera = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
@@ -186,10 +192,12 @@ const V = (() => {
     const pool = new THREE.Mesh(new THREE.PlaneGeometry(46, 30), poolMat);
     pool.rotation.x = -Math.PI / 2; pool.position.set(0, -2.55, 0); scene.add(pool);
 
+    if (headless) return false;
     bindPointer();
     resize();
     window.addEventListener('resize', resize);
     running = true; last = performance.now(); requestAnimationFrame(tick);
+    return true;
   }
   function resize() {
     if (!renderer) return;
@@ -205,8 +213,11 @@ const V = (() => {
   function fit(bw, bh) {
     const a = (W / H) || 1.6;
     orb.bw = bw; orb.bh = bh;
-    const rh = bh / 0.768, rw = bw / (0.768 * a);
-    orb.r = Math.max(rh, rw) * 1.08;
+    /* views declare a generous height; trimming it lets a wide stage frame the
+       instrument across ~80% of its width instead of a narrow middle band.
+       A narrow (phone) stage is width-limited and is not affected. */
+    const rh = bh * 0.74 / 0.768, rw = bw / (0.768 * a);
+    orb.r = Math.max(rh, rw) * (rw >= rh ? 1.06 : 1.02);
     orb.rMin = orb.r * 0.45; orb.rMax = orb.r * 2.6;
   }
   function placeCam() {
@@ -230,6 +241,7 @@ const V = (() => {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (orb.auto) orb.th += orb.auto * dt;
     if (current && current.update) current.update(dt, now / 1000);
+    FX.update(dt);
     placeCam();
     renderer.render(scene, camera);
     requestAnimationFrame(tick);
@@ -287,6 +299,218 @@ const V = (() => {
     const hit = cast(p)[0];
     current.onHover(hit);
   }
+
+  /* ═══════════════════ FX · feedback that moves ═══════════════════
+     One pool of sparks, one of confetti, four rings and a pool of falling
+     note bars — all allocated once, the first time they are needed, and
+     recycled for the life of the page. Nothing here is created per press.
+
+     Sparks are additive in the dark theme and plain in the light one:
+     additive light on a near-white floor is invisible. */
+  const FX = (() => {
+    const NS = 192, NC = 120, NR = 4, NF = 48;
+    let sparks = null, conf = null, falls = null, rings = [], built = false;
+    const S = { life:new Float32Array(NS), max:new Float32Array(NS),
+                p:new Float32Array(NS * 3), v:new Float32Array(NS * 3), sz:new Float32Array(NS) };
+    const Q = { life:new Float32Array(NC), max:new Float32Array(NC),
+                p:new Float32Array(NC * 3), v:new Float32Array(NC * 3),
+                r:new Float32Array(NC * 3), w:new Float32Array(NC * 3) };
+    const F = { land:new Float64Array(NF), start:new Float64Array(NF), x:new Float32Array(NF),
+                z:new Float32Array(NF), y:new Float32Array(NF), wd:new Float32Array(NF), on:new Uint8Array(NF) };
+    let sNext = 0, qNext = 0, fNext = 0;
+    /* made on first use: this module has to load even when Three.js did not */
+    let m4, q4, e3, p3, s3, col;
+    let mq = null;
+    const reduced = () => {
+      try { mq = mq || window.matchMedia('(prefers-reduced-motion: reduce)'); return mq.matches; }
+      catch (e) { return false; }
+    };
+    function softDot() {
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,.7)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(c);
+    }
+    const hide = (mesh, i) => { m4.makeScale(0, 0, 0); mesh.setMatrixAt(i, m4); };
+    function build() {
+      if (built || !scene) return;
+      built = true;
+      m4 = new THREE.Matrix4(); q4 = new THREE.Quaternion(); e3 = new THREE.Euler();
+      p3 = new THREE.Vector3(); s3 = new THREE.Vector3(); col = new THREE.Color();
+      sparks = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({ map:softDot(), transparent:true, depthWrite:false, fog:false }), NS);
+      conf = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.16, 0.26),
+        new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, transparent:true, fog:false }), NC);
+      falls = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1),
+        new THREE.MeshBasicMaterial({ transparent:true, opacity:0.9, fog:false }), NF);
+      [sparks, conf, falls].forEach((m, k) => {
+        m.frustumCulled = false;
+        if (m.instanceMatrix.setUsage) m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        const n = k === 0 ? NS : k === 1 ? NC : NF;
+        for (let i = 0; i < n; i++) { hide(m, i); m.setColorAt(i, col.setHex(0xFFFFFF)); }
+        m.instanceMatrix.needsUpdate = true;
+        if (m.instanceColor) m.instanceColor.needsUpdate = true;
+        scene.add(m);
+      });
+      for (let i = 0; i < NR; i++) {
+        const r = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 56),
+          new THREE.MeshBasicMaterial({ transparent:true, opacity:0, depthWrite:false,
+                                        side:THREE.DoubleSide, fog:false }));
+        r.rotation.x = -Math.PI / 2; r.visible = false; r.userData = { t:0, max:0 };
+        scene.add(r); rings.push(r);
+      }
+      restyle();
+    }
+    function restyle() {
+      if (!sparks) return;
+      sparks.material.blending = C.poolAdd ? THREE.AdditiveBlending : THREE.NormalBlending;
+      sparks.material.needsUpdate = true;
+    }
+    const TONE = () => ({ good:C.accent, bad:C.amber,
+                          none:C.poolAdd ? 0xDFFFEF : C.mint });
+
+    /* a burst of sparks rising from a point */
+    function burst(at, tone, n) {
+      if (reduced() || !scene) return;
+      build();
+      const c = TONE()[tone || 'none'] || TONE().none;
+      n = Math.min(24, n || 14);
+      for (let k = 0; k < n; k++) {
+        const i = sNext; sNext = (sNext + 1) % NS;
+        const a = Math.random() * Math.PI * 2, sp = 0.6 + Math.random() * 1.6, up = 1.8 + Math.random() * 2.2;
+        S.p[i * 3] = at.x; S.p[i * 3 + 1] = at.y; S.p[i * 3 + 2] = at.z;
+        S.v[i * 3] = Math.cos(a) * sp; S.v[i * 3 + 1] = up; S.v[i * 3 + 2] = Math.sin(a) * sp;
+        S.max[i] = 0.34 + Math.random() * 0.16; S.life[i] = S.max[i];
+        S.sz[i] = 0.16 + Math.random() * 0.16;
+        sparks.setColorAt(i, col.setHex(c));
+      }
+      if (sparks.instanceColor) sparks.instanceColor.needsUpdate = true;
+    }
+    /* confetti over the whole stage; `size` scales with the milestone */
+    function confetti(size) {
+      if (reduced() || !scene) return;
+      build();
+      const n = size === 'huge' ? 120 : size === 'large' ? 80 : 44;
+      const pal = [C.accent, C.amber, C.sky, C.mint];
+      const cx = orb.tgt.x, cy = orb.tgt.y, cz = orb.tgt.z;
+      for (let k = 0; k < n; k++) {
+        const i = qNext; qNext = (qNext + 1) % NC;
+        const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3.2;
+        Q.p[i * 3] = cx + (Math.random() - 0.5) * 2; Q.p[i * 3 + 1] = cy - 0.5; Q.p[i * 3 + 2] = cz + (Math.random() - 0.5) * 2;
+        Q.v[i * 3] = Math.cos(a) * sp; Q.v[i * 3 + 1] = 5 + Math.random() * 4; Q.v[i * 3 + 2] = Math.sin(a) * sp;
+        for (let j = 0; j < 3; j++) { Q.r[i * 3 + j] = Math.random() * 6.28; Q.w[i * 3 + j] = (Math.random() - 0.5) * 14; }
+        Q.max[i] = 1.4 + Math.random() * 0.4; Q.life[i] = Q.max[i];
+        conf.setColorAt(i, col.setHex(pal[k % pal.length]));
+      }
+      if (conf.instanceColor) conf.instanceColor.needsUpdate = true;
+    }
+    /* a flat ring that widens and fades — "that was right", drawn on the floor
+       of the instrument rather than only in the text below it */
+    function ring(at, tone) {
+      if (!scene) return;
+      build();
+      const r = rings.find(x => !x.visible) || rings[0];
+      r.position.set(at.x, at.y, at.z);
+      r.material.color.setHex(TONE()[tone || 'good']);
+      r.userData.t = 0; r.userData.max = reduced() ? 0.3 : 0.52;
+      r.visible = true;
+    }
+    /* a bar that falls onto a key and lands exactly when the note sounds */
+    const FALL_SPEED = 7, FALL_TOP = 7.5;
+    function fall(x, y, z, wd, inMs, colour) {
+      if (reduced() || !scene) return;
+      build();
+      const i = fNext; fNext = (fNext + 1) % NF;
+      const now = performance.now();
+      F.land[i] = now + inMs; F.start[i] = F.land[i] - (FALL_TOP / FALL_SPEED) * 1000;
+      F.x[i] = x; F.y[i] = y; F.z[i] = z; F.wd[i] = wd; F.on[i] = 1;
+      falls.setColorAt(i, col.setHex(colour || C.accent));
+      if (falls.instanceColor) falls.instanceColor.needsUpdate = true;
+    }
+
+    function update(dt) {
+      if (!built) return;
+      let dirty = false;
+      /* sparks: billboards, slight gravity, shrink as they fade */
+      q4.copy(camera.quaternion);
+      for (let i = 0; i < NS; i++) {
+        if (S.life[i] <= 0) continue;
+        S.life[i] -= dt; dirty = true;
+        if (S.life[i] <= 0) { hide(sparks, i); continue; }
+        S.v[i * 3 + 1] -= 6.5 * dt;
+        S.p[i * 3] += S.v[i * 3] * dt; S.p[i * 3 + 1] += S.v[i * 3 + 1] * dt; S.p[i * 3 + 2] += S.v[i * 3 + 2] * dt;
+        const k = S.life[i] / S.max[i], z = S.sz[i] * (0.4 + 0.6 * k);
+        p3.set(S.p[i * 3], S.p[i * 3 + 1], S.p[i * 3 + 2]); s3.set(z, z, z);
+        m4.compose(p3, q4, s3); sparks.setMatrixAt(i, m4);
+      }
+      if (dirty) sparks.instanceMatrix.needsUpdate = true;
+      /* confetti: tumble, gravity, a little drag */
+      dirty = false;
+      for (let i = 0; i < NC; i++) {
+        if (Q.life[i] <= 0) continue;
+        Q.life[i] -= dt; dirty = true;
+        if (Q.life[i] <= 0) { hide(conf, i); continue; }
+        Q.v[i * 3 + 1] -= 9 * dt;
+        for (let j = 0; j < 3; j++) { Q.v[i * 3 + j] *= (1 - 0.9 * dt); Q.p[i * 3 + j] += Q.v[i * 3 + j] * dt; Q.r[i * 3 + j] += Q.w[i * 3 + j] * dt; }
+        const k = Math.min(1, Q.life[i] / 0.35);
+        e3.set(Q.r[i * 3], Q.r[i * 3 + 1], Q.r[i * 3 + 2]); q4.setFromEuler(e3);
+        p3.set(Q.p[i * 3], Q.p[i * 3 + 1], Q.p[i * 3 + 2]); s3.set(k, k, k);
+        m4.compose(p3, q4, s3); conf.setMatrixAt(i, m4);
+      }
+      if (dirty) conf.instanceMatrix.needsUpdate = true;
+      /* rings */
+      rings.forEach(r => {
+        if (!r.visible) return;
+        const u = r.userData; u.t += dt;
+        const k = Math.min(1, u.t / u.max), e = 1 - Math.pow(1 - k, 3);
+        const rad = 0.2 + 2.2 * e;
+        r.scale.set(rad, rad, rad);
+        r.material.opacity = 0.75 * (1 - k);
+        if (k >= 1) r.visible = false;
+      });
+      /* falling bars */
+      dirty = false;
+      const now = performance.now();
+      for (let i = 0; i < NF; i++) {
+        if (!F.on[i]) continue;
+        dirty = true;
+        if (now >= F.land[i]) { F.on[i] = 0; hide(falls, i); continue; }
+        if (now < F.start[i]) { hide(falls, i); continue; }
+        const h = 0.7, y = F.y[i] + h / 2 + FALL_SPEED * (F.land[i] - now) / 1000;
+        q4.identity(); p3.set(F.x[i], y, F.z[i]); s3.set(F.wd[i], h, 0.9);
+        m4.compose(p3, q4, s3); falls.setMatrixAt(i, m4);
+      }
+      if (dirty) falls.instanceMatrix.needsUpdate = true;
+    }
+    /* the rings belong to the scene, not a view, so clear any mid-flight
+       effect when the instrument changes underneath it */
+    function clear() {
+      if (!built) return;
+      S.life.fill(0); Q.life.fill(0); F.on.fill(0);
+      for (let i = 0; i < NS; i++) hide(sparks, i);
+      for (let i = 0; i < NC; i++) hide(conf, i);
+      for (let i = 0; i < NF; i++) hide(falls, i);
+      sparks.instanceMatrix.needsUpdate = conf.instanceMatrix.needsUpdate = falls.instanceMatrix.needsUpdate = true;
+      rings.forEach(r => { r.visible = false; });
+    }
+    return { burst, confetti, ring, fall, update, clear, restyle, reduced };
+  })();
+
+  /* a spring that dips fast and settles without wobble: critically damped,
+     stepped in small slices so a slow frame cannot make it overshoot */
+  const SPRING_K = 420, SPRING_D = 2 * Math.sqrt(SPRING_K);
+  function springStep(o, target, dt) {
+    let t = dt;
+    while (t > 0) {
+      const h = Math.min(t, 1 / 240);
+      o.vy += (SPRING_K * (target - o.off) - SPRING_D * o.vy) * h;
+      o.off += o.vy * h;
+      t -= h;
+    }
+  }
+  const tmpV = () => new THREE.Vector3();
 
   /* ═══════════════════ VIEW 1 · KEYBOARD ═══════════════════ */
   function KeyView(cfg) {
@@ -354,18 +578,32 @@ const V = (() => {
         sprites.add(sp);
       });
     }
+    /* paint() decides what a key IS (its role, its resting place); update()
+       layers what it is DOING on top (a press, a glow) without losing that */
     function paint() {
       keys.forEach((k, m) => {
         const role = marks.get(m);
         const col = role ? ROLE[role] || C.violet : k.base;
         k.mesh.material.color.setHex(col);
-        k.mesh.material.emissive.setHex(role && role !== 'ghost' ? col : 0x000000);
+        k.baseEm = role && role !== 'ghost' ? col : 0x000000;
         const ei = role === 'root' ? 0.55 : (role === 'scale' || role === 'ghost') ? 0.14 : 0.35;
-        k.mesh.material.emissiveIntensity = role ? ei * C.emiss : 0;
-        k.mesh.position.y = (k.white ? 0 : 0.24) + (role ? -0.03 : 0);
+        k.baseEI = role ? ei * C.emiss : 0;
+        k.baseY = (k.white ? 0 : 0.24) + (role ? -0.03 : 0);
+        if (!active.has(m)) {
+          k.mesh.material.emissive.setHex(k.baseEm);
+          k.mesh.material.emissiveIntensity = k.baseEI;
+          k.mesh.position.y = k.baseY;
+        }
       });
       drawLabels();
     }
+    const active = new Set();       /* keys mid-press or still glowing */
+    let judgeFn = null;             /* practice rounds say which presses were wanted */
+    const topOf = k => {
+      const v = tmpV(); k.mesh.getWorldPosition(v);
+      v.y += k.white ? 0.2 : 0.26; v.z += k.white ? 1.2 : 0.4;
+      return v;
+    };
     const api = {
       group:g,
       get pickables() { return Array.from(keys.values()).map(k => k.mesh); },
@@ -397,13 +635,65 @@ const V = (() => {
                  groups:[{ name:'Keys, low to high', items }] };
       },
       onKey(cb) { onKeyCb = cb; return api; },
-      press(m, dur) {
+      /* A press has weight: the key dips on a spring, glows and lets the glow
+         go over ~350ms, and throws a few sparks. In a practice round's build
+         step the sparks say whether that note was one of the wanted ones. */
+      press(m, dur, opt) {
         const k = keys.get(m); if (!k) return;
-        const y0 = k.white ? 0 : 0.24;
-        k.mesh.position.y = y0 - 0.11;
-        k.mesh.material.emissive.setHex(0xFFFFFF);
-        k.mesh.material.emissiveIntensity = 0.6;
-        setTimeout(() => { if (keys.has(m)) paint(); }, dur || 260);
+        opt = opt || {};
+        const vel = opt.vel == null ? 0.8 : Math.max(0, Math.min(1, opt.vel));
+        const still = FX.reduced();
+        if (k.off == null) { k.off = 0; k.vy = 0; }
+        k.dip = still ? 0 : 0.06 + 0.06 * vel;
+        k.hold = (dur || 220) / 1000;
+        k.glow = 0.9;
+        const tone = opt.tone || (judgeFn ? judgeFn(m) : null);
+        k.glowCol = tone === 'good' ? C.accent : tone === 'bad' ? C.amber : 0xFFFFFF;
+        active.add(m);
+        if (!still && opt.sparks !== false) FX.burst(topOf(k), tone, 10 + Math.round(6 * vel));
+      },
+      update(dt) {
+        active.forEach(m => {
+          const k = keys.get(m);
+          if (!k) { active.delete(m); return; }
+          k.hold -= dt;
+          springStep(k, k.hold > 0 ? -k.dip : 0, dt);
+          k.glow *= Math.pow(0.001, dt / 0.35);
+          k.mesh.position.y = k.baseY + k.off;
+          if (k.glow > 0.03) {
+            k.mesh.material.emissive.setHex(k.glowCol);
+            k.mesh.material.emissiveIntensity = Math.max(k.baseEI, k.glow * (C.poolAdd ? 1 : 0.7));
+          } else {
+            k.mesh.material.emissive.setHex(k.baseEm);
+            k.mesh.material.emissiveIntensity = k.baseEI;
+          }
+          if (k.hold <= 0 && Math.abs(k.off) < 0.0008 && Math.abs(k.vy) < 0.01 && k.glow <= 0.03) {
+            k.off = 0; k.vy = 0; k.mesh.position.y = k.baseY;
+            k.mesh.material.emissive.setHex(k.baseEm);
+            k.mesh.material.emissiveIntensity = k.baseEI;
+            active.delete(m);
+          }
+        });
+      },
+      /* fn(midi) -> 'good' | 'bad' | null, or null to stop judging */
+      judge(fn) { judgeFn = typeof fn === 'function' ? fn : null; return api; },
+      /* where on the instrument a set of notes sits — for the ring under a
+         right answer. No notes: the middle of the keyboard. */
+      spot(list) {
+        const ks = (list || []).map(m => keys.get(m)).filter(Boolean);
+        const v = tmpV();
+        if (!ks.length) { v.set(0, 0.25, 0.2); g.localToWorld(v); return v; }
+        ks.forEach(k => { const w = tmpV(); k.mesh.getWorldPosition(w); v.add(w); });
+        v.multiplyScalar(1 / ks.length); v.y = 0.25;
+        return v;
+      },
+      /* drop a bar onto a key so it lands exactly as the note plays */
+      fall(m, inMs, role) {
+        const k = keys.get(m); if (!k) return api;
+        const w = tmpV(); k.mesh.getWorldPosition(w);
+        FX.fall(w.x, w.y + (k.white ? 0.17 : 0.21), w.z + (k.white ? 0.6 : 0.2),
+                k.white ? 0.62 : 0.44, Math.max(0, inMs || 0), ROLE[role || 'root'] || C.accent);
+        return api;
       },
       clear() { marks.clear(); paint(); return api; },
       mark(m, role) { marks.set(m, role || 'chord'); return api; },
@@ -475,6 +765,8 @@ const V = (() => {
 
   /* ═══════════════════ VIEW 2 · STEP GRID ═══════════════════ */
   function GridView(cfg) {
+    const lit = new Set();
+    let judgeCell = null;
     cfg = Object.assign({ steps:16, lanes:[{ name:'Kick', kind:'kick' }], group:4 }, cfg);
     const g = new THREE.Group(); root.add(g);
     const cells = [];            // [lane][step] = mesh
@@ -531,8 +823,12 @@ const V = (() => {
         const base = strong === 1 ? C.slateHi : C.slate;
         const col = v ? laneCol[l % laneCol.length] : base;
         m.material.color.setHex(col);
-        m.material.emissive.setHex(v ? col : 0x000000);
-        m.material.emissiveIntensity = v === 2 ? 0.6 : v ? 0.3 : 0;
+        m.userData.baseEm = v ? col : 0x000000;
+        m.userData.baseEI = v === 2 ? 0.6 : v ? 0.3 : 0;
+        if (!(m.userData.glow > 0.03)) {
+          m.material.emissive.setHex(m.userData.baseEm);
+          m.material.emissiveIntensity = m.userData.baseEI;
+        }
         const hy = heights ? 0.18 + heights[s] * 0.5 : (v === 2 ? 0.7 : v ? 0.42 : 0.18);
         m.scale.y = hy / 0.18;
         m.position.y = hy / 2 - 0.09;
@@ -547,6 +843,11 @@ const V = (() => {
       },
       tapCell(l, s) {
         api.toggle(l, s);
+        const m = cells[l] && cells[l][s];
+        if (m && state[l][s]) {
+          const v = tmpV(); m.getWorldPosition(v); v.y += 0.4;
+          FX.burst(v, judgeCell ? judgeCell(l, s) : null, 10);
+        }
         if (onCellCb) onCellCb(l, s, state[l][s]);
         taps.forEach(f => f(l, s, state[l][s]));
         return api;
@@ -577,11 +878,27 @@ const V = (() => {
       grouping(n) { cfg.group = n; drawNums(); paint(); return api; },
       /* per-step emphasis 0..1, drawn as cell height — the metric accent map */
       accents(arr) { heights = arr; paint(); return api; },
+      /* playback: a flash that lets go, rather than one that switches off */
       hit(l, s) {
         const m = cells[l] && cells[l][s]; if (!m) return api;
-        m.material.emissive.setHex(0xFFFFFF); m.material.emissiveIntensity = 0.9;
-        setTimeout(() => paint(), 140); return api;
+        m.userData.glow = 0.9; lit.add(m);
+        return api;
       },
+      update(dt) {
+        lit.forEach(m => {
+          m.userData.glow *= Math.pow(0.001, dt / 0.3);
+          if (m.userData.glow > 0.03) {
+            m.material.emissive.setHex(0xFFFFFF);
+            m.material.emissiveIntensity = Math.max(m.userData.baseEI || 0, m.userData.glow);
+          } else {
+            m.userData.glow = 0;
+            m.material.emissive.setHex(m.userData.baseEm || 0);
+            m.material.emissiveIntensity = m.userData.baseEI || 0;
+            lit.delete(m);
+          }
+        });
+      },
+      judge(fn) { judgeCell = typeof fn === 'function' ? fn : null; return api; },
       playhead(s) {
         head = s;
         playhead.visible = s >= 0;
@@ -657,6 +974,8 @@ const V = (() => {
       tapTile(idx, ring) {
         if (ring === 'maj') sel = idx;
         paint();
+        const m = (ring === 'maj' ? outer : inner)[idx];
+        if (m) { const v = tmpV(); m.getWorldPosition(v); v.y += 0.4; FX.burst(v, null, 12); }
         if (onTileCb) onTileCb(idx, ring);
         return api;
       },
@@ -810,6 +1129,11 @@ const V = (() => {
         const i = noteList.findIndex(n => n.step === step && n.midi === midi);
         if (i >= 0) noteList.splice(i, 1); else noteList.push({ step, midi, len:1 });
         drawNotes();
+        const r = rows.indexOf(midi);
+        if (i < 0 && r >= 0) {
+          const v = tmpV(); v.set(x0() + step * sx, 0.35, rowZ(r)); g.localToWorld(v);
+          FX.burst(v, null, 10);
+        }
         if (onCellCb) onCellCb(step, midi, i < 0);
         taps.forEach(f => f(step, midi, i < 0));
         return api;
@@ -871,8 +1195,132 @@ const V = (() => {
     return api;
   }
 
+  /* ═══════════════ VIEW 5 · THE PATH (Today) ═══════════════
+     Every lesson as a node on a rising spiral, grouped by stage. Progress
+     as a shape you can read from across the room: dim and small for not
+     started, lit for done, bigger and brighter with mastery, an amber ring
+     when something is due, and a gentle pulse on the next one. Tap a node
+     to open that lesson. Everything is read from progress the app already
+     keeps; nothing new is recorded. */
+  function PathView(cfg) {
+    const g = new THREE.Group(); root.add(g);
+    let data = [], onNodeCb = null, stageNames = [];
+    const N = Math.max(1, cfg.count || 26);
+    const R = 5.2, TURNS = 1.15, RISE = 3.4;
+    const at = i => {
+      const t = N > 1 ? i / (N - 1) : 0, a = -Math.PI * 0.55 + t * Math.PI * 2 * TURNS;
+      return new THREE.Vector3(Math.cos(a) * R, -0.9 + t * RISE, Math.sin(a) * R * 0.78);
+    };
+    const pts = []; for (let i = 0; i < N; i++) pts.push(at(i));
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 200, 0.045, 6, false),
+      new THREE.MeshBasicMaterial({ color:C.post, transparent:true, opacity:0.75 }));
+    g.add(tube);
+
+    const nodes = new THREE.InstancedMesh(new THREE.SphereGeometry(0.3, 18, 14),
+      mat(0xFFFFFF, { roughness:0.35, metalness:0.05 }), N);
+    nodes.frustumCulled = false;
+    const halo = new THREE.InstancedMesh(new THREE.TorusGeometry(0.52, 0.045, 8, 36),
+      new THREE.MeshBasicMaterial({ color:C.amber }), N);
+    halo.frustumCulled = false;
+    g.add(nodes); g.add(halo);
+    const glow = new THREE.PointLight(C.accent, 0, 6); g.add(glow);
+    const labels = new THREE.Group(); g.add(labels);
+
+    const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), s3 = new THREE.Vector3(),
+          e3 = new THREE.Euler(Math.PI / 2, 0, 0), col = new THREE.Color();
+    let pulseI = -1, t = 0;
+    const sizeOf = d => !d ? 0.7 : d.done ? 0.95 + 0.3 * (d.mastery || 0) :
+      d.mastery != null ? 0.8 + 0.25 * d.mastery : 0.7;
+    function place() {
+      for (let i = 0; i < N; i++) {
+        const d = data[i], z = sizeOf(d) * (i === pulseI ? 1 + 0.07 * Math.sin(t * Math.PI * 2 / 1.8) : 1);
+        s3.set(z, z, z); q4.identity(); m4.compose(pts[i], q4, s3); nodes.setMatrixAt(i, m4);
+        const h = d && d.due ? z : 0;
+        q4.setFromEuler(e3); s3.set(h, h, h); m4.compose(pts[i], q4, s3); halo.setMatrixAt(i, m4);
+      }
+      nodes.instanceMatrix.needsUpdate = true; halo.instanceMatrix.needsUpdate = true;
+    }
+    function paint() {
+      for (let i = 0; i < N; i++) {
+        const d = data[i] || {};
+        let c;
+        if (d.done) c = col.setHex(C.accent).lerp(new THREE.Color(C.mint), 1 - (d.mastery || 0) * 0.6);
+        else if (i === pulseI) c = col.setHex(C.sky);
+        else if (d.mastery != null) c = col.setHex(C.post).lerp(new THREE.Color(C.accent), d.mastery * 0.6);
+        else c = col.setHex(C.poolAdd ? C.post : C.grid);
+        nodes.setColorAt(i, c);
+      }
+      if (nodes.instanceColor) nodes.instanceColor.needsUpdate = true;
+      if (pulseI >= 0) { glow.position.copy(pts[pulseI]); glow.position.y += 0.6; glow.intensity = C.poolAdd ? 1.6 : 0.8; }
+      else glow.intensity = 0;
+      place();
+    }
+    function drawLabels() {
+      disposeDeep(labels);
+      stageNames.forEach(sn => {
+        if (sn.first < 0 || sn.first >= N) return;
+        const sp = label(sn.name, { h:0.38, color:C.lab2, weight:600 });
+        const p = pts[sn.first].clone(); p.y += 0.7;
+        sp.position.copy(p); labels.add(sp);
+      });
+    }
+
+    orb.tgt.set(0, 0.8, 0);
+    orb.th = 0.35; orb.ph = 1.02;
+    /* a slow drift, one turn in about ninety seconds — unless the learner
+       has asked for less motion */
+    orb.auto = FX.reduced() ? 0 : (Math.PI * 2) / 90;
+    fit(2 * R + 3, 2 * R * 0.78 + RISE + 1.2);
+
+    const api = {
+      group:g,
+      get pickables() { return [nodes]; },
+      onPick(hit) {
+        const i = hit && hit.instanceId;
+        if (i != null && onNodeCb) onNodeCb(i);
+      },
+      onHover(hit) { if (cvs) cvs.style.cursor = hit && hit.instanceId != null ? 'pointer' : ''; },
+      /* list: [{ title, part, done, mastery (0..1 or null), due, next }] */
+      nodes(list, stages) {
+        data = list || [];
+        pulseI = data.findIndex(d => d && d.next);
+        stageNames = stages || [];
+        paint(); drawLabels();
+        return api;
+      },
+      onNode(cb) { onNodeCb = cb; return api; },
+      update(dt) {
+        t += dt;
+        if (pulseI >= 0 && !FX.reduced()) place();
+      },
+      a11y() {
+        const groups = [];
+        stageNames.forEach((sn, k) => {
+          const end = k + 1 < stageNames.length ? stageNames[k + 1].first : N;
+          const items = [];
+          for (let i = sn.first; i < end; i++) {
+            const d = data[i] || {};
+            const state = d.done ? 'done' : d.next ? 'next up' : 'not started';
+            items.push({ label:String(i + 1),
+              aria:'Lesson ' + (i + 1) + ', ' + (d.title || '') + ', ' + state + (d.due ? ', due for review' : ''),
+              pressed:!!d.done, act:() => { if (onNodeCb) onNodeCb(i); } });
+          }
+          if (items.length) groups.push({ name:sn.name, items });
+        });
+        return { title:'Your path', shape:'path', groups };
+      },
+      dispose() {
+        orb.auto = 0;
+        if (cvs) cvs.style.cursor = '';
+        disposeDeep(g); root.remove(g);
+      }
+    };
+    return api;
+  }
+
   /* ── switcher ────────────────────────────────────────────── */
-  const KINDS = { keys:KeyView, grid:GridView, wheel:WheelView, roll:RollView };
+  const KINDS = { keys:KeyView, grid:GridView, wheel:WheelView, roll:RollView, path:PathView };
   /* if WebGL or the library is unavailable, hand back something harmless
      so the written lessons and their audio still work */
   const STUB = typeof Proxy === 'function' ? new Proxy({}, { get(t, k) {
@@ -897,11 +1345,15 @@ const V = (() => {
     }, 0);
   }
   /* wrap a view so its own chaining still works, but every call pings */
+  /* called every frame or purely visual: pinging on these would resync the
+     accessible panel sixty times a second for nothing */
+  const SILENT = { update:1, fall:1, spot:1, judge:1, glowCell:1 };
   function watch(api) {
     if (typeof Proxy !== 'function') return api;
     const p = new Proxy(api, { get(t, k) {
       const v = t[k];
       if (typeof v !== 'function') return v;
+      if (SILENT[k]) return v.bind(t);
       return function () {
         const r = v.apply(t, arguments);
         ping();
@@ -911,8 +1363,9 @@ const V = (() => {
     return p;
   }
   function set(kind, cfg) {
-    if (!renderer) return STUB;
+    if (!scene) return STUB;
     if (current && current.dispose) current.dispose();
+    FX.clear();
     current = watch(KINDS[kind](cfg || {}));
     return current;
   }
@@ -937,14 +1390,25 @@ const V = (() => {
     if (lightKey) { lightKey.color.setHex(C.keyC); lightKey.intensity = C.keyI; }
     if (lightFill) { lightFill.color.setHex(C.fillC); lightFill.intensity = C.fillI; }
     if (lightRim) { lightRim.color.setHex(C.accent); lightRim.intensity = C.rimI; }
+    FX.restyle();
   }
   const a11y = () => (current && current.a11y) ? current.a11y() : null;
   /* several things follow the instrument: the accessible panel, and whatever
      is offering to save or undo what is on it */
   const onPaint = cb => { watchers.push(cb); };
   const clearPaint = () => { watchers = []; };
-  return { mount, set, label, setTheme, a11y, onPaint, clearPaint, setPaused,
+  /* effects the page can ask for directly: a ring under a right answer,
+     confetti for a milestone */
+  const fx = {
+    ring(list, tone) { if (!renderer || !current) return;
+      const at = current.spot ? current.spot(list) : new THREE.Vector3(orb.tgt.x, 0.2, orb.tgt.z);
+      FX.ring(at, tone); },
+    confetti(size) { if (renderer && !paused) FX.confetti(size); },
+    get reduced() { return FX.reduced(); }
+  };
+  return { mount, set, label, setTheme, a11y, onPaint, clearPaint, setPaused, fx,
            get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
+           get headless() { return headless; },
            get orbit() { return orb; }, resize };
 })();

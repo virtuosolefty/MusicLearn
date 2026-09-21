@@ -216,7 +216,7 @@ const PRACTICE = (() => {
     const maker = () => MAKERS[cur.kind];
     if (queue ? !queue.length : !MAKERS[cfg.kind]) return wrap;
 
-    let q = null, stage = 'hear', tapped = [], listener = null, identifiedOk = null;
+    let q = null, stage = 'hear', tapped = [], listener = null, identifiedOk = null, pending = null;
     /* the learner's own beat, put back the moment the exercise is over — a
        practice round must not quietly overwrite what they were working on */
     let borrowedLane = null;
@@ -246,6 +246,7 @@ const PRACTICE = (() => {
     const stopListening = () => {
       if (listener && ctx.v.unlisten) ctx.v.unlisten(listener);
       listener = null;
+      if (ctx.v && ctx.v.judge) ctx.v.judge(null);
     };
     const giveLaneBack = () => {
       if (!borrowedLane) return;
@@ -271,11 +272,17 @@ const PRACTICE = (() => {
           note.textContent = tapped.length + ' tapped';
         };
         ctx.v.listen(listener);
+        /* each press answers straight away — green if that note belongs,
+           amber if not — so the check at the end is never the first news */
+        const norm = m => b.exact ? m : T.pc(m);
+        const wanted = b.expect.map(norm);
+        if (ctx.v.judge) ctx.v.judge(m => wanted.indexOf(norm(m)) >= 0 ? 'good' : 'bad');
       }
       if (b.mode === 'grid') {
         const row = (ctx.v.state[b.lane] || []).slice();
         if (!borrowedLane) borrowedLane = { lane:b.lane, row };
         ctx.v.pattern(b.lane, row.map(() => 0));    /* an empty lane to work in */
+        if (ctx.v.judge) ctx.v.judge((l, s) => l !== b.lane ? null : b.expect[s] ? 'good' : 'bad');
       }
       const check = UI.btn('Check my answer', () => finish(judgeBuild()), { primary:true });
       const again = UI.btn('Start over', () => startBuild());
@@ -310,11 +317,16 @@ const PRACTICE = (() => {
       if (ctx.score) ctx.score(ok);
       if (cfg.onResult) cfg.onResult(ok, q, cur);
       verdict.hidden = false;
+      const tick = (on, word) => '<span class="verdict ' + (on ? 'good' : 'bad') + '">' +
+        (typeof ICONS !== 'undefined' ? ICONS.inline(on ? 'check' : 'cross')
+                                      : (on ? '\u2713' : '\u2717')) + '<span>' + word + '</span></span>';
+      verdict.classList.toggle('good', ok);
+      verdict.classList.toggle('bad', !ok);
       verdict.innerHTML =
-        (identifiedOk ? '✓ named it' : '✗ named it') + ' · ' +
-        (builtOk ? '✓ built it' : '✗ built it') +
-        '<br>' + q.why +
-        (builtOk ? '' : '<br>' + hint());
+        '<span class="say">' + tick(identifiedOk, 'named it') + ' &nbsp; ' + tick(builtOk, 'built it') + '</span>' +
+        q.why + (builtOk ? '' : '<br>' + hint());
+      if (ctx.chime) ctx.chime(ok);
+      if (ok && typeof V !== 'undefined' && V.fx) V.fx.ring(q.build.mode === 'keys' ? q.build.expect : null, 'good');
       if (q.build.mode === 'keys') {
         ctx.v.clear().marks(q.build.expect, 'chord').mark(q.build.from, 'root').apply();
       }
@@ -351,7 +363,10 @@ const PRACTICE = (() => {
             c.disabled = true;
             if (c.textContent === q.answer) c.classList.add('right');
             if (c === b && !identifiedOk) c.classList.add('wrong');
+            if (c === b) c.classList.add('picked');
+            if (c !== b && c.textContent === q.answer) c.classList.add('reveal');
           });
+          if (ctx.chime) ctx.chime(identifiedOk);
           ctx.later(() => startBuild(), 450);
         });
         answers.appendChild(b);
@@ -365,7 +380,12 @@ const PRACTICE = (() => {
       if (queue) {
         if (at >= queue.length) { if (cfg.onDone) cfg.onDone(); return; }
         cur = queued(queue[at++]);
-        if (cfg.onStage) cfg.onStage(cur);       /* the concept's own instrument */
+        /* the concept's own instrument — though a page that has its own use
+           for the stage (Today's path) keeps it until the round is begun */
+        if (cfg.onStage) {
+          if (cfg.lazyStage && at === 1) pending = cur;
+          else cfg.onStage(cur);
+        }
       }
       if (!maker()) { if (cfg.onDone) cfg.onDone(); return; }
       q = maker()(cur, cur.only);
@@ -379,6 +399,7 @@ const PRACTICE = (() => {
                   (cur.only ? 'the one you missed, with different notes.' : '')
                 : 'Listen first — you only need your ears for this part.');
       const hear = UI.btn('🔊 Hear it', () => {
+        if (pending) { const p = pending; pending = null; cfg.onStage(p); }
         playQ();
         if (stage === 'hear') ctx.later(() => showAnswers(), 300);
       }, { primary:true });

@@ -497,7 +497,10 @@ LESSONS.push({
     ctx.setScale = v => { type = v; ctx.keep('type', v); paint(); ctx.run(); };
     ctx.run = () => {
       const ns = T.scaleNotes(root, type).concat([root + 12]);
-      ns.forEach((m, i) => ctx.later(() => { A.note(m, .45); ctx.v.press(m); }, i * 200));
+      ns.forEach((m, i) => {
+        if (ctx.v.fall) ctx.v.fall(m, i * 200);
+        ctx.later(() => { A.note(m, .45); ctx.v.press(m); }, i * 200);
+      });
     };
     ctx.cadence = () => {
       const V = type === 'minor' ? [55,58,62] : [55,59,62,65];

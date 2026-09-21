@@ -41,7 +41,7 @@ const FLAT = (() => {
   /* what the a11y descriptor last looked like — a rebuild is only needed when
      the instrument itself changes shape */
   let host = null, built = '', cells = [];
-  const DRAWS = { keys:keyboard, grid:grid, roll:roll };
+  const DRAWS = { keys:keyboard, grid:grid, roll:roll, path:path };
   /* whether the instrument currently on the stage is one this can draw */
   function supports() {
     const d = V.a11y && V.a11y();
@@ -97,6 +97,31 @@ const FLAT = (() => {
         b.setAttribute('aria-pressed', it.pressed ? 'true' : 'false');
         b.appendChild(el('span', 'fs-num', it.downbeat ? String(it.beat) : ''));
         b.addEventListener('pointerdown', e => { e.preventDefault(); A.resume(); it.act(); });
+        steps.appendChild(b);
+        cells.push({ node:b, g:gi, i });
+      });
+      row.appendChild(steps);
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
+  /* Today's path, face-on: one row per stage, one numbered button per
+     lesson, lit when it is done. Tapping opens the lesson. */
+  function path(d) {
+    const wrap = el('div', 'flat-grid flat-path');
+    d.groups.forEach((g, gi) => {
+      const row = el('div', 'flat-lane');
+      row.appendChild(el('span', 'flat-lane-name', g.name));
+      const steps = el('div', 'flat-steps');
+      steps.style.setProperty('--cols', Math.max(4, g.items.length));
+      g.items.forEach((it, i) => {
+        const b = el('button', 'fs');
+        b.type = 'button';
+        b.setAttribute('aria-label', it.aria);
+        b.setAttribute('aria-pressed', it.pressed ? 'true' : 'false');
+        b.appendChild(el('span', 'fs-num', it.label));
+        b.addEventListener('click', () => it.act());
         steps.appendChild(b);
         cells.push({ node:b, g:gi, i });
       });
