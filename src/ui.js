@@ -195,6 +195,14 @@ const APP = (() => {
     hb.title = 'Your streak, what is due, and the day\u2019s practice';
     hb.addEventListener('click', () => { openHome(); closeRail(); });
     nav.appendChild(hb);
+    if (typeof RACK !== 'undefined') {
+      const sb = UI.el('button', 'studio-item');
+      sb.type = 'button';
+      sb.innerHTML = '<span class="num">\u25A6</span><span>Studio</span><span class="tick"></span>';
+      sb.title = 'A channel rack of your own \u2014 build a beat, mix it, export it';
+      sb.addEventListener('click', () => { openStudio(); closeRail(); });
+      nav.appendChild(sb);
+    }
     let seen = null;
     LESSONS.forEach((L, i) => {
       const key = L.part || L.level;
@@ -301,6 +309,8 @@ const APP = (() => {
   /* Reset the stage and hand back the object every lesson — and the review —
      talks to it through. */
   function openStage(L) {
+    document.body.classList.remove('no-stage');
+    if (rackOn && rackOn.stop) { try { rackOn.stop(); } catch (e) {} rackOn = null; }
     leaving.forEach(fn => { try { fn(); } catch (e) {} });
     leaving = [];
     clearTimers(); transport.stop();
@@ -311,6 +321,13 @@ const APP = (() => {
     $('#readout').textContent = 'loading…';
 
     const v = V.set(L.stage.view, L.stage.cfg || {});
+    /* An instrument on the stage should sound when it is pressed. A lesson
+       replaces this in init() with something that knows what the press means;
+       a page with no lesson behind it — the first run, Today, the review, a
+       practice round's "now build it" — keeps it, and stays audible. It does
+       not touch the readout, because on those pages the readout is carrying
+       the question. */
+    if (v && typeof v.onKey === 'function') v.onKey(m => { A.resume(); A.note(m); });
     const ctx = {
       v, L, T, A, UI, transport, later,
       read: t => { $('#readout').textContent = t; },
@@ -818,6 +835,49 @@ const APP = (() => {
     ctx.syncA11y();
   }
 
+  /* ── Studio: the rack, with nothing between you and it ────────
+     The 3D stage is hidden here. A channel rack is a control surface and it
+     wants the whole screen — on a phone especially, where the stage was
+     taking 38% of it. */
+  let rackOn = null;
+  function renderStudio() {
+    clearTimers(); transport.stop();
+    if (rackOn && rackOn.stop) { try { rackOn.stop(); } catch (e) {} }
+    document.body.classList.add('no-stage');
+    $('#hudTag').textContent = 'Studio';
+    $('#stageHint').textContent = '';
+
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap wide');
+    w.appendChild(UI.html('div', 'crumb', '<b>Studio</b> &nbsp;·&nbsp; your own beat'));
+    w.appendChild(UI.html('h2', null, 'The channel rack'));
+    w.appendChild(UI.html('p', 'lede',
+      'Rows are instruments, columns are time — the same picture a drum machine, ' +
+      'FL Studio and a piece of squared paper all show you. Tap a box once for a hit, ' +
+      'twice for an accent, a third time to clear it.'));
+
+    const say = UI.html('p', 'small studio-say', 'four bars · press play');
+    w.appendChild(say);
+
+    const host = UI.el('div');
+    w.appendChild(host);
+    w.appendChild(UI.html('p', 'small',
+      'Levels, pan, mute and solo are a real mixer: each row has its own strip, so turning ' +
+      'the hat down turns down the hat and nothing else. Export writes a named track for every ' +
+      'part you used, which is what a DAW expects to open.'));
+    w.appendChild(footNote(false));
+    art.appendChild(w);
+
+    rackOn = RACK.build(host, { onSay: t => { say.textContent = t; } });
+
+    document.querySelectorAll('#nav button').forEach(b =>
+      b.setAttribute('aria-current', b.classList.contains('studio-item') ? 'true' : 'false'));
+    $('#main').scrollTop = 0;
+    progress();
+    try { location.hash = 'studio'; } catch (e) {}
+  }
+
   /* ── First run: three questions, each of which changes something ──────
      Every app in this category asks before it shows. These are the only three
      answers that actually steer anything here, so they are the only three
@@ -847,7 +907,14 @@ const APP = (() => {
                 hint:'Three questions, then you are in',
                 stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } } };
     const ctx = openStage(L);
+    /* the readout makes a promise, so the keyboard has to keep it: a lesson
+       wires its own keys in init(), and this page has no lesson behind it */
     ctx.read('press a key \u2014 it already works');
+    ctx.v.onKey(m => {
+      A.resume();
+      A.note(m);
+      ctx.read(T.fullName(m) + '  \u00b7  press another');
+    });
 
     let pick = { start:ENTRY[0].id, mode:'simple', minutes:10 };
     const art = $('#console');
@@ -1209,8 +1276,10 @@ const APP = (() => {
   let page = 'lesson';
   function openReview() { page = 'review'; renderReview(); closeRail(); }
   function openHome() { page = 'home'; renderHome(); }
+  function openStudio() { page = 'studio'; renderStudio(); }
   function draw() {
-    if (page === 'home') renderHome();
+    if (page === 'studio') renderStudio();
+    else if (page === 'home') renderHome();
     else if (page === 'review') renderReview();
     else if (page === 'intake') renderIntake();
     else render();
@@ -1253,6 +1322,12 @@ const APP = (() => {
     });
     disarm();
   }
+  const toggleRail = () => {
+    const open = $('#rail').dataset.open !== 'true';
+    $('#rail').dataset.open = open ? 'true' : 'false';
+    $('#scrim').dataset.open = open ? 'true' : 'false';
+    $('#menuBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
   const closeRail = () => {
     $('#rail').dataset.open = 'false';
     $('#scrim').dataset.open = 'false';
@@ -1287,16 +1362,12 @@ const APP = (() => {
     idx = at >= 0 ? at : nextLesson();
     /* A link straight to a lesson opens that lesson. Otherwise: the three
        questions on a first visit, and Home every time after that. */
-    if (at >= 0) { page = 'lesson'; render(); }
+    if (hash === 'studio' && typeof RACK !== 'undefined') openStudio();
+    else if (at >= 0) { page = 'lesson'; render(); }
     else if (!asked && !Object.keys(done).length) { page = 'intake'; renderIntake(); }
     else openHome();
 
-    $('#menuBtn').addEventListener('click', () => {
-      const open = $('#rail').dataset.open !== 'true';
-      $('#rail').dataset.open = open ? 'true' : 'false';
-      $('#scrim').dataset.open = open ? 'true' : 'false';
-      $('#menuBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
+    $('#menuBtn').addEventListener('click', toggleRail);
     $('#scrim').addEventListener('click', closeRail);
     const rb = $('#reviewBtn');
     if (rb) rb.addEventListener('click', () => { A.resume(); openReview(); });
@@ -1339,6 +1410,6 @@ const APP = (() => {
       el.textContent = 'Saving to your local server' + (SYNC.user ? ' \u00B7 ' + SYNC.user.name : '');
     }
   }
-  return { boot, go, home:openHome, review:openReview, qKey, rehydrate,
+  return { boot, go, home:openHome, review:openReview, studio:openStudio, qKey, rehydrate,
            get idx() { return idx; } };
 })();

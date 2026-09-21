@@ -7,3 +7,6 @@ dist/artifact.html
 
 # the local server's records — one learner's own data, not source
 server/data/
+
+# patch files handed over from a chat session — applied, never committed
+claude-patches/

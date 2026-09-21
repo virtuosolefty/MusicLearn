@@ -95,6 +95,9 @@ const theory = read('src/theory.js');
 const uiSrc = read('src/ui.js');
 const practiceSrc = read('src/practice.js');
 const masterySrc = read('src/mastery.js');
+const mixerSrc = read('src/mixer.js');
+const instrSrc = read('src/instruments.js');
+const rackSrc = read('src/rack.js');
 const studioSrc = read('src/studio.js');
 const flatSrc = read('src/flat.js');
 const scenesSrc = read('src/scenes.js');
@@ -104,7 +107,16 @@ const lessonSrc = ['src/lessons-level1.js','src/lessons-level2.js','src/lessons-
                    'src/curriculum.js'].map(read).join('\n');
 
 const heard = [];            /* every pitch the audio engine was asked to play */
+const KIT_MOCK = {
+  kick:{ from:155, to:48, sweep:0.11, gain:0.9, tail:0.1, tailV:0.15 },
+  snare:{ len:0.16, hp:1400, decay:2, gain:0.5 },
+  clap:{ len:0.20, hp:1100, decay:1.4, gain:0.42 },
+  hat:{ len:0.045, hp:7000, decay:1.2, gain:0.22 }
+};
 const Amock = {
+  KIT:KIT_MOCK,
+  PLUCK:{ oscs:[['triangle', 0.55, 0], ['sine', 0.34, -1200], ['sawtooth', 0.12, 4]] },
+  PAD:{ oscs:[['sawtooth', 0.30, 0], ['sawtooth', 0.22, 7], ['triangle', 0.34, -1200]] },
   resume:() => {}, now:() => 0, init:() => {},
   note:(m) => heard.push(m),
   chord:(ms) => ms.forEach(m => heard.push(m)),
@@ -122,9 +134,10 @@ const Vmock = { set:(kind, cfg) => {
 
 const sandbox = new Function('A', 'V', 'document', 'window', 'localStorage',
   theory.replace(/^const A = \(\(\)[\s\S]*$/m, '') + '\n' +
-  uiSrc + '\n' + practiceSrc + '\n' + masterySrc + '\n' + studioSrc + '\n' + flatSrc + '\n' + lessonSrc +
-  '\nreturn { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY };');
-const { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY } =
+  mixerSrc + '\n' + instrSrc + '\n' +
+  uiSrc + '\n' + practiceSrc + '\n' + masterySrc + '\n' + studioSrc + '\n' + rackSrc + '\n' + flatSrc + '\n' + lessonSrc +
+  '\nreturn { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY, MIXER, INSTRUMENTS, RACK };');
+const { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY, MIXER, INSTRUMENTS, RACK } =
   sandbox(Amock, Vmock, global.document, global.window, global.localStorage);
 PRACTICE.plan(LESSONS);
 
@@ -718,6 +731,137 @@ head('Practice answers notify the page');
   PRACTICE.record('chords', 'chord', 'maj', 'major triad', false);
   eq(seen, 2, 'a wrong one does too \u2014 that is what un-ticks nothing and re-queues it');
   PRACTICE.clear();
+}
+
+/* ═══ An instrument on the stage is never silent ═══════════════ */
+head('Pressing a key makes a sound on every page');
+{
+  const src = read('src/ui.js');
+  const open = /function openStage\(L\)[\s\S]*?\n  \}/.exec(src);
+  ok(!!open, 'openStage is where every page gets its instrument');
+  ok(open && /v\.onKey\(/.test(open[0]) && /A\.note\(/.test(open[0]),
+     'and it wires a default key handler there, so a page with no lesson behind it ' +
+     '\u2014 the first run, Today, the review, a practice build step \u2014 still sounds');
+  ok(open && /typeof v\.onKey === 'function'/.test(open[0]),
+     'guarded, because the grid and the wheel have no keys to press');
+
+  /* and a lesson must be able to take it over, or its own key meaning is lost */
+  let wired = 0;
+  LESSONS.forEach(L => { if (L.stage.view === 'keys') wired++; });
+  ok(wired > 0, wired + ' lessons put a keyboard on the stage');
+  ok(/onKey\(cb\) \{ onKeyCb = cb;/.test(read('src/scenes.js')),
+     'onKey replaces rather than adds, so a lesson overrides the default in init()');
+
+  const intake = /function renderIntake\(\)[\s\S]*?\n  \}/.exec(src);
+  ok(intake && /ctx\.v\.onKey\(/.test(intake[0]),
+     'the first screen overrides it again, because its readout promises the keys work');
+}
+
+/* ═══ The studio: presets, the rack, and what it exports ═══════ */
+head('Instrument presets');
+{
+  const ids = INSTRUMENTS.PRESETS.map(p => p.id);
+  eq(new Set(ids).size, ids.length, 'every preset id is unique');
+  eq(ids.length, 8, 'eight of them \u2014 enough to change the genre, few enough to audition');
+  const roles = INSTRUMENTS.ROLES.map(r => r.id);
+  let bad = 0;
+  INSTRUMENTS.PRESETS.forEach(p => {
+    if (!p.name || !p.why) bad++;
+    if (roles.indexOf(p.role) < 0) bad++;
+    const v = p.voice || {};
+    if (!(v.oscs || []).length || typeof v.atk !== 'number' ||
+        typeof v.rel !== 'function' || typeof v.open !== 'function' ||
+        typeof v.close !== 'function' || typeof v.q !== 'number') bad++;
+    if (!(p.vol > 0 && p.vol <= 1.4)) bad++;
+  });
+  eq(bad, 0, 'each one names itself, says what it is for, and is a playable voice');
+  roles.forEach(r => ok(r === 'drums' || INSTRUMENTS.byRole(r).length > 0,
+    'role "' + r + '" has at least one preset'));
+
+  /* the regression that matters: the two voices the 26 lessons already use */
+  eq(JSON.stringify(INSTRUMENTS.byId('pluck').voice.oscs), JSON.stringify(Amock.PLUCK.oscs),
+     'the pluck preset is the voice every lesson already plays, note for note');
+  eq(JSON.stringify(INSTRUMENTS.byId('pad').voice.oscs), JSON.stringify(Amock.PAD.oscs),
+     'and the pad preset is the chord voice, unchanged');
+  ok(INSTRUMENTS.kitById('acoustic').kit === Amock.KIT,
+     'the default kit is literally the kit object the lessons were written with');
+
+  /* the mock above is only as good as its agreement with the real engine, so
+     check the two files against each other rather than against my typing */
+  {
+    const eng = read('src/theory.js'), ins = read('src/instruments.js');
+    const grab = (src, name) => {
+      const m = new RegExp('const ' + name + ' = \\{\\s*oscs:(\\[[^\\n]*\\]),').exec(src);
+      return m ? m[1] : null;
+    };
+    ['PLUCK', 'PAD'].forEach(name => {
+      const spec = grab(eng, name);
+      ok(!!spec, 'the engine declares its ' + name + ' voice as data');
+      if (spec) ok(ins.indexOf('oscs:' + spec) >= 0,
+        'and instruments.js carries that exact ' + name + ' spec \u2014 the preset cannot drift ' +
+        'from the voice 26 lessons are already using');
+    });
+    ok(eng.indexOf('const KIT = {') >= 0 && ins.indexOf('kit:A.KIT') >= 0,
+       'the acoustic kit is referenced, not copied, so it cannot drift either');
+  }
+  eq(INSTRUMENTS.KITS.length, 3, 'three kits');
+  let kbad = 0;
+  INSTRUMENTS.KITS.forEach(k => INSTRUMENTS.PARTS.forEach(part => {
+    if (!k.kit[part]) kbad++;
+  }));
+  eq(kbad, 0, 'and every kit has all four parts, so switching never goes silent');
+}
+
+head('The channel rack');
+{
+  const p = RACK.blank('four-to-the-floor');
+  eq(p.channels.length, 4, 'four drum channels');
+  eq(p.bars, RACK.BARS, 'four bars');
+  let shape = 0;
+  p.channels.forEach(c => {
+    if (c.steps.length !== RACK.BARS) shape++;
+    c.steps.forEach(bar => { if (bar.length !== RACK.STEPS) shape++; });
+    if (c.on.length !== RACK.BARS) shape++;
+  });
+  eq(shape, 0, 'every channel is bars \u00d7 16, with a per-bar on switch');
+
+  /* starter patterns: an empty grid is where beginners stop */
+  let pbad = 0;
+  Object.keys(RACK.PATTERNS).forEach(id => {
+    const pat = RACK.PATTERNS[id];
+    if (!pat.name || !pat.why) pbad++;
+    RACK.PARTS.forEach(d => {
+      const row = pat[d.part];
+      if (!Array.isArray(row)) pbad++;
+      else if (row.length && row.length !== RACK.STEPS) pbad++;
+      else if (row.some(v => v < 0 || v > 2)) pbad++;
+    });
+  });
+  eq(pbad, 0, 'every starter pattern covers all four parts at 16 steps');
+  ok(RACK.PATTERNS['four-to-the-floor'].kick.filter(Boolean).length === 4,
+     'four to the floor is, in fact, four kicks');
+  eq(RACK.VEL.length, 3, 'a step is off, a hit, or an accent');
+  ok(RACK.VEL[2] > RACK.VEL[1] && RACK.VEL[1] > RACK.VEL[0], 'and an accent is the loud one');
+}
+
+head('Exporting a beat');
+{
+  const p = RACK.blank('boom-bap');
+  const bytes = RACK.toMidi(p);
+  ok(!!bytes && bytes.length > 60, 'a project exports to a MIDI file');
+  eq(String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]), 'MThd', 'with a real header');
+  eq((bytes[8] << 8) | bytes[9], 1, 'format 1 \u2014 separate tracks');
+  const used = RACK.PARTS.filter(d =>
+    p.channels.filter(c => c.part === d.part)[0].steps.some(b => b.some(Boolean))).length;
+  eq((bytes[10] << 8) | bytes[11], used + 1, 'one track per part that plays, plus tempo');
+
+  /* silence exports nothing rather than an empty file that opens as one bar */
+  const quiet = RACK.blank('empty');
+  eq(RACK.toMidi(quiet), null, 'an empty project exports nothing at all');
+
+  /* and the single-track writer still works, because lessons use it */
+  const one = STUDIO.midi([{ note:60, t:0, dur:240, vel:100 }], { bpm:100 });
+  eq((one[10] << 8) | one[11], 2, 'the one-track export is untouched: tempo plus one');
 }
 
 console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));

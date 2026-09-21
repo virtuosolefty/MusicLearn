@@ -40,17 +40,38 @@ const STUDIO = (() => {
     return out.concat([0, 0xFF, 0x2F, 0x00]);
   }
 
+  function tempoTrack(opt) {
+    const bpm = Math.max(20, Math.min(300, Math.round(opt.bpm || 100)));
+    const us = Math.round(60000000 / bpm);
+    return [0, 0xFF, 0x51, 0x03, (us >> 16) & 255, (us >> 8) & 255, us & 255]
+      .concat([0, 0xFF, 0x58, 0x04, 4, 2, 24, 8],          /* 4/4 */
+              [0, 0xFF, 0x2F, 0x00]);
+  }
+
+  /* A whole project: one track per instrument, which is what a DAW expects to
+     see when it opens the file \u2014 four named tracks it can drop on four
+     channels, rather than one lump you have to split by hand.
+     tracks: [{ name, ch, notes:[{note, t, dur, vel}] }]; ch 9 is GM drums. */
+  function midiMulti(tracks, opt) {
+    opt = opt || {};
+    const live = (tracks || []).filter(t => t && (t.notes || []).length);
+    if (!live.length) return null;
+    const n = live.length + 1;
+    const head = [0, 1, (n >> 8) & 255, n & 255, (PPQ >> 8) & 255, PPQ & 255];
+    let bytes = chunk('MThd', head).concat(chunk('MTrk', tempoTrack(opt)));
+    live.forEach((t, i) => {
+      bytes = bytes.concat(chunk('MTrk',
+        trackBytes(t.notes, t.name || ('Track ' + (i + 1)), t.ch == null ? i : t.ch)));
+    });
+    return new Uint8Array(bytes);
+  }
+
   /* notes: [{note, t, dur, vel}] in ticks. ch 9 is the GM drum channel. */
   function midi(notes, opt) {
     opt = opt || {};
-    const bpm = Math.max(20, Math.min(300, Math.round(opt.bpm || 100)));
-    const us = Math.round(60000000 / bpm);
-    const tempo = [0, 0xFF, 0x51, 0x03, (us >> 16) & 255, (us >> 8) & 255, us & 255]
-      .concat([0, 0xFF, 0x58, 0x04, 4, 2, 24, 8],          /* 4/4 */
-              [0, 0xFF, 0x2F, 0x00]);
     const head = [0, 1, 0, 2, (PPQ >> 8) & 255, PPQ & 255];  /* format 1, 2 tracks */
     const bytes = chunk('MThd', head)
-      .concat(chunk('MTrk', tempo))
+      .concat(chunk('MTrk', tempoTrack(opt)))
       .concat(chunk('MTrk', trackBytes(notes, opt.name || 'Producer Theory Lab', opt.ch || 0)));
     return new Uint8Array(bytes);
   }
@@ -277,7 +298,7 @@ const STUDIO = (() => {
     return wrap;
   }
 
-  return { build, midi, download, canDownload, notesFrom, history, put, drop, forLesson,
+  return { build, midi, midiMulti, download, canDownload, notesFrom, history, put, drop, forLesson,
            reload:loadSaves, DRUM, PPQ,
            get saves() { return saves; } };
 })();

@@ -572,6 +572,108 @@ button.b:disabled{opacity:.75;cursor:default}
 .foot.mini > summary span{color:var(--accent-2);text-decoration:underline}
 .foot.mini > div{padding-bottom:8px}
 
+/* ── Studio: the channel rack ──────────────────────────────── */
+body.no-stage .stage{display:none}
+body.no-stage .a11y{display:none}
+
+.studio-say{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--accent-2);
+  background:var(--accent-soft);border:1px solid var(--accent-line);
+  border-radius:var(--radius-sm);padding:7px 10px;margin:0 0 14px;
+}
+.rack{margin:4px 0 18px}
+.rack-head{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.rack-head .ctl{margin:0}
+.rack-bars{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.rack-bars .lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);
+  font-family:"Bricolage Grotesque",sans-serif}
+.barbtn{
+  width:34px;height:34px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel);color:var(--text-2);cursor:pointer;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;
+}
+.barbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
+.rack-grid{
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--panel-2);
+  overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+}
+.rack-row{
+  display:flex;align-items:center;gap:10px;padding:7px 10px;
+  border-bottom:1px solid var(--line-soft);min-width:max-content;
+}
+.rack-row:last-child{border-bottom:0}
+.rack-row.quiet{opacity:.45}
+
+.rack-name{
+  position:sticky;left:0;z-index:2;background:var(--panel-2);
+  display:flex;align-items:center;gap:6px;padding-right:8px;min-width:132px;
+}
+.rack-row.quiet .rack-name{background:var(--panel-2)}
+.dot{
+  width:13px;height:13px;border-radius:50%;padding:0;cursor:pointer;
+  border:1px solid var(--accent);background:var(--accent);flex:none;
+}
+.dot.off{background:transparent;border-color:var(--line-2)}
+.solo{
+  width:22px;height:22px;border-radius:6px;padding:0;cursor:pointer;flex:none;
+  border:1px solid var(--line);background:var(--panel);color:var(--muted);
+  font-family:"Bricolage Grotesque",sans-serif;font-size:10.5px;font-weight:700;
+}
+.solo.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-2)}
+.rack-label{
+  border:0;background:none;cursor:pointer;padding:2px 0;text-align:left;
+  font-family:"Bricolage Grotesque",sans-serif;font-size:13px;font-weight:600;color:var(--text);
+}
+.rack-label:hover{color:var(--accent-2)}
+
+.mini{display:flex;align-items:center;gap:6px}
+.mini span{font-size:10px;color:var(--muted);font-family:"IBM Plex Mono",monospace;
+  text-transform:uppercase;letter-spacing:.08em;min-width:34px}
+.mini input[type=range]{width:88px}
+
+.rack-mix{
+  margin:12px 0 0;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--panel-2);overflow:hidden;
+}
+.rack-mix > summary{
+  list-style:none;cursor:pointer;padding:11px 15px;display:flex;align-items:center;gap:10px;
+  font-family:"Bricolage Grotesque",sans-serif;font-size:12.5px;font-weight:600;color:var(--text-2);
+  min-height:44px;box-sizing:border-box;
+}
+.rack-mix > summary::-webkit-details-marker{display:none}
+.rack-mix > summary::before{content:"\25B8";color:var(--accent);font-size:11px}
+.rack-mix[open] > summary::before{content:"\25BE"}
+.mixbody{padding:2px 15px 14px;border-top:1px solid var(--line-soft);
+  display:flex;flex-direction:column;gap:9px}
+.mixrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mixrow b{font-size:12.5px;min-width:64px;color:var(--text)}
+
+.rack-steps{display:flex;gap:3px;flex:none}
+.step{
+  width:26px;height:30px;border-radius:6px;padding:0;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel-3);
+}
+.step.beat{border-color:var(--line-2)}
+.step.on{background:var(--accent-soft);border-color:var(--accent)}
+.step.accent{background:var(--accent);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-2)}
+.step.now{outline:2px solid var(--text);outline-offset:1px}
+.step:hover{border-color:var(--accent)}
+
+.rack-foot{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 10px}
+.rack-foot .ctl{margin:0}
+
+@media (max-width:760px){
+  .rack-name{min-width:104px}
+  .step{width:26px;height:34px}
+  .mini input[type=range]{width:74px}
+  .mixrow b{min-width:52px}
+}
+
+/* the rack needs more than the 660px reading column, where there is room */
+.wrap.wide{max-width:980px}
+@media (max-width:1040px){ .wrap.wide{max-width:660px} }
+
 </style>
 </head>
 <body>
@@ -1087,32 +1189,49 @@ const A = (() => {
   const resume = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); return ctx; };
   const now = () => (ctx ? ctx.currentTime : 0);
 
-  /* One plucked / held synth voice. */
+  /* The two voices this app has always had, now written down rather than
+     branched on. `pluck` is every melodic demonstration; `pad` is every chord.
+     The numbers are unchanged \u2014 INSTRUMENTS adds more of these, it does not
+     alter these two. */
+  const PLUCK = {
+    oscs:[['triangle', 0.55, 0], ['sine', 0.34, -1200], ['sawtooth', 0.12, 4]],
+    atk:0.012, rel:dur => Math.min(0.5, dur * 0.7),
+    open:f => Math.min(9000, f * 7 + 700), close:f => Math.max(400, f * 2.2), q:0.9
+  };
+  const PAD = {
+    oscs:[['sawtooth', 0.30, 0], ['sawtooth', 0.22, 7], ['triangle', 0.34, -1200]],
+    atk:0.09, rel:() => 0.55,
+    open:f => Math.min(9000, f * 7 + 700), close:f => Math.max(400, f * 2.2), q:0.9
+  };
+
+  /* One plucked / held synth voice.
+     `opt.voice` picks a timbre (see INSTRUMENTS); `opt.out` sends it to a mixer
+     strip instead of straight to master, in which case the strip owns the
+     reverb send and this voice does not make its own. */
   function note(midi, dur = 0.6, opt = {}) {
     if (!resume()) return;
     const t0 = opt.when != null ? opt.when : ctx.currentTime + 0.01;
     const f = T.freq(midi), g = ctx.createGain(), lp = ctx.createBiquadFilter();
     const vol = (opt.gain != null ? opt.gain : 1) * 0.5;
-    lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(Math.min(9000, f * 7 + 700), t0);
-    lp.frequency.exponentialRampToValueAtTime(Math.max(400, f * 2.2), t0 + dur * 0.85);
-    lp.Q.value = 0.9;
-    const oscs = [];
-    const spec = opt.pad
-      ? [['sawtooth', 0.30, 0], ['sawtooth', 0.22, 7], ['triangle', 0.34, -1200]]
-      : [['triangle', 0.55, 0], ['sine', 0.34, -1200], ['sawtooth', 0.12, 4]];
-    spec.forEach(([type, amp, det]) => {
+    const V = opt.voice || (opt.pad ? PAD : PLUCK);
+    lp.type = V.type || 'lowpass';
+    lp.frequency.setValueAtTime(V.open(f), t0);
+    lp.frequency.exponentialRampToValueAtTime(V.close(f), t0 + dur * 0.85);
+    lp.Q.value = V.q;
+    V.oscs.forEach(([type, amp, det]) => {
       const o = ctx.createOscillator(), og = ctx.createGain();
       o.type = type; o.frequency.value = f; o.detune.value = det;
       og.gain.value = amp; o.connect(og); og.connect(lp);
-      o.start(t0); o.stop(t0 + dur + 0.6); oscs.push(o);
+      o.start(t0); o.stop(t0 + dur + 0.6);
     });
-    const atk = opt.pad ? 0.09 : 0.012, rel = opt.pad ? 0.55 : Math.min(0.5, dur * 0.7);
+    const atk = V.atk, rel = V.rel(dur);
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(vol, t0 + atk);
-    g.gain.exponentialRampToValueAtTime(vol * 0.62, t0 + atk + 0.14);
+    g.gain.exponentialRampToValueAtTime(vol * (V.sus == null ? 0.62 : V.sus), t0 + atk + 0.14);
     g.gain.setTargetAtTime(0.0001, t0 + dur, rel / 3.2);
-    lp.connect(g); g.connect(master);
+    lp.connect(g);
+    if (opt.out) { g.connect(opt.out); return; }
+    g.connect(master);
     const s = ctx.createGain(); s.gain.value = opt.wet != null ? opt.wet : 0.5;
     g.connect(s); s.connect(verb);
   }
@@ -1127,37 +1246,50 @@ const A = (() => {
   /* Percussive click for the metronome / grid. */
   /* `vel` is 0..1 and scales the hit the way MIDI velocity would: quieter,
      and — because real drums do this — a little duller as it softens. */
-  function click(kind = 'weak', when, vel) {
+  /* The default kit \u2014 the exact numbers this app has always used, so no
+     existing lesson changes. INSTRUMENTS.KITS supplies alternatives. */
+  const KIT = {
+    kick:{ from:155, to:48, sweep:0.11, gain:0.9, tail:0.1, tailV:0.15 },
+    snare:{ len:0.16, hp:1400, decay:2, gain:0.5 },
+    clap:{ len:0.20, hp:1100, decay:1.4, gain:0.42 },
+    hat:{ len:0.045, hp:7000, decay:1.2, gain:0.22 }
+  };
+  function click(kind = 'weak', when, vel, opt) {
     if (!resume()) return;
+    opt = opt || {};
     const t0 = when != null ? when : ctx.currentTime + 0.01;
     const v = vel == null ? 1 : Math.max(0.04, Math.min(1, vel));
+    const kit = opt.kit || KIT;
+    const dest = opt.out || master;
+    const part = kit[kind] || KIT[kind];
     if (kind === 'kick') {
       const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.setValueAtTime(155, t0);
-      o.frequency.exponentialRampToValueAtTime(48, t0 + 0.11);
-      g.gain.setValueAtTime(0.9 * v, t0);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1 + 0.15 * v);
-      o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.3); return;
+      o.frequency.setValueAtTime(part.from, t0);
+      o.frequency.exponentialRampToValueAtTime(part.to, t0 + part.sweep);
+      g.gain.setValueAtTime(part.gain * v, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + part.tail + part.tailV * v);
+      o.connect(g); g.connect(dest); o.start(t0); o.stop(t0 + 0.4); return;
     }
-    if (kind === 'snare' || kind === 'hat') {
-      const len = (kind === 'snare' ? 0.16 : 0.045) * (0.55 + 0.45 * v);
+    if (kind === 'snare' || kind === 'hat' || kind === 'clap') {
+      const len = part.len * (0.55 + 0.45 * v);
       const b = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
       const d = b.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, kind === 'snare' ? 2 : 1.2);
+      for (let i = 0; i < d.length; i++)
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, part.decay);
       const s = ctx.createBufferSource(); s.buffer = b;
       const hp = ctx.createBiquadFilter(); hp.type = 'highpass';
-      hp.frequency.value = kind === 'snare' ? 1400 : 7000;
+      hp.frequency.value = part.hp;
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
-      lp.frequency.value = 2000 + 12000 * v;          /* soft hits lose their top */
-      const g = ctx.createGain(); g.gain.value = (kind === 'snare' ? 0.5 : 0.22) * v;
-      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); s.start(t0); return;
+      lp.frequency.value = (part.lp || 2000) + 12000 * v;   /* soft hits lose their top */
+      const g = ctx.createGain(); g.gain.value = part.gain * v;
+      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(dest); s.start(t0); return;
     }
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = 'square';
     o.frequency.value = kind === 'strong' ? 1500 : kind === 'mid' ? 1100 : 820;
     const amp = (kind === 'strong' ? 0.3 : kind === 'mid' ? 0.19 : 0.11) * v;
     g.gain.setValueAtTime(amp, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
-    o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.06);
+    o.connect(g); g.connect(dest); o.start(t0); o.stop(t0 + 0.06);
   }
 
   /* Look-ahead step clock: calls cb(stepIndex, audioTime) just before each step. */
@@ -1183,9 +1315,234 @@ const A = (() => {
       stop() { stop(); step = 0; }
     };
   }
-  return { init, resume, now, note, chord, click, transport,
+  return { init, resume, now, note, chord, click, transport, PLUCK, PAD, KIT,
+           /* the two ends of the signal path, for anything building a mixer */
+           get master() { return master; },
+           get verb() { return verb; },
            get ctx() { return ctx; },
            get on() { return ready && ctx && ctx.state === 'running'; } };
+})();
+
+
+/* ── src/mixer.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   MIXER — one strip per instrument.
+
+   Until now every voice in this app connected straight to one master
+   gain, which is why there was never anything to mix. A strip is the
+   smallest thing that makes "turn the bass down" mean something:
+
+       voice → gain → pan → master
+                   └→ send → reverb
+
+   Nothing here changes how the lessons sound. A voice with no strip
+   still goes to master exactly as it always did; strips only exist for
+   what asks for one.
+   ═══════════════════════════════════════════════════════════════ */
+const MIXER = (() => {
+  const strips = {};
+  let built = null;              /* the AudioContext the strips belong to */
+
+  /* A browser without StereoPannerNode still gets level and send; it just
+     cannot place anything left or right. Nothing downstream needs to know. */
+  const canPan = ctx => !!(ctx && typeof ctx.createStereoPanner === 'function');
+
+  function make(id) {
+    const ctx = A.resume();
+    if (!ctx) return null;
+    /* the context is rebuilt only if the page did something drastic; if it is
+       a different one than our nodes came from, every strip is stale */
+    if (built && built !== ctx) { Object.keys(strips).forEach(k => delete strips[k]); }
+    built = ctx;
+    const gain = ctx.createGain();
+    const send = ctx.createGain();
+    let out = gain, pan = null;
+    if (canPan(ctx)) { pan = ctx.createStereoPanner(); gain.connect(pan); out = pan; }
+    out.connect(A.master);
+    gain.connect(send); send.connect(A.verb);
+    send.gain.value = 0;
+    const s = { id, gain, pan, send, vol:0.8, panning:0, mute:false, solo:false };
+    gain.gain.value = s.vol;
+    strips[id] = s;
+    return s;
+  }
+
+  /* The strip for a channel, made on first use. `input` is what a voice
+     connects to — pass it as `out` to A.note / A.click. */
+  function strip(id) {
+    const s = strips[id] || make(id);
+    return s;
+  }
+  const input = id => { const s = strip(id); return s ? s.gain : null; };
+
+  /* Solo is not stored on the strip that is soloed — it is a property of the
+     whole desk: the moment anything is soloed, everything else is down. */
+  const anySolo = () => Object.keys(strips).some(k => strips[k].solo);
+  function audible(s) {
+    if (s.mute) return false;
+    return anySolo() ? s.solo : true;
+  }
+  function apply() {
+    Object.keys(strips).forEach(k => {
+      const s = strips[k];
+      const g = audible(s) ? s.vol : 0;
+      if (s.gain.gain.setTargetAtTime) s.gain.gain.setTargetAtTime(g, A.now(), 0.01);
+      else s.gain.gain.value = g;
+      if (s.pan) s.pan.pan.value = Math.max(-1, Math.min(1, s.panning));
+    });
+  }
+
+  /* Set whatever is given and leave the rest: set('kick', {vol:0.5}) */
+  function set(id, v) {
+    const s = strip(id);
+    if (!s) return null;
+    if (v.vol != null) s.vol = Math.max(0, Math.min(1.4, v.vol));
+    if (v.pan != null) s.panning = Math.max(-1, Math.min(1, v.pan));
+    if (v.mute != null) s.mute = !!v.mute;
+    if (v.solo != null) s.solo = !!v.solo;
+    if (v.send != null) s.send.gain.value = Math.max(0, Math.min(1, v.send));
+    apply();
+    return s;
+  }
+  const get = id => {
+    const s = strips[id];
+    return s ? { id, vol:s.vol, pan:s.panning, mute:s.mute, solo:s.solo,
+                 send:s.send.gain.value, audible:audible(s) } : null;
+  };
+  const ids = () => Object.keys(strips);
+  /* clear the solo state without touching levels — the "listen to everything
+     again" button, which is otherwise a fiddly thing to do by hand */
+  function unsoloAll() { ids().forEach(k => { strips[k].solo = false; }); apply(); }
+  function reset() {
+    ids().forEach(k => {
+      try { strips[k].gain.disconnect(); strips[k].send.disconnect();
+            if (strips[k].pan) strips[k].pan.disconnect(); } catch (e) {}
+      delete strips[k];
+    });
+  }
+
+  return { strip, input, set, get, ids, apply, unsoloAll, reset, audible,
+           get soloing() { return anySolo(); } };
+})();
+
+
+/* ── src/instruments.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   INSTRUMENTS — the sounds you can pick from, written as data.
+
+   Eight pitched presets and three drum kits. Eight is deliberate: enough
+   that the choice changes the genre, few enough that you can audition all
+   of them in a minute. Every one carries a line saying what it is for,
+   because "pick a sound" is useless advice on its own and the reason is
+   the part a theory course can actually teach.
+
+   A preset is numbers, not code. `voice` is handed straight to A.note;
+   `kit` straight to A.click. Adding one means adding a row here.
+   ═══════════════════════════════════════════════════════════════ */
+const INSTRUMENTS = (() => {
+  /* filter shapes, as functions of the note's own frequency — so a preset
+     sounds like itself at the bottom of the keyboard and at the top */
+  const bright = { open:f => Math.min(11000, f * 9 + 1200), close:f => Math.max(600, f * 3.0), q:0.7 };
+  const warm   = { open:f => Math.min(9000, f * 7 + 700),   close:f => Math.max(400, f * 2.2), q:0.9 };
+  const dark   = { open:f => Math.min(2600, f * 4 + 160),   close:f => Math.max(140, f * 1.4), q:1.1 };
+
+  const PRESETS = [
+    /* ── bass ───────────────────────────────────────────────── */
+    { id:'sub', name:'Sub bass', role:'bass',
+      why:'Felt more than heard. One note at a time, low, and never panned.',
+      vol:0.95, pan:0, send:0.02,
+      voice:Object.assign({ oscs:[['sine', 0.95, 0], ['triangle', 0.22, -1200]],
+                            atk:0.008, rel:d => Math.min(0.3, d * 0.5), sus:0.85 }, dark) },
+    { id:'pluckbass', name:'Pluck bass', role:'bass',
+      why:'Short and percussive. Leaves gaps for the kick to sit in.',
+      vol:0.85, pan:0, send:0.05,
+      voice:Object.assign({ oscs:[['sawtooth', 0.45, 0], ['square', 0.25, -1200], ['sine', 0.3, 0]],
+                            atk:0.006, rel:d => Math.min(0.22, d * 0.4), sus:0.35 }, warm) },
+
+    /* ── chords ─────────────────────────────────────────────── */
+    { id:'pad', name:'Warm pad', role:'chords',
+      why:'Slow in, slow out. Fills the space behind everything else.',
+      vol:0.6, pan:0, send:0.35,
+      voice:Object.assign({ oscs:[['sawtooth', 0.30, 0], ['sawtooth', 0.22, 7], ['triangle', 0.34, -1200]],
+                            atk:0.09, rel:() => 0.55, sus:0.62 }, warm) },
+    { id:'keys', name:'Electric keys', role:'chords',
+      why:'Defined enough to carry the harmony on its own.',
+      vol:0.72, pan:0, send:0.18,
+      voice:Object.assign({ oscs:[['sine', 0.6, 0], ['sine', 0.3, 1200], ['triangle', 0.22, 3]],
+                            atk:0.01, rel:d => Math.min(0.6, d * 0.8), sus:0.45 }, bright) },
+
+    /* ── top line ───────────────────────────────────────────── */
+    { id:'pluck', name:'Pluck', role:'top',
+      why:'The app’s default voice. Neutral, clear, sits above the chords.',
+      vol:0.8, pan:0, send:0.2,
+      voice:Object.assign({ oscs:[['triangle', 0.55, 0], ['sine', 0.34, -1200], ['sawtooth', 0.12, 4]],
+                            atk:0.012, rel:d => Math.min(0.5, d * 0.7), sus:0.62 }, warm) },
+    { id:'lead', name:'Square lead', role:'top',
+      why:'Cuts through a busy mix. Use it for one line, not for chords.',
+      vol:0.62, pan:0, send:0.25,
+      voice:Object.assign({ oscs:[['square', 0.4, 0], ['sawtooth', 0.18, 6], ['square', 0.12, -1200]],
+                            atk:0.008, rel:d => Math.min(0.4, d * 0.6), sus:0.7 }, bright) },
+    { id:'bell', name:'Bell', role:'top',
+      why:'Long tail, no body. One note every few bars is usually enough.',
+      vol:0.55, pan:0.15, send:0.45,
+      voice:Object.assign({ oscs:[['sine', 0.7, 0], ['sine', 0.25, 1900], ['sine', 0.12, 2800]],
+                            atk:0.004, rel:d => Math.max(0.6, d), sus:0.25 }, bright) },
+    { id:'organ', name:'Organ', role:'chords',
+      why:'No attack, no decay — it is simply on. Good under a vocal.',
+      vol:0.6, pan:0, send:0.22,
+      voice:Object.assign({ oscs:[['sine', 0.5, 0], ['sine', 0.3, 1200], ['sine', 0.2, 1902], ['square', 0.1, 0]],
+                            atk:0.02, rel:() => 0.12, sus:0.95 }, warm) }
+  ];
+
+  /* ── drum kits ────────────────────────────────────────────────
+     Parameter sets over the voices A.click already has. `acoustic` is the
+     kit this app has always used, number for number, so every existing
+     lesson keeps the drums it was written with. */
+  const KITS = [
+    { id:'acoustic', name:'Acoustic kit',
+      why:'What every lesson here uses. Round kick, bright snare.',
+      kit:A.KIT },
+    { id:'808', name:'808 kit',
+      why:'Long tuned kick, thin snap. Trap, drill, most modern rap.',
+      kit:{ kick:{ from:180, to:32, sweep:0.16, gain:1.0, tail:0.22, tailV:0.3 },
+            snare:{ len:0.11, hp:1900, decay:2.6, gain:0.42 },
+            clap:{ len:0.17, hp:1300, decay:1.2, gain:0.46 },
+            hat:{ len:0.03, hp:9000, decay:1.5, gain:0.2 } } },
+    { id:'lofi', name:'Lo-fi kit',
+      why:'Dull and soft, like a sampled record. Nothing cuts.',
+      kit:{ kick:{ from:120, to:44, sweep:0.09, gain:0.75, tail:0.09, tailV:0.1 },
+            snare:{ len:0.14, hp:800, decay:1.6, gain:0.38, lp:900 },
+            clap:{ len:0.18, hp:700, decay:1.1, gain:0.34, lp:1100 },
+            hat:{ len:0.05, hp:4500, decay:1.0, gain:0.17, lp:1200 } } }
+  ];
+
+  const byId = id => PRESETS.filter(p => p.id === id)[0] || null;
+  const kitById = id => KITS.filter(k => k.id === id)[0] || KITS[0];
+  const byRole = role => PRESETS.filter(p => p.role === role);
+  const ROLES = [
+    { id:'drums',  name:'Drums',    why:'The floor everything else stands on.' },
+    { id:'bass',   name:'Bass',     why:'Tells your ear which chord it is hearing.' },
+    { id:'chords', name:'Chords',   why:'The harmony, and most of the mood.' },
+    { id:'top',    name:'Top line', why:'The bit people hum. Last in, first noticed.' }
+  ];
+
+  /* Play one preset, through a mixer strip if a channel is given. */
+  function play(id, midi, dur, opt) {
+    const p = byId(id); if (!p) return;
+    opt = opt || {};
+    A.note(midi, dur == null ? 0.6 : dur, Object.assign({}, opt, {
+      voice:p.voice,
+      gain:(opt.gain == null ? 1 : opt.gain) * (opt.raw ? 1 : p.vol),
+      out:opt.out
+    }));
+  }
+  /* and one drum hit out of a named kit */
+  function hit(kitId, part, when, vel, opt) {
+    A.click(part, when, vel, Object.assign({ kit:kitById(kitId).kit }, opt || {}));
+  }
+
+  return { PRESETS, KITS, ROLES, byId, kitById, byRole, play, hit,
+           PARTS:['kick', 'snare', 'clap', 'hat'] };
 })();
 
 
@@ -2488,6 +2845,14 @@ const APP = (() => {
     hb.title = 'Your streak, what is due, and the day\u2019s practice';
     hb.addEventListener('click', () => { openHome(); closeRail(); });
     nav.appendChild(hb);
+    if (typeof RACK !== 'undefined') {
+      const sb = UI.el('button', 'studio-item');
+      sb.type = 'button';
+      sb.innerHTML = '<span class="num">\u25A6</span><span>Studio</span><span class="tick"></span>';
+      sb.title = 'A channel rack of your own \u2014 build a beat, mix it, export it';
+      sb.addEventListener('click', () => { openStudio(); closeRail(); });
+      nav.appendChild(sb);
+    }
     let seen = null;
     LESSONS.forEach((L, i) => {
       const key = L.part || L.level;
@@ -2594,6 +2959,8 @@ const APP = (() => {
   /* Reset the stage and hand back the object every lesson — and the review —
      talks to it through. */
   function openStage(L) {
+    document.body.classList.remove('no-stage');
+    if (rackOn && rackOn.stop) { try { rackOn.stop(); } catch (e) {} rackOn = null; }
     leaving.forEach(fn => { try { fn(); } catch (e) {} });
     leaving = [];
     clearTimers(); transport.stop();
@@ -2604,6 +2971,13 @@ const APP = (() => {
     $('#readout').textContent = 'loading…';
 
     const v = V.set(L.stage.view, L.stage.cfg || {});
+    /* An instrument on the stage should sound when it is pressed. A lesson
+       replaces this in init() with something that knows what the press means;
+       a page with no lesson behind it — the first run, Today, the review, a
+       practice round's "now build it" — keeps it, and stays audible. It does
+       not touch the readout, because on those pages the readout is carrying
+       the question. */
+    if (v && typeof v.onKey === 'function') v.onKey(m => { A.resume(); A.note(m); });
     const ctx = {
       v, L, T, A, UI, transport, later,
       read: t => { $('#readout').textContent = t; },
@@ -3111,6 +3485,49 @@ const APP = (() => {
     ctx.syncA11y();
   }
 
+  /* ── Studio: the rack, with nothing between you and it ────────
+     The 3D stage is hidden here. A channel rack is a control surface and it
+     wants the whole screen — on a phone especially, where the stage was
+     taking 38% of it. */
+  let rackOn = null;
+  function renderStudio() {
+    clearTimers(); transport.stop();
+    if (rackOn && rackOn.stop) { try { rackOn.stop(); } catch (e) {} }
+    document.body.classList.add('no-stage');
+    $('#hudTag').textContent = 'Studio';
+    $('#stageHint').textContent = '';
+
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap wide');
+    w.appendChild(UI.html('div', 'crumb', '<b>Studio</b> &nbsp;·&nbsp; your own beat'));
+    w.appendChild(UI.html('h2', null, 'The channel rack'));
+    w.appendChild(UI.html('p', 'lede',
+      'Rows are instruments, columns are time — the same picture a drum machine, ' +
+      'FL Studio and a piece of squared paper all show you. Tap a box once for a hit, ' +
+      'twice for an accent, a third time to clear it.'));
+
+    const say = UI.html('p', 'small studio-say', 'four bars · press play');
+    w.appendChild(say);
+
+    const host = UI.el('div');
+    w.appendChild(host);
+    w.appendChild(UI.html('p', 'small',
+      'Levels, pan, mute and solo are a real mixer: each row has its own strip, so turning ' +
+      'the hat down turns down the hat and nothing else. Export writes a named track for every ' +
+      'part you used, which is what a DAW expects to open.'));
+    w.appendChild(footNote(false));
+    art.appendChild(w);
+
+    rackOn = RACK.build(host, { onSay: t => { say.textContent = t; } });
+
+    document.querySelectorAll('#nav button').forEach(b =>
+      b.setAttribute('aria-current', b.classList.contains('studio-item') ? 'true' : 'false'));
+    $('#main').scrollTop = 0;
+    progress();
+    try { location.hash = 'studio'; } catch (e) {}
+  }
+
   /* ── First run: three questions, each of which changes something ──────
      Every app in this category asks before it shows. These are the only three
      answers that actually steer anything here, so they are the only three
@@ -3140,7 +3557,14 @@ const APP = (() => {
                 hint:'Three questions, then you are in',
                 stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } } };
     const ctx = openStage(L);
+    /* the readout makes a promise, so the keyboard has to keep it: a lesson
+       wires its own keys in init(), and this page has no lesson behind it */
     ctx.read('press a key \u2014 it already works');
+    ctx.v.onKey(m => {
+      A.resume();
+      A.note(m);
+      ctx.read(T.fullName(m) + '  \u00b7  press another');
+    });
 
     let pick = { start:ENTRY[0].id, mode:'simple', minutes:10 };
     const art = $('#console');
@@ -3502,8 +3926,10 @@ const APP = (() => {
   let page = 'lesson';
   function openReview() { page = 'review'; renderReview(); closeRail(); }
   function openHome() { page = 'home'; renderHome(); }
+  function openStudio() { page = 'studio'; renderStudio(); }
   function draw() {
-    if (page === 'home') renderHome();
+    if (page === 'studio') renderStudio();
+    else if (page === 'home') renderHome();
     else if (page === 'review') renderReview();
     else if (page === 'intake') renderIntake();
     else render();
@@ -3546,6 +3972,12 @@ const APP = (() => {
     });
     disarm();
   }
+  const toggleRail = () => {
+    const open = $('#rail').dataset.open !== 'true';
+    $('#rail').dataset.open = open ? 'true' : 'false';
+    $('#scrim').dataset.open = open ? 'true' : 'false';
+    $('#menuBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
   const closeRail = () => {
     $('#rail').dataset.open = 'false';
     $('#scrim').dataset.open = 'false';
@@ -3580,16 +4012,12 @@ const APP = (() => {
     idx = at >= 0 ? at : nextLesson();
     /* A link straight to a lesson opens that lesson. Otherwise: the three
        questions on a first visit, and Home every time after that. */
-    if (at >= 0) { page = 'lesson'; render(); }
+    if (hash === 'studio' && typeof RACK !== 'undefined') openStudio();
+    else if (at >= 0) { page = 'lesson'; render(); }
     else if (!asked && !Object.keys(done).length) { page = 'intake'; renderIntake(); }
     else openHome();
 
-    $('#menuBtn').addEventListener('click', () => {
-      const open = $('#rail').dataset.open !== 'true';
-      $('#rail').dataset.open = open ? 'true' : 'false';
-      $('#scrim').dataset.open = open ? 'true' : 'false';
-      $('#menuBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
+    $('#menuBtn').addEventListener('click', toggleRail);
     $('#scrim').addEventListener('click', closeRail);
     const rb = $('#reviewBtn');
     if (rb) rb.addEventListener('click', () => { A.resume(); openReview(); });
@@ -3632,7 +4060,7 @@ const APP = (() => {
       el.textContent = 'Saving to your local server' + (SYNC.user ? ' \u00B7 ' + SYNC.user.name : '');
     }
   }
-  return { boot, go, home:openHome, review:openReview, qKey, rehydrate,
+  return { boot, go, home:openHome, review:openReview, studio:openStudio, qKey, rehydrate,
            get idx() { return idx; } };
 })();
 
@@ -4111,17 +4539,38 @@ const STUDIO = (() => {
     return out.concat([0, 0xFF, 0x2F, 0x00]);
   }
 
+  function tempoTrack(opt) {
+    const bpm = Math.max(20, Math.min(300, Math.round(opt.bpm || 100)));
+    const us = Math.round(60000000 / bpm);
+    return [0, 0xFF, 0x51, 0x03, (us >> 16) & 255, (us >> 8) & 255, us & 255]
+      .concat([0, 0xFF, 0x58, 0x04, 4, 2, 24, 8],          /* 4/4 */
+              [0, 0xFF, 0x2F, 0x00]);
+  }
+
+  /* A whole project: one track per instrument, which is what a DAW expects to
+     see when it opens the file \u2014 four named tracks it can drop on four
+     channels, rather than one lump you have to split by hand.
+     tracks: [{ name, ch, notes:[{note, t, dur, vel}] }]; ch 9 is GM drums. */
+  function midiMulti(tracks, opt) {
+    opt = opt || {};
+    const live = (tracks || []).filter(t => t && (t.notes || []).length);
+    if (!live.length) return null;
+    const n = live.length + 1;
+    const head = [0, 1, (n >> 8) & 255, n & 255, (PPQ >> 8) & 255, PPQ & 255];
+    let bytes = chunk('MThd', head).concat(chunk('MTrk', tempoTrack(opt)));
+    live.forEach((t, i) => {
+      bytes = bytes.concat(chunk('MTrk',
+        trackBytes(t.notes, t.name || ('Track ' + (i + 1)), t.ch == null ? i : t.ch)));
+    });
+    return new Uint8Array(bytes);
+  }
+
   /* notes: [{note, t, dur, vel}] in ticks. ch 9 is the GM drum channel. */
   function midi(notes, opt) {
     opt = opt || {};
-    const bpm = Math.max(20, Math.min(300, Math.round(opt.bpm || 100)));
-    const us = Math.round(60000000 / bpm);
-    const tempo = [0, 0xFF, 0x51, 0x03, (us >> 16) & 255, (us >> 8) & 255, us & 255]
-      .concat([0, 0xFF, 0x58, 0x04, 4, 2, 24, 8],          /* 4/4 */
-              [0, 0xFF, 0x2F, 0x00]);
     const head = [0, 1, 0, 2, (PPQ >> 8) & 255, PPQ & 255];  /* format 1, 2 tracks */
     const bytes = chunk('MThd', head)
-      .concat(chunk('MTrk', tempo))
+      .concat(chunk('MTrk', tempoTrack(opt)))
       .concat(chunk('MTrk', trackBytes(notes, opt.name || 'Producer Theory Lab', opt.ch || 0)));
     return new Uint8Array(bytes);
   }
@@ -4348,9 +4797,378 @@ const STUDIO = (() => {
     return wrap;
   }
 
-  return { build, midi, download, canDownload, notesFrom, history, put, drop, forLesson,
+  return { build, midi, midiMulti, download, canDownload, notesFrom, history, put, drop, forLesson,
            reload:loadSaves, DRUM, PPQ,
            get saves() { return saves; } };
+})();
+
+
+/* ── src/rack.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   RACK — the channel rack.
+
+   Rows are instruments, columns are time. That is the whole idea, and it
+   is the same picture FL Studio, a 909 and a piece of squared paper all
+   show you. Each row carries what the row needs to be mixed — a mute, a
+   solo, a level and a pan — and then sixteen steps.
+
+   Phase 3 is drums only: four parts, four bars, one kit at a time. The
+   pitched rows come next and the data model already has room for them.
+
+   This is DOM rather than WebGL on purpose. The 3D stage is for looking
+   at one idea; a rack is a control surface, and a control surface wants
+   real buttons — which are also, for free, operable by keyboard and
+   readable by a screen reader.
+   ═══════════════════════════════════════════════════════════════ */
+const RACK = (() => {
+  const BARS = 4, STEPS = 16;
+  const KEY = 'rbx-theory-studio-v1';
+
+  /* three states per step: off, a normal hit, and an accent. Velocity is a
+     real musical control and this is the cheapest honest place to put it. */
+  const VEL = [0, 0.62, 1];
+  const PARTS = [
+    { part:'kick',  name:'Kick',  why:'The pulse. Everything else is placed against it.' },
+    { part:'snare', name:'Snare', why:'The backbeat — usually boxes 5 and 13.' },
+    { part:'clap',  name:'Clap',  why:'Doubles the snare, or replaces it.' },
+    { part:'hat',   name:'Hat',   why:'The subdivision you feel but do not listen to.' }
+  ];
+
+  /* ── starter patterns, because an empty grid is where people stop ── */
+  const PATTERNS = {
+    'four-to-the-floor':{ name:'Four to the floor', why:'House, disco, most dance music.',
+      kick:[2,0,0,0, 2,0,0,0, 2,0,0,0, 2,0,0,0],
+      snare:[0,0,0,0, 2,0,0,0, 0,0,0,0, 2,0,0,0],
+      clap:[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+      hat:[0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0] },
+    'boom-bap':{ name:'Boom bap', why:'Hip hop. Kick low and lazy, snare hard on 2 and 4.',
+      kick:[2,0,0,0, 0,0,1,0, 0,0,2,0, 0,0,0,0],
+      snare:[0,0,0,0, 2,0,0,0, 0,0,0,0, 2,0,0,1],
+      clap:[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+      hat:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] },
+    trap:{ name:'Trap', why:'Sparse kick, clap on 3, hats doing the work.',
+      kick:[2,0,0,0, 0,0,1,0, 0,0,0,0, 0,1,0,0],
+      snare:[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+      clap:[0,0,0,0, 0,0,0,0, 2,0,0,0, 0,0,0,0],
+      hat:[1,0,1,1, 1,0,1,0, 1,1,1,0, 1,0,1,1] },
+    empty:{ name:'Empty', why:'Start from nothing.',
+      kick:[], snare:[], clap:[], hat:[] }
+  };
+
+  const zeros = () => new Array(STEPS).fill(0);
+  const barsOf = row => {
+    const out = [];
+    for (let b = 0; b < BARS; b++) out.push((row && row.length === STEPS) ? row.slice() : zeros());
+    return out;
+  };
+
+  function blank(patternId) {
+    const p = PATTERNS[patternId] || PATTERNS['four-to-the-floor'];
+    return {
+      v:1, bpm:96, bars:BARS, kit:'acoustic',
+      channels:PARTS.map(d => ({
+        id:d.part, kind:'drum', part:d.part, name:d.name,
+        vol:d.part === 'kick' ? 0.95 : d.part === 'hat' ? 0.6 : 0.8,
+        pan:d.part === 'hat' ? 0.18 : 0, mute:false, solo:false, send:d.part === 'hat' ? 0.06 : 0.02,
+        on:[true, true, true, true],           /* which bars this channel plays */
+        steps:barsOf(p[d.part])
+      }))
+    };
+  }
+
+  /* ── the record, kept in this browser like everything else here ── */
+  function load() {
+    try {
+      const v = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (v && v.channels && v.channels.length) return v;
+    } catch (e) {}
+    return blank('four-to-the-floor');
+  }
+  function save(project) {
+    try { localStorage.setItem(KEY, JSON.stringify(project)); } catch (e) {}
+  }
+
+  /* ── what the mixer should be doing for this project ── */
+  function pushMix(project) {
+    if (typeof MIXER === 'undefined') return;
+    project.channels.forEach(c =>
+      MIXER.set('rack:' + c.id, { vol:c.vol, pan:c.pan, mute:c.mute, solo:c.solo, send:c.send }));
+  }
+  const outOf = c => (typeof MIXER === 'undefined' ? null : MIXER.input('rack:' + c.id));
+
+  /* one hit, wherever it is coming from — playback, or a tap on a step */
+  function strike(project, c, when, vel) {
+    if (typeof INSTRUMENTS === 'undefined') return;
+    INSTRUMENTS.hit(project.kit, c.part, when, vel, { out:outOf(c) });
+  }
+
+  /* ── MIDI: one track per channel, which is what a DAW wants to open ── */
+  function toMidi(project) {
+    if (typeof STUDIO === 'undefined') return null;
+    const step = STUDIO.PPQ / 4;
+    const tracks = project.channels.map(c => {
+      const notes = [];
+      c.steps.forEach((bar, bi) => {
+        if (!c.on[bi]) return;
+        bar.forEach((s, si) => {
+          if (!s) return;
+          notes.push({ note:STUDIO.DRUM[c.part] || 38,
+                       t:(bi * STEPS + si) * step, dur:step / 2,
+                       vel:Math.round(VEL[s] * 127) });
+        });
+      });
+      return { name:c.name, ch:9, notes };          /* 9 is the GM drum channel */
+    });
+    return STUDIO.midiMulti(tracks, { bpm:project.bpm, name:'Producer Theory Lab' });
+  }
+
+  /* ═══ the surface ═══════════════════════════════════════════ */
+  function build(host, opts) {
+    opts = opts || {};
+    const project = opts.project || load();
+    const transport = A.transport();
+    let bar = 0, playing = false, timers = [];
+    const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
+    const clearLater = () => { timers.forEach(clearTimeout); timers = []; };
+
+    const el = UI.el, html = UI.html;
+    const wrap = el('div', 'rack');
+    const rows = {};                        /* channel id -> its live handles */
+    let playhead = -1;
+
+    const touch = () => { save(project); if (opts.onChange) opts.onChange(project); };
+
+    /* ── transport row ── */
+    const head = el('div', 'rack-head');
+    const play = UI.btn('▶ Play', () => togglePlay(), { primary:true });
+    const bpm = UI.slider('Tempo', 60, 160, project.bpm, 1, v => {
+      project.bpm = v; transport.bpm = v; touch();
+    }, v => v + ' BPM');
+    head.append(play, bpm);
+    wrap.appendChild(head);
+
+    /* ── bar strip: which bar you are editing, and which bars each row plays ── */
+    const bars = el('div', 'rack-bars');
+    bars.appendChild(html('span', 'lab', 'Bar'));
+    const barBtns = [];
+    for (let b = 0; b < project.bars; b++) {
+      const t = UI.el('button', 'barbtn', String(b + 1));
+      t.type = 'button';
+      t.setAttribute('aria-pressed', b === 0 ? 'true' : 'false');
+      t.title = 'Edit bar ' + (b + 1);
+      t.addEventListener('click', () => { bar = b; paintAll(); });
+      bars.appendChild(t); barBtns.push(t);
+    }
+    const copy = UI.btn('Copy bar to all', () => {
+      project.channels.forEach(c => {
+        const src = c.steps[bar];
+        c.steps = c.steps.map(() => src.slice());
+      });
+      touch(); paintAll();
+    });
+    copy.title = 'Make every bar the same as this one';
+    bars.appendChild(copy);
+    wrap.appendChild(bars);
+
+    /* ── the grid ── */
+    const grid = el('div', 'rack-grid');
+    project.channels.forEach(c => {
+      const row = el('div', 'rack-row');
+
+      const handles = rows[c.id] = { row, cells:[] };
+      const nameCell = el('div', 'rack-name');
+      const mute = UI.el('button', 'dot');
+      mute.type = 'button';
+      mute.title = 'Mute ' + c.name;
+      mute.setAttribute('aria-label', 'Mute ' + c.name);
+      mute.addEventListener('click', () => {
+        c.mute = !c.mute; pushMix(project); touch(); paintRow(c);
+      });
+      const solo = UI.el('button', 'solo', 'S');
+      solo.type = 'button';
+      solo.title = 'Solo ' + c.name;
+      solo.setAttribute('aria-label', 'Solo ' + c.name);
+      solo.addEventListener('click', () => {
+        c.solo = !c.solo; pushMix(project); touch(); paintAll();
+      });
+      const label = UI.el('button', 'rack-label', c.name);
+      label.type = 'button';
+      label.title = c.why || ('Hear the ' + c.name.toLowerCase());
+      label.addEventListener('click', () => {
+        A.resume(); strike(project, c, null, 1);
+        if (opts.onSay) opts.onSay(c.name + ' · ' + (partWhy(c.part) || ''));
+      });
+      handles.mute = mute; handles.solo = solo;
+      nameCell.append(mute, solo, label);
+      row.appendChild(nameCell);
+
+      const steps = el('div', 'rack-steps');
+      for (let i = 0; i < STEPS; i++) {
+        const b = UI.el('button', 'step');
+        b.type = 'button';
+        b.dataset.i = i;
+        b.addEventListener('click', () => {
+          A.resume();
+          const now = c.steps[bar][i] || 0;
+          const next = (now + 1) % 3;
+          c.steps[bar][i] = next;
+          if (next) strike(project, c, null, VEL[next]);
+          touch(); paintRow(c);
+        });
+        steps.appendChild(b);
+        handles.cells.push(b);
+      }
+      row.appendChild(steps);
+      grid.appendChild(row);
+    });
+    wrap.appendChild(grid);
+
+    /* ── the mixer ──
+       Off the step row on purpose: on a phone the knobs were eating the width
+       the steps needed, and a mixer is a separate surface in every DAW there
+       has ever been. */
+    const mix = el('details', 'rack-mix');
+    mix.open = true;
+    const msum = el('summary');
+    msum.innerHTML = '<span>Mix</span><span class="wc">level \u00b7 pan \u00b7 per channel</span>';
+    mix.appendChild(msum);
+    const mixBody = el('div', 'mixbody');
+    project.channels.forEach(c => {
+      const r = el('div', 'mixrow');
+      r.appendChild(html('b', null, c.name));
+      r.appendChild(mini('Level', 0, 120, Math.round(c.vol * 100), v => {
+        c.vol = v / 100; pushMix(project); touch();
+      }));
+      r.appendChild(mini('Pan', -100, 100, Math.round(c.pan * 100), v => {
+        c.pan = v / 100; pushMix(project); touch();
+      }));
+      mixBody.appendChild(r);
+    });
+    mix.appendChild(mixBody);
+    wrap.appendChild(mix);
+
+    /* ── the bits under the grid ── */
+    const foot = el('div', 'rack-foot');
+    const kitPick = UI.select('Kit', INSTRUMENTS.KITS.map(k => ({ label:k.name, value:k.id })),
+      v => {
+        project.kit = v; touch();
+        const k = INSTRUMENTS.kitById(v);
+        if (opts.onSay) opts.onSay(k.name + ' · ' + k.why);
+        /* hear the change straight away, on the part most defined by a kit */
+        const kick = project.channels.filter(x => x.part === 'kick')[0];
+        if (kick) strike(project, kick, null, 1);
+      }, project.kit);
+    const patPick = UI.select('Pattern', Object.keys(PATTERNS).map(id =>
+      ({ label:PATTERNS[id].name, value:id })), id => {
+        const p = PATTERNS[id];
+        project.channels.forEach(c => { c.steps = barsOf(p[c.part]); });
+        touch(); paintAll();
+        if (opts.onSay) opts.onSay(p.name + ' · ' + p.why);
+      }, 'four-to-the-floor');
+    foot.append(kitPick, patPick);
+    wrap.appendChild(foot);
+
+    const acts = el('div', 'ctl');
+    const dl = UI.btn('↓ Export MIDI', () => {
+      const bytes = toMidi(project);
+      if (!bytes) { if (opts.onSay) opts.onSay('nothing to export yet'); return; }
+      const ok = STUDIO.download(bytes, 'musiclearn-beat.mid');
+      if (opts.onSay) opts.onSay(ok ? 'exported · four named tracks, one per part'
+                                    : 'downloads are blocked in this viewer');
+    });
+    const clear = UI.btn('Clear', () => {
+      project.channels.forEach(c => { c.steps = barsOf([]); });
+      touch(); paintAll();
+    });
+    acts.append(dl, clear);
+    wrap.appendChild(acts);
+
+    /* ── painting ── */
+    function partWhy(part) {
+      const d = PARTS.filter(x => x.part === part)[0];
+      return d ? d.why : '';
+    }
+    function paintRow(c) {
+      const h = rows[c.id];
+      const strip = (typeof MIXER !== 'undefined') ? MIXER.get('rack:' + c.id) : null;
+      const quiet = c.mute || (strip && !strip.audible);
+      h.cells.forEach((b, i) => {
+        const v = c.steps[bar][i] || 0;
+        b.className = 'step' + (v === 2 ? ' accent' : v === 1 ? ' on' : '') +
+          (i % 4 === 0 ? ' beat' : '') + (i === playhead ? ' now' : '');
+        b.setAttribute('aria-pressed', v ? 'true' : 'false');
+        b.setAttribute('aria-label', c.name + ', bar ' + (bar + 1) + ', step ' + (i + 1) + ', ' +
+          (v === 2 ? 'accent' : v === 1 ? 'on' : 'off'));
+      });
+      h.row.classList.toggle('quiet', !!quiet);
+      h.mute.classList.toggle('off', !!c.mute);
+      h.mute.setAttribute('aria-pressed', c.mute ? 'true' : 'false');
+      h.solo.classList.toggle('on', !!c.solo);
+      h.solo.setAttribute('aria-pressed', c.solo ? 'true' : 'false');
+    }
+    function paintAll() {
+      barBtns.forEach((t, i) => t.setAttribute('aria-pressed', i === bar ? 'true' : 'false'));
+      project.channels.forEach(paintRow);
+    }
+
+    /* ── playback ── */
+    function togglePlay() {
+      A.resume();
+      if (playing) return stop();
+      playing = true;
+      play.textContent = '■ Stop';
+      play.classList.add('on');
+      pushMix(project);
+      transport.start({
+        bpm:project.bpm, div:16, steps:project.bars * STEPS,
+        cb:(s, t) => {
+          const b = Math.floor(s / STEPS), i = s % STEPS;
+          project.channels.forEach(c => {
+            if (!c.on[b]) return;
+            const v = c.steps[b][i];
+            if (v) strike(project, c, t, VEL[v]);
+          });
+          later(() => {
+            if (!playing) return;
+            playhead = i;
+            if (b !== bar) { bar = b; paintAll(); } else { playheadOnly(i); }
+          }, Math.max(0, (t - A.now()) * 1000));
+        }
+      });
+    }
+    /* the playhead moves many times a second: move only the class, never
+       rewrite an aria-label, or a screen reader reads the whole loop aloud */
+    function playheadOnly(i) {
+      Object.keys(rows).forEach(id => {
+        rows[id].cells.forEach((b, j) => b.classList.toggle('now', j === i));
+      });
+    }
+    function stop() {
+      playing = false; transport.stop(); clearLater();
+      play.textContent = '▶ Play';
+      play.classList.remove('on');
+      playhead = -1; paintAll();
+    }
+
+    /* small labelled range, tighter than UI.slider for a table row */
+    function mini(label, lo, hi, val, fn) {
+      const w = el('label', 'mini');
+      w.title = label;
+      const r = el('input'); r.type = 'range';
+      r.min = lo; r.max = hi; r.value = val;
+      r.setAttribute('aria-label', label);
+      r.addEventListener('input', () => fn(Number(r.value)));
+      w.append(html('span', null, label), r);
+      return w;
+    }
+
+    pushMix(project);
+    paintAll();
+    host.appendChild(wrap);
+    return { project, stop, el:wrap, toMidi:() => toMidi(project) };
+  }
+
+  return { build, blank, load, save, toMidi, PATTERNS, PARTS, VEL, BARS, STEPS, KEY };
 })();
 
 

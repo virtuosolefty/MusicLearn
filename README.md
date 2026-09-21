@@ -153,6 +153,30 @@ five answers, plus how fresh it is. **The next review date** climbs a ladder as 
 both in the browser; `server/store.js` computes them the same way for the optional local server,
 and a test asserts the two ladders agree.
 
+## Studio — a channel rack of your own
+
+**Studio** sits under **Today** in the sidebar. Rows are instruments, columns are time: four drum
+parts, four bars, sixteen steps a bar. Tap a box once for a hit, twice for an accent, a third time
+to clear it. Three kits, three starter patterns, a tempo, and a mixer with a level and a pan per
+channel — plus mute and solo on every row, working the way a desk works: solo anything and
+everything else goes quiet.
+
+It is a real mixer, not a metaphor. Every channel has its own strip —
+
+```
+voice → gain → pan → master
+             └→ send → reverb
+```
+
+— so turning the hat down turns down the hat and nothing else. Export writes a named MIDI track for
+every part that plays, drums on the General MIDI drum channel, which is what a DAW expects to open.
+
+The 3D stage is hidden here on purpose: a channel rack is a control surface and it wants the
+screen, on a phone especially. Channel names stay pinned while the steps scroll.
+
+This is the first three phases of [docs/STUDIO-PLAN.md](docs/STUDIO-PLAN.md) — the pitched rows, the
+mixing lesson and the three-step *Make a Track* chapter come next.
+
 ## Keeping what you make
 
 The six lessons with something worth keeping — the two drum-grid lessons, the three piano-roll
@@ -248,6 +272,9 @@ test/check-api.js       the server: every endpoint, plus the mastery and schedul
 test/check-behaviour.js what the lessons DO — mode switches, presets, controls, MIDI, practice
 src/styles.css          design tokens; light palette on :root, dark under the toggle + media query
 src/theory.js           T = pitch/scale/chord maths · A = synth, drum voices, look-ahead clock
+src/mixer.js            MIXER = one gain/pan/send strip per channel, with mute and solo
+src/instruments.js      eight pitched presets and three drum kits, written as data
+src/rack.js             RACK = the channel rack, its project and its MIDI export
 src/scenes.js           V = one WebGL canvas with four swappable instruments + both palettes
 src/ui.js               UI = control builders · APP = nav, rendering, progress, mode, theme
 src/practice.js         PRACTICE = hear it / name it / build it, and the record of what you missed
@@ -260,6 +287,7 @@ src/lessons-level3.js   LESSONS 18–22
 src/simple-level1.js    SIMPLE text for lessons 1–11
 src/simple-level2.js    SIMPLE text for lessons 12–22
 docs/UX-BENCHMARK.md    how this compares with Yousician, Simply Piano, flowkey, Melodics et al
+docs/STUDIO-PLAN.md     design for the channel rack and the three-step Make a Track chapter
 docs/SOURCES.md         conventions, references, corrections log
 docs/                   README screenshots
 ```

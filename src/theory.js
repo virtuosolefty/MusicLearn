@@ -248,32 +248,49 @@ const A = (() => {
   const resume = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); return ctx; };
   const now = () => (ctx ? ctx.currentTime : 0);
 
-  /* One plucked / held synth voice. */
+  /* The two voices this app has always had, now written down rather than
+     branched on. `pluck` is every melodic demonstration; `pad` is every chord.
+     The numbers are unchanged \u2014 INSTRUMENTS adds more of these, it does not
+     alter these two. */
+  const PLUCK = {
+    oscs:[['triangle', 0.55, 0], ['sine', 0.34, -1200], ['sawtooth', 0.12, 4]],
+    atk:0.012, rel:dur => Math.min(0.5, dur * 0.7),
+    open:f => Math.min(9000, f * 7 + 700), close:f => Math.max(400, f * 2.2), q:0.9
+  };
+  const PAD = {
+    oscs:[['sawtooth', 0.30, 0], ['sawtooth', 0.22, 7], ['triangle', 0.34, -1200]],
+    atk:0.09, rel:() => 0.55,
+    open:f => Math.min(9000, f * 7 + 700), close:f => Math.max(400, f * 2.2), q:0.9
+  };
+
+  /* One plucked / held synth voice.
+     `opt.voice` picks a timbre (see INSTRUMENTS); `opt.out` sends it to a mixer
+     strip instead of straight to master, in which case the strip owns the
+     reverb send and this voice does not make its own. */
   function note(midi, dur = 0.6, opt = {}) {
     if (!resume()) return;
     const t0 = opt.when != null ? opt.when : ctx.currentTime + 0.01;
     const f = T.freq(midi), g = ctx.createGain(), lp = ctx.createBiquadFilter();
     const vol = (opt.gain != null ? opt.gain : 1) * 0.5;
-    lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(Math.min(9000, f * 7 + 700), t0);
-    lp.frequency.exponentialRampToValueAtTime(Math.max(400, f * 2.2), t0 + dur * 0.85);
-    lp.Q.value = 0.9;
-    const oscs = [];
-    const spec = opt.pad
-      ? [['sawtooth', 0.30, 0], ['sawtooth', 0.22, 7], ['triangle', 0.34, -1200]]
-      : [['triangle', 0.55, 0], ['sine', 0.34, -1200], ['sawtooth', 0.12, 4]];
-    spec.forEach(([type, amp, det]) => {
+    const V = opt.voice || (opt.pad ? PAD : PLUCK);
+    lp.type = V.type || 'lowpass';
+    lp.frequency.setValueAtTime(V.open(f), t0);
+    lp.frequency.exponentialRampToValueAtTime(V.close(f), t0 + dur * 0.85);
+    lp.Q.value = V.q;
+    V.oscs.forEach(([type, amp, det]) => {
       const o = ctx.createOscillator(), og = ctx.createGain();
       o.type = type; o.frequency.value = f; o.detune.value = det;
       og.gain.value = amp; o.connect(og); og.connect(lp);
-      o.start(t0); o.stop(t0 + dur + 0.6); oscs.push(o);
+      o.start(t0); o.stop(t0 + dur + 0.6);
     });
-    const atk = opt.pad ? 0.09 : 0.012, rel = opt.pad ? 0.55 : Math.min(0.5, dur * 0.7);
+    const atk = V.atk, rel = V.rel(dur);
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(vol, t0 + atk);
-    g.gain.exponentialRampToValueAtTime(vol * 0.62, t0 + atk + 0.14);
+    g.gain.exponentialRampToValueAtTime(vol * (V.sus == null ? 0.62 : V.sus), t0 + atk + 0.14);
     g.gain.setTargetAtTime(0.0001, t0 + dur, rel / 3.2);
-    lp.connect(g); g.connect(master);
+    lp.connect(g);
+    if (opt.out) { g.connect(opt.out); return; }
+    g.connect(master);
     const s = ctx.createGain(); s.gain.value = opt.wet != null ? opt.wet : 0.5;
     g.connect(s); s.connect(verb);
   }
@@ -288,37 +305,50 @@ const A = (() => {
   /* Percussive click for the metronome / grid. */
   /* `vel` is 0..1 and scales the hit the way MIDI velocity would: quieter,
      and — because real drums do this — a little duller as it softens. */
-  function click(kind = 'weak', when, vel) {
+  /* The default kit \u2014 the exact numbers this app has always used, so no
+     existing lesson changes. INSTRUMENTS.KITS supplies alternatives. */
+  const KIT = {
+    kick:{ from:155, to:48, sweep:0.11, gain:0.9, tail:0.1, tailV:0.15 },
+    snare:{ len:0.16, hp:1400, decay:2, gain:0.5 },
+    clap:{ len:0.20, hp:1100, decay:1.4, gain:0.42 },
+    hat:{ len:0.045, hp:7000, decay:1.2, gain:0.22 }
+  };
+  function click(kind = 'weak', when, vel, opt) {
     if (!resume()) return;
+    opt = opt || {};
     const t0 = when != null ? when : ctx.currentTime + 0.01;
     const v = vel == null ? 1 : Math.max(0.04, Math.min(1, vel));
+    const kit = opt.kit || KIT;
+    const dest = opt.out || master;
+    const part = kit[kind] || KIT[kind];
     if (kind === 'kick') {
       const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.setValueAtTime(155, t0);
-      o.frequency.exponentialRampToValueAtTime(48, t0 + 0.11);
-      g.gain.setValueAtTime(0.9 * v, t0);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1 + 0.15 * v);
-      o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.3); return;
+      o.frequency.setValueAtTime(part.from, t0);
+      o.frequency.exponentialRampToValueAtTime(part.to, t0 + part.sweep);
+      g.gain.setValueAtTime(part.gain * v, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + part.tail + part.tailV * v);
+      o.connect(g); g.connect(dest); o.start(t0); o.stop(t0 + 0.4); return;
     }
-    if (kind === 'snare' || kind === 'hat') {
-      const len = (kind === 'snare' ? 0.16 : 0.045) * (0.55 + 0.45 * v);
+    if (kind === 'snare' || kind === 'hat' || kind === 'clap') {
+      const len = part.len * (0.55 + 0.45 * v);
       const b = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
       const d = b.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, kind === 'snare' ? 2 : 1.2);
+      for (let i = 0; i < d.length; i++)
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, part.decay);
       const s = ctx.createBufferSource(); s.buffer = b;
       const hp = ctx.createBiquadFilter(); hp.type = 'highpass';
-      hp.frequency.value = kind === 'snare' ? 1400 : 7000;
+      hp.frequency.value = part.hp;
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
-      lp.frequency.value = 2000 + 12000 * v;          /* soft hits lose their top */
-      const g = ctx.createGain(); g.gain.value = (kind === 'snare' ? 0.5 : 0.22) * v;
-      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); s.start(t0); return;
+      lp.frequency.value = (part.lp || 2000) + 12000 * v;   /* soft hits lose their top */
+      const g = ctx.createGain(); g.gain.value = part.gain * v;
+      s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(dest); s.start(t0); return;
     }
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = 'square';
     o.frequency.value = kind === 'strong' ? 1500 : kind === 'mid' ? 1100 : 820;
     const amp = (kind === 'strong' ? 0.3 : kind === 'mid' ? 0.19 : 0.11) * v;
     g.gain.setValueAtTime(amp, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.05);
-    o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.06);
+    o.connect(g); g.connect(dest); o.start(t0); o.stop(t0 + 0.06);
   }
 
   /* Look-ahead step clock: calls cb(stepIndex, audioTime) just before each step. */
@@ -344,7 +374,10 @@ const A = (() => {
       stop() { stop(); step = 0; }
     };
   }
-  return { init, resume, now, note, chord, click, transport,
+  return { init, resume, now, note, chord, click, transport, PLUCK, PAD, KIT,
+           /* the two ends of the signal path, for anything building a mixer */
+           get master() { return master; },
+           get verb() { return verb; },
            get ctx() { return ctx; },
            get on() { return ready && ctx && ctx.state === 'running'; } };
 })();

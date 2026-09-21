@@ -560,3 +560,105 @@ button.b:disabled{opacity:.75;cursor:default}
 .foot.mini > summary::-webkit-details-marker{display:none}
 .foot.mini > summary span{color:var(--accent-2);text-decoration:underline}
 .foot.mini > div{padding-bottom:8px}
+
+/* ── Studio: the channel rack ──────────────────────────────── */
+body.no-stage .stage{display:none}
+body.no-stage .a11y{display:none}
+
+.studio-say{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--accent-2);
+  background:var(--accent-soft);border:1px solid var(--accent-line);
+  border-radius:var(--radius-sm);padding:7px 10px;margin:0 0 14px;
+}
+.rack{margin:4px 0 18px}
+.rack-head{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.rack-head .ctl{margin:0}
+.rack-bars{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.rack-bars .lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);
+  font-family:"Bricolage Grotesque",sans-serif}
+.barbtn{
+  width:34px;height:34px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel);color:var(--text-2);cursor:pointer;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;
+}
+.barbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
+.rack-grid{
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--panel-2);
+  overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+}
+.rack-row{
+  display:flex;align-items:center;gap:10px;padding:7px 10px;
+  border-bottom:1px solid var(--line-soft);min-width:max-content;
+}
+.rack-row:last-child{border-bottom:0}
+.rack-row.quiet{opacity:.45}
+
+.rack-name{
+  position:sticky;left:0;z-index:2;background:var(--panel-2);
+  display:flex;align-items:center;gap:6px;padding-right:8px;min-width:132px;
+}
+.rack-row.quiet .rack-name{background:var(--panel-2)}
+.dot{
+  width:13px;height:13px;border-radius:50%;padding:0;cursor:pointer;
+  border:1px solid var(--accent);background:var(--accent);flex:none;
+}
+.dot.off{background:transparent;border-color:var(--line-2)}
+.solo{
+  width:22px;height:22px;border-radius:6px;padding:0;cursor:pointer;flex:none;
+  border:1px solid var(--line);background:var(--panel);color:var(--muted);
+  font-family:"Bricolage Grotesque",sans-serif;font-size:10.5px;font-weight:700;
+}
+.solo.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-2)}
+.rack-label{
+  border:0;background:none;cursor:pointer;padding:2px 0;text-align:left;
+  font-family:"Bricolage Grotesque",sans-serif;font-size:13px;font-weight:600;color:var(--text);
+}
+.rack-label:hover{color:var(--accent-2)}
+
+.mini{display:flex;align-items:center;gap:6px}
+.mini span{font-size:10px;color:var(--muted);font-family:"IBM Plex Mono",monospace;
+  text-transform:uppercase;letter-spacing:.08em;min-width:34px}
+.mini input[type=range]{width:88px}
+
+.rack-mix{
+  margin:12px 0 0;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--panel-2);overflow:hidden;
+}
+.rack-mix > summary{
+  list-style:none;cursor:pointer;padding:11px 15px;display:flex;align-items:center;gap:10px;
+  font-family:"Bricolage Grotesque",sans-serif;font-size:12.5px;font-weight:600;color:var(--text-2);
+  min-height:44px;box-sizing:border-box;
+}
+.rack-mix > summary::-webkit-details-marker{display:none}
+.rack-mix > summary::before{content:"\25B8";color:var(--accent);font-size:11px}
+.rack-mix[open] > summary::before{content:"\25BE"}
+.mixbody{padding:2px 15px 14px;border-top:1px solid var(--line-soft);
+  display:flex;flex-direction:column;gap:9px}
+.mixrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mixrow b{font-size:12.5px;min-width:64px;color:var(--text)}
+
+.rack-steps{display:flex;gap:3px;flex:none}
+.step{
+  width:26px;height:30px;border-radius:6px;padding:0;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel-3);
+}
+.step.beat{border-color:var(--line-2)}
+.step.on{background:var(--accent-soft);border-color:var(--accent)}
+.step.accent{background:var(--accent);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-2)}
+.step.now{outline:2px solid var(--text);outline-offset:1px}
+.step:hover{border-color:var(--accent)}
+
+.rack-foot{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 10px}
+.rack-foot .ctl{margin:0}
+
+@media (max-width:760px){
+  .rack-name{min-width:104px}
+  .step{width:26px;height:34px}
+  .mini input[type=range]{width:74px}
+  .mixrow b{min-width:52px}
+}
+
+/* the rack needs more than the 660px reading column, where there is room */
+.wrap.wide{max-width:980px}
+@media (max-width:1040px){ .wrap.wide{max-width:660px} }
