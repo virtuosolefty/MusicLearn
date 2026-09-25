@@ -83,43 +83,28 @@ meter:{
   lede:'Some music walks. Some music gallops. That is all “meter” means. Here it is, one tiny step at a time.',
   blocks:[
     { h:'Step 1 · The tap' },
-    { p:'Put your hand on the table. Tap slowly, like a clock: <b>tap … tap … tap … tap</b>.' },
-    { p:'That tap is called a <b>beat</b>. Every song has it underneath, even when no drum is playing it. When you nod your head to music, your neck is tapping the beat.' },
-    { h:'Step 2 · Taps come in little groups' },
-    { p:'We count a few taps, then start again: <span class="k a">1 2 3 4 · 1 2 3 4</span>. One of those groups is a <b>bar</b>, and the <b>1</b> is the loud tap, like the first stomp when you march.' },
-    { h:'Step 3 · Now cut each tap into pieces' },
-    { p:'This is the only new idea in the whole chapter: <b>you can put more than one note inside one tap</b>. Keep tapping at the same slow speed and say a word on every tap:' },
+    { p:'Tap slowly on the table, like a clock: <b>tap … tap … tap … tap</b>. That tap is the <b>beat</b>. We count taps in little groups, <span class="k a">1 2 3 4 · 1 2 3 4</span>, and one group is a <b>bar</b>.' },
+    { h:'Step 2 · Cut each tap into pieces' },
+    { p:'This is the only new idea in the chapter: <b>you can put more than one note inside one tap</b>. Keep tapping at the same slow speed and say a word on every tap:' },
     { keys:[
       'Say <b>AP-PLE</b> on every tap. That is <b>2 pieces</b> in one tap.',
       'Now say <b>STRAW-BER-RY</b> on every tap. That is <b>3 pieces</b> in one tap.' ] },
     { p:'Your hand never sped up. Only the number of pieces inside each tap changed — and that is the whole difference:' },
     { keys:[
-      '<b>Simple meter</b> = apple. Each tap splits into <b>2</b>. It feels like <b>walking</b>. (4/4, 3/4, 2/4)',
-      '<b>Compound meter</b> = strawberry. Each tap splits into <b>3</b>. It feels like a horse <b>galloping</b>. (6/8, 9/8, 12/8)' ] },
-    { note:{ h:'How to hear which one a song is',
-      p:'Tap along and try to fit “<b>1 and 2 and</b>” into it. Comfy? It is simple. If the song keeps wanting a third little word — “<b>1-la-li 2-la-li</b>” — it is compound. Galloping songs: lots of Afrobeats, gospel, blues shuffles, drill triplet flows, and anything swung.' } },
-    { h:'Step 4 · The two numbers' },
-    { p:'Written music squeezes this into two numbers stacked up, like <span class="k">4/4</span>. It is not a fraction — it is two separate answers:' },
-    { keys:[
-      '<b>Top number</b> = how many taps in one group.',
-      '<b>Bottom number</b> = which size of note counts as one tap. 4 means a quarter note, 8 means an 8th note (a smaller one).' ] },
-    { p:'So <span class="k">3/4</span> is three quarter-note taps — a waltz: <em>1</em> 2 3, <em>1</em> 2 3.' },
-    { p:'And <span class="k">6/8</span> is six 8th notes. Six is a lot to count, so we bundle them in threes and feel <b>two big taps of three</b>. Bundling in threes is what makes it gallop. <span class="k">12/8</span> is the same trick with twelve: <b>four big taps of three</b>.' },
-    { table:{ head:['Written','Kind','You feel','Sounds like'],
+      '<b>Simple meter</b> = apple. Each tap splits into <b>2</b>. It feels like <b>walking</b>.',
+      '<b>Compound meter</b> = strawberry. Each tap splits into <b>3</b>. It feels like <b>galloping</b>.' ] },
+    { h:'Step 3 · The two numbers' },
+    { p:'Written music puts this into two stacked numbers, like <span class="k">4/4</span>. The <b>top</b> number is how many taps in a bar. The <b>bottom</b> number is which size of note counts as one tap.' },
+    { table:{ head:['Written','Kind','You feel'],
       rows:[
-        ['4/4','Simple','4 taps, 2 pieces each','almost every song ever'],
-        ['3/4','Simple','3 taps, 2 pieces each','a waltz, a slow ballad'],
-        ['6/8','Compound','2 taps, 3 pieces each','rocking, lullabies, Afro rhythms'],
-        ['12/8','Compound','4 taps, 3 pieces each','blues shuffle, gospel'],
-        ['5/4 · 7/8','Odd','5 or 7 taps','a limp or a skip — prog, film music'] ] } },
-    { p:'That last row is the leftovers drawer. Most groups have 2, 3 or 4 taps because that is what feels natural to walk to. A group of <b>5</b> or <b>7</b> will not split evenly, so it feels like someone skipping a step. It is rare, and it is allowed.' },
-    { h:'Step 5 · What producers actually do' },
-    { p:'Good news: in a music app you almost never touch the time signature. You leave it on 4/4 and get the gallop two other ways.' },
-    { keys:[
-      '<b>Triplets.</b> Put <b>3</b> notes where 2 normally go, in just a few places. That is one strawberry tap inside an apple song — exactly what a triplet hi-hat roll or a triplet rap flow is.',
-      '<b>Swing.</b> A knob that nudges every second little note slightly late, so each pair goes <em>loooong-short</em>. At 0% it is robotic. Turn it up and the beat starts to lope. At 100% you have full triplets.' ] },
+        ['4/4','Simple','4 taps, 2 pieces each'],
+        ['3/4','Simple','3 taps, 2 pieces each — a waltz'],
+        ['6/8','Compound','2 taps, 3 pieces each'],
+        ['12/8','Compound','4 taps, 3 pieces each — a blues shuffle'] ] } },
+    { h:'Step 4 · What producers actually do' },
+    { p:'In a music app you almost never change the time signature. You stay in 4/4 and get the gallop with <b>triplets</b> (3 notes where 2 would go) or the <b>swing</b> knob (every second little note nudged late).' },
     { note:{ h:'One sentence to remember it all',
-      p:'The tap stays the same speed. <b>Two</b> pieces inside it = walking = simple. <b>Three</b> pieces inside it = galloping = compound. Everything else is just how we write that down.' } },
+      p:'The tap stays the same speed. <b>Two</b> pieces inside it = walking = simple. <b>Three</b> pieces inside it = galloping = compound.' } },
     { try:{ h:'Now hear it', p:'The top row is the big taps. Press play, then switch between the two buttons. Keep your hand tapping — the speed never changes, only what is inside each tap.', use:true } },
     { keys:[
       'Beat = one tap. Bar = a little group of taps.',
@@ -182,6 +167,44 @@ pianoroll:{
   ]
 },
 
+notes:{
+  lede:'Every key has a name. Learn two little moves — a tiny step and a bigger step — and you can find any key.',
+  blocks:[
+    { h:'Step 1 · Seven letters' },
+    { p:'The white keys are named with letters: <span class="k a">C D E F G A B</span>. After B the letters start again from C.' },
+    { h:'Step 2 · The black keys borrow names' },
+    { p:'A black key takes its name from a white key next to it. The black key just after C is called <b>C♯</b> (“C sharp”). That same black key is also called <b>D♭</b> (“D flat”), because it is just before D.' },
+    { p:'<b>Sharp</b> means “one key up”. <b>Flat</b> means “one key down”. Two names, same key.' },
+    { h:'Step 3 · The tiny step' },
+    { p:'Moving to the very next key — black or white — is a <b>half step</b>. It is the smallest move there is.' },
+    { h:'Step 4 · The bigger step' },
+    { p:'Skipping one key is a <b>whole step</b>. It is two half steps.' },
+    { p:'Two white-key pairs have no black key between them: <b>E and F</b>, and <b>B and C</b>. Those are only a half step apart.' },
+    { table:{ head:['Start on','Half step up','Whole step up'],
+      rows:[
+        ['C','C♯ / D♭','D'],
+        ['E','F','F♯ / G♭'],
+        ['B','C','C♯ / D♭'] ] } },
+    { h:'Step 5 · Twelve and round again' },
+    { p:'Count every key from one C to the next C and you get <b>12 half steps</b>. That jump is called an <b>octave</b>. It sounds like the same note, just higher.' },
+    { try:{ h:'Take some steps', p:'Tap a key. Then press “Half step up” or “Whole step up” and listen to how far it moves.', use:true } },
+    { keys:[
+      'White keys: C D E F G A B, then again.',
+      'Sharp = one key up. Flat = one key down.',
+      'Half step = next key. Whole step = skip one.',
+      'E to F and B to C are half steps.',
+      '12 half steps = an octave.' ] }
+  ],
+  quiz:[
+    { q:'A half step is…', a:['The very next key','Skipping one key','Eight keys up','Only black keys'], c:0,
+      why:'The very next key, black or white. That is the smallest move on a keyboard.' },
+    { q:'Which two white keys are only a half step apart?', a:['C and D','E and F','F and G','A and B'], c:1,
+      why:'There is no black key between E and F, so they are right next to each other.' },
+    { q:'C♯ is the same key as…', a:['D♭','D♯','B','C'], c:0,
+      why:'Sharp = one key up from C. Flat = one key down from D. They land on the same black key.' }
+  ]
+},
+
 intervals:{
   lede:'An interval is just “how far apart are these two notes”. You find it by counting keys. That is the whole trick.',
   blocks:[
@@ -235,23 +258,21 @@ scales:{
     { h:'Step 1 · A scale is a walking pattern' },
     { p:'Start on any key and walk upwards using big steps (<b>T</b>, two keys) and small steps (<b>S</b>, one key), in this exact order:' },
     { p:'<span class="k a">T &nbsp; T &nbsp; S &nbsp; T &nbsp; T &nbsp; T &nbsp; S</span>' },
-    { p:'That is the <b>major scale</b>. Do it from C and you use only white keys: <span class="k">C D E F G A B</span>. Do it from any other key and the pattern tells you which black keys you need — you never have to guess.' },
-    { p:'Counted from the first note, the major scale is <span class="k">0 2 4 5 7 9 11</span>. Learn those seven numbers and you can build it anywhere.' },
+    { p:'That is the <b>major scale</b>. Do it from C and you use only white keys: <span class="k">C D E F G A B</span>. From any other key the pattern tells you which black keys you need.' },
     { h:'Step 2 · Give the notes numbers, not letters' },
     { p:'Inside a scale each note gets a number from 1 to 7, called its <b>degree</b>. Producers think in these numbers, because they work in every key.' },
     { keys:[
       '<b>1</b> is home. Its real name is the <b>tonic</b>. Songs feel finished here.',
       '<b>5</b> pulls hardest back to home. Its name is the <b>dominant</b>.',
       '<b>3</b> decides happy or sad.',
-      '<b>7</b> leans right into home, so it is called the leading note.' ] },
-    { p:'This is why a tune can move from one key to another and still work: the <em>numbers</em> stay the same, only the letters change.' },
+      '<b>7</b> leans into home: the leading note.' ] },
     { h:'Step 3 · Minor is the same notes with a different home' },
     { p:'The <b>natural minor</b> scale walks <span class="k a">T S T T S T T</span>, or <span class="k">0 2 3 5 7 8 10</span>. Compared to major, the <b>3rd, 6th and 7th</b> are each one key lower. That lower 3rd is the whole difference between happy and serious.' },
-    { p:'Here is the shortcut that saves hours: every major scale has a <b>relative minor</b> that uses <em>exactly the same notes</em>, starting from note number 6. C major and A minor are the same seven white keys. Nothing moved — only which note feels like home.' },
+    { p:'Every major scale has a <b>relative minor</b> that uses <em>exactly the same notes</em>, starting from note number 6. C major and A minor are the same seven white keys. Nothing moved — only which note feels like home.' },
     { h:'Step 4 · The beginner’s cheat scale' },
-    { p:'A <b>pentatonic</b> scale is a normal scale with the two most argumentative notes taken out, leaving five. Fewer notes means fewer ways to fight the chords, which is why so many hooks live here. If your tunes keep clashing, write them in minor pentatonic first and add the other notes back one at a time.' },
+    { p:'A <b>pentatonic</b> scale is a normal scale with the two most argumentative notes taken out, leaving five. Fewer notes, fewer ways to fight the chords — so many hooks live here.' },
     { note:{ h:'One thing to be careful about',
-      p:'Staying inside the scale keeps you in the <b>key</b>. It does <em>not</em> promise that every note will suit the <b>chord</b> playing underneath at that moment. F is in C major, but hold it over a C chord and it rubs against the E right below it. Lesson 20 is all about that, so do not be surprised when a “correct” note still sounds wrong — it is not you making a mistake.' } },
+      p:'Staying inside the scale keeps you in the <b>key</b>. It does <em>not</em> promise that every note will suit the <b>chord</b> playing underneath at that moment. F is in C major, but hold it over a C chord and it rubs against the E right below it. <em>Melody Over Chords</em> is all about that.' } },
     { table:{ head:['Scale','Numbers','From C','Good for'],
       rows:[
         ['Major','0 2 4 5 7 9 11','C D E F G A B','pop, house, gospel'],
@@ -264,7 +285,6 @@ scales:{
       'Major = T T S T T T S = 0 2 4 5 7 9 11.',
       'Minor = 0 2 3 5 7 8 10 — lower 3rd, 6th and 7th.',
       'Think in numbers 1–7, not letters.',
-      'A major scale and the minor starting on its 6th note share every note.',
       'Pentatonic = five notes, almost no wrong answers.' ] }
   ],
   quiz:[
@@ -387,9 +407,8 @@ progressions:{
       '<b>IV → I</b> — a soft landing, like an “amen”. (Called <em>plagal</em>.)',
       'Stopping <b>on V</b> — a comma. It leaves a question hanging. (Called <em>half</em>, or <em>imperfect</em>.)',
       '<b>V → vi</b> — a surprise. You expect the full stop and get a different chord instead. (Called <em>deceptive</em>, or <em>interrupted</em>.)' ] },
-    { small:'Two sets of names exist for the same four things, because British and American theory books label them differently. Learn the sound; read whichever label your book uses.' },
     { note:{ h:'Loops do not want an ending',
-      p:'Modern music loops 4 or 8 bars forever, so a full stop is often not what you want — a wobbly last chord (V, or VII, or IV) throws you back to bar 1. Try it both ways and listen: ending on home makes each pass feel complete, ending on the wobbly chord makes it circle. Neither is a rule.' } },
+      p:'Modern music loops 4 or 8 bars forever, so a full stop is often not what you want — a wobbly last chord (V, VII or IV) throws you back to bar 1. Try both and listen. Neither is a rule.' } },
     { try:{ h:'Four slots, your choice', p:'Load a famous progression, then change any slot to another number. You will hear straight away which swaps keep the story and which break it.', use:true } },
     { keys:[
       'Three jobs: home, away, wobbly.',

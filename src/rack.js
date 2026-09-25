@@ -274,7 +274,19 @@ const RACK = (() => {
       project.channels.forEach(c => { c.steps = barsOf([]); });
       touch(); paintAll();
     });
-    acts.append(dl, clear);
+    /* the beat you made in The Grid and added to your track, on every bar */
+    const mine = UI.btn('Use the beat from your track', () => {
+      if (typeof TRACK === 'undefined' || !TRACK.has('drums')) {
+        if (opts.onSay) opts.onSay('no beat in your track yet \u00b7 add one in The Grid');
+        return;
+      }
+      const d = TRACK.drums();
+      project.channels.forEach(c => { c.steps = barsOf((d[c.part] || []).map(v => v ? 1 : 0)); });
+      touch(); paintAll();
+      if (opts.onSay) opts.onSay('your beat from The Grid \u00b7 on all four bars');
+    });
+    mine.hidden = typeof TRACK === 'undefined' || !TRACK.has('drums');
+    acts.append(dl, mine, clear);
     wrap.appendChild(acts);
 
     /* ── painting ── */

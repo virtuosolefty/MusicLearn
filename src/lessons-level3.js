@@ -155,7 +155,7 @@ LESSONS.push({
     { p:'Split your phrase in two. Bars 1–2 ask a question — end it on an unstable note, hanging. Bars 3–4 answer it — end on the tonic or the 3rd. That question/answer pair is a <b>period</b>, and it’s the reason 4- and 8-bar phrases feel complete rather than merely long.' },
     { note:{ h:'Space is a note',
       p:'Beginner melodies are too busy. A rest lets the previous note land and gives the vocal or the drums room. Try deleting a third of your notes — the melody usually gets better, and more of the ones you kept get heard.' } },
-    { try:{ h:'Write a shape', p:'Tap the 3D roll to add or remove notes. The rows are the notes of C minor, so everything you write stays in the key — which is not the same as agreeing with a chord underneath (that is lesson 20). Then use the tools to vary what you wrote.',
+    { try:{ h:'Write a shape', p:'Tap the 3D roll to add or remove notes. The rows are the notes of C minor, so everything you write stays in the key — which is not the same as agreeing with a chord underneath (that is Melody Over Chords). Then use the tools to vary what you wrote.',
       build:ctx => [
         UI.btn('Give me a motif', () => ctx.motif()),
         UI.btn('Repeat it', () => ctx.repeat()),
@@ -242,6 +242,9 @@ LESSONS.push({
     ctx.read('C minor roll\ntap cells to write \u00B7 only scale notes shown');
     ctx.saveInstrument = () => ctx.keep('notes', ctx.v.notes.slice());
     ctx.keepCfg = { kind:'roll', name:'Melody', bpm:() => bpm };
+    /* the top line of your track */
+    ctx.trackCfg = { layer:'melody',
+      read:() => ctx.v.notes.length ? ctx.v.notes.map(n => ({ step:n.step, midi:n.midi, len:n.len || 1 })) : null };
     const kept = ctx.recall('notes');
     if (kept && kept.length) ctx.v.setNotes(kept); else ctx.motif();
   }

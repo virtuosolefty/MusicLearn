@@ -69,17 +69,24 @@ LESSONS.push({
   init:ctx => {
     let bpm = 92, lock = ctx.recall('lock') !== false, kit = true;
     const KICK = [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0];
+    /* the chords under the bass are the ones in your track, if you have added
+       some — otherwise the stock Cm A♭ E♭ B♭ loop */
+    const BED = typeof TRACK !== 'undefined' ? TRACK.bed() : LOOP_CM;
+    const R = BED.map(c => c.root);
     const PAT = {
-      roots:   [[0,36],[4,32],[8,39],[12,34]],
-      octaves: [[0,36],[2,48],[4,32],[6,44],[8,39],[10,51],[12,34],[14,46]],
-      fifths:  [[0,36],[3,43],[4,32],[7,39],[8,39],[11,46],[12,34],[15,41]],
-      passing: [[0,36],[3,36],[4,32],[6,32],[7,34],[8,39],[11,39],[12,34],[14,34],[15,35]],
+      roots:   BED.map((c, i) => [c.step, R[i]]),
+      octaves: [].concat.apply([], BED.map((c, i) => [[c.step, R[i]], [c.step + 2, R[i] + 12]])),
+      fifths:  [].concat.apply([], BED.map((c, i) => [[c.step, R[i]], [c.step + 3, R[i] + 7]])),
+      passing: [].concat.apply([], BED.map((c, i) => {
+        const nx = R[(i + 1) % R.length];
+        return [[c.step, R[i]], [c.step + 2, R[i]], [c.step + 3, nx + (nx >= R[i] ? -2 : 2)]];
+      })),
       busy:    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].map(s =>
-                 [s, LOOP_CM[Math.floor(s / 4)].root])
+                 [s, R[Math.floor(s / 4)]])
     };
     const rows = () => [36,38,39,41,43,44,46,48,50,51,53,55,56,58,60];
     const snap = m => rows().reduce((b, r) => Math.abs(r - m) < Math.abs(b - m) ? r : b, rows()[0]);
-    ctx.v.setChords(LOOP_CM);
+    ctx.v.setChords(BED);
     ctx.load = k => {
       const ns = PAT[k].map(([step, midi]) => ({ step, midi:snap(midi), len:1 }));
       ctx.v.setNotes(ns);
@@ -100,7 +107,7 @@ LESSONS.push({
     ctx.play = () => {
       ctx.stop();
       ctx.seq({ bpm, div:16, steps:16, cb:(step, t) => {
-        const c = LOOP_CM.find(b => b.step === step);
+        const c = BED.find(b => b.step === step);
         if (c) A.chord(c.notes.map(n => n + 12), 2.1, { when:t, spread:.03, gain:.4 });
         if (kit) {
           if (KICK[step]) A.click('kick', t);
@@ -114,13 +121,16 @@ LESSONS.push({
     };
     ctx.v.onCell((s, m, added) => {
       if (added) A.note(m, .6);
-      const c = LOOP_CM[Math.floor(s / 4)];
+      const c = BED[Math.floor(s / 4)];
       const role = c && c.notes.concat([c.root]).some(n => T.pc(n) === T.pc(m))
         ? 'chord tone — safe' : 'outside the chord — keep it short';
       ctx.read(T.inKey(m, 'C', 'minor') + T.oct(m) + ' under ' + (c ? c.label : '—') + '\n' + role);
       ctx.keep('notes', ctx.v.notes.slice());
     });
     ctx.keepCfg = { kind:'roll', name:'Bassline', bpm:() => bpm };
+    /* this is the bass layer of your track */
+    ctx.trackCfg = { layer:'bass',
+      read:() => ctx.v.notes.length ? ctx.v.notes.map(n => ({ step:n.step, midi:n.midi, len:n.len || 1 })) : null };
     ctx.stage(
       UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
       UI.toggle('Drums', v => { kit = v; }, true),
@@ -303,9 +313,16 @@ LESSONS.push({
   ],
   init:ctx => {
     let bpm = 90, mute = { drums:false, bass:false, chords:false };
-    const KICK = [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0];
-    const BASS = [[0,36],[4,32],[8,39],[12,34]];
-    ctx.v.setChords(LOOP_CM);
+    /* Everything under your melody is your own work where you have made it:
+       the beat from The Grid, the chords from Progressions, the bass from
+       Basslines. Whatever is missing is filled with the stock loop. */
+    const HAS = typeof TRACK !== 'undefined';
+    const BED = HAS ? TRACK.bed() : LOOP_CM;
+    const DR = HAS ? TRACK.drums() : { kick:[1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0],
+      snare:[0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], hat:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] };
+    const BASS = HAS ? TRACK.bass().map(n => [n.step, n.midi, n.len || 3]) : BED.map(c => [c.step, c.root, 3]);
+    const KICK = DR.kick;
+    ctx.v.setChords(BED);
     const rows = [60,62,63,65,67,68,70,72,74,75,77,79,80,82,84];
     ctx.seed = () => {
       const shape = [[0,63],[2,67],[4,65],[7,63]];
@@ -337,7 +354,7 @@ LESSONS.push({
       const ns = ctx.v.notes.slice().sort((a, b) => a.step - b.step);
       const first = ns.filter(n => n.step < 8), second = ns.filter(n => n.step >= 8);
       const onChordTone = ns.filter(n => {
-        const c = LOOP_CM[Math.floor(n.step / 4)];
+        const c = BED[Math.floor(n.step / 4)];
         return c && c.notes.some(x => T.pc(x) === T.pc(n.midi)) && n.step % 4 === 0;
       }).length;
       const barStarts = ns.filter(n => n.step % 4 === 0).length;
@@ -363,12 +380,12 @@ LESSONS.push({
     ctx.exportAll = () => {
       if (typeof STUDIO === 'undefined') return;
       const step = STUDIO.PPQ / 4, out = [];
-      LOOP_CM.forEach(c => c.notes.forEach(n =>
+      BED.forEach(c => c.notes.forEach(n =>
         out.push({ note:n + 12, t:c.step * step, dur:c.len * step - 20, vel:78 })));
-      BASS.forEach(([s, m]) => out.push({ note:m, t:s * step, dur:step * 3.5, vel:105 }));
+      BASS.forEach(([s, m, len]) => out.push({ note:m, t:s * step, dur:step * Math.max(0.9, (len || 3) + 0.5), vel:105 }));
       KICK.forEach((v, s) => { if (v) out.push({ note:STUDIO.DRUM.kick, t:s * step, dur:step / 2, vel:110 }); });
-      [4, 12].forEach(s => out.push({ note:STUDIO.DRUM.snare, t:s * step, dur:step / 2, vel:112 }));
-      for (let s = 0; s < 16; s += 2) out.push({ note:STUDIO.DRUM.hat, t:s * step, dur:step / 3, vel:70 });
+      DR.snare.forEach((v, s) => { if (v) out.push({ note:STUDIO.DRUM.snare, t:s * step, dur:step / 2, vel:112 }); });
+      DR.hat.forEach((v, s) => { if (v) out.push({ note:STUDIO.DRUM.hat, t:s * step, dur:step / 3, vel:70 }); });
       ctx.v.notes.forEach(n => out.push({ note:n.midi, t:n.step * step, dur:(n.len || 1) * step - 12, vel:100 }));
       const okDl = STUDIO.download(STUDIO.midi(out, { bpm, name:'8-bar idea' }), 'musiclearn-8-bar-idea.mid');
       ctx.read(okDl
@@ -379,14 +396,14 @@ LESSONS.push({
       ctx.stop();
       ctx.seq({ bpm, div:16, steps:16, cb:(step, t) => {
         if (!mute.chords) {
-          const c = LOOP_CM.find(b => b.step === step);
+          const c = BED.find(b => b.step === step);
           if (c) A.chord(c.notes.map(n => n + 12), 2.2, { when:t, spread:.03, gain:.38 });
         }
-        if (!mute.bass) { const b = BASS.find(x => x[0] === step); if (b) A.note(b[1], .55, { when:t }); }
+        if (!mute.bass) BASS.filter(x => x[0] === step).forEach(b => A.note(b[1], .22 * (b[2] || 1) + .3, { when:t }));
         if (!mute.drums) {
           if (KICK[step]) A.click('kick', t);
-          if (step === 4 || step === 12) A.click('snare', t);
-          if (step % 2 === 0) A.click('hat', t, step % 4 === 0 ? .8 : .45);
+          if (DR.snare[step]) A.click('snare', t);
+          if (DR.hat[step]) A.click('hat', t, step % 4 === 0 ? .8 : .45);
         }
         ctx.v.notes.filter(n => n.step === step).forEach(n =>
           A.note(n.midi, .3 * (n.len || 1) + .25, { when:t, gain:.95 }));
@@ -396,20 +413,30 @@ LESSONS.push({
     ctx.v.onCell((s, m, added) => {
       if (added) A.note(m, .6);
       ctx.keep('notes', ctx.v.notes.slice());
-      const c = LOOP_CM[Math.floor(s / 4)];
+      const c = BED[Math.floor(s / 4)];
       ctx.read(T.inKey(m, 'C', 'minor') + T.oct(m) + ' over ' + (c ? c.label : '—') + '\n' +
         (c && c.notes.some(x => T.pc(x) === T.pc(m)) ? 'chord tone — good landing' : 'not in the chord — pass through it'));
     });
     ctx.keepCfg = { kind:'roll', name:'8-bar idea', bpm:() => bpm };
+    ctx.trackCfg = { layer:null };
     ctx.stage(
       UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
       UI.toggle('Drums', v => { mute.drums = !v; }, true),
       UI.toggle('Bass', v => { mute.bass = !v; }, true),
       UI.toggle('Chords', v => { mute.chords = !v; }, true)
     );
+    /* the melody: what you wrote here, else the tune from your track */
+    const mine = HAS ? TRACK.melody() : null;
+    const made = HAS ? TRACK.LAYERS.filter(x => TRACK.has(x.id)).map(x => x.name.toLowerCase()) : [];
     const back = ctx.recall('notes');
     if (back && back.length) { ctx.v.setNotes(back); ctx.read('your 8 bars\npress loop, or check them'); }
-    else ctx.read('empty roll\nchords and drums are already playing — add a melody');
+    else if (mine) {
+      ctx.v.setNotes(mine.map(n => ({ step:n.step, midi:n.midi, len:n.len || 1 })));
+      ctx.keep('notes', ctx.v.notes.slice());
+      ctx.read('your melody from Melody Craft\nnow arrange it: copy, vary, check');
+    }
+    else ctx.read(made.length ? 'your ' + made.join(', ') + ' are playing\nadd a melody on the roll'
+                              : 'empty roll\nchords and drums are already playing — add a melody');
   }
 });
 
@@ -466,6 +493,8 @@ LESSONS.push({
       why:'One good loop plus a plan for what is missing when gets you a full arrangement.' }
   ],
   init:ctx => {
+    /* the arrangement plays your track's chords when it has some */
+    const BED = typeof TRACK !== 'undefined' ? TRACK.bed() : LOOP_CM;
     let bpm = 110;
     const SHAPES = {
       pop: [
@@ -516,9 +545,9 @@ LESSONS.push({
             if (b % 2 === 1) A.click('snare', tb, .9);
             A.click('hat', tb + beat / 2, .4);
           }
-          if (on(1) && b % 2 === 0) A.note(LOOP_CM[bar % 4].root, .7, { when:tb, gain:.9 });
+          if (on(1) && b % 2 === 0) A.note(BED[bar % 4].root, .7, { when:tb, gain:.9 });
         }
-        if (on(2)) A.chord(LOOP_CM[bar % 4].notes.map(n => n + 12), beat * 3.6,
+        if (on(2)) A.chord(BED[bar % 4].notes.map(n => n + 12), beat * 3.6,
           { when:t, spread:.03, gain:.34 });
         if (on(3)) [0, 1.5, 2.5].forEach((b, i) =>
           A.note([75, 70, 72][i], .45, { when:t + b * beat, gain:.85 }));

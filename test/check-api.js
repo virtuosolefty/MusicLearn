@@ -61,6 +61,12 @@ const head = t => console.log('\n' + t);
   await call('/api/progress/' + uid, { method:'PUT', body:{ lessons:{ chords:true } } });
   const merged = await call('/api/profile/' + uid);
   eq(Object.keys(merged.body.progress.lessons).length, 3, 'progress merges rather than replaces');
+  /* the loop built across the course travels with the rest of the progress */
+  await call('/api/progress/' + uid, { method:'PUT',
+    body:{ track:{ drums:{ kick:[1,0,0,0], snare:[0,0,1,0], hat:[1,1,1,1] } } } });
+  const tr = await call('/api/profile/' + uid);
+  eq(tr.body.progress.track && tr.body.progress.track.drums.kick.join(''), '1000', 'your track is stored');
+  eq(Object.keys(tr.body.progress.lessons).length, 3, 'without touching the lesson ticks');
 
   head('Attempts, mastery and review');
   const post = a => call('/api/attempts/' + uid, { method:'POST', body:a });

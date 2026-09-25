@@ -23,7 +23,9 @@ const CURRICULUM = (() => {
       blurb:'Put the four layers together, then arrange them into a track.' },
     { id:'toolkit', name:'Harmony Toolkit',
       blurb:'The chords that make a progression sound expensive.' },
-    { id:'advanced',name:'Advanced Producer Theory',
+    { id:'colour',  name:'Colour & Tension',
+      blurb:'Every interval, the minor that bends, and the chords that pull hardest.' },
+    { id:'advanced',name:'Modes & Keys',
       blurb:'Modes, borrowed chords and the map of all twelve keys.' },
     { id:'ear',     name:'Ear & Production Skills',
       blurb:'Recognise it without looking, and get unstuck when you are staring at an empty project.' }
@@ -32,12 +34,13 @@ const CURRICULUM = (() => {
   /* The path. Every lesson id appears exactly once; the tests enforce that. */
   const PATH = {
     start:    ['grid', 'accents', 'meter', 'pianoroll'],
-    notes:    ['intervals', 'scales'],
+    notes:    ['notes', 'intervals', 'scales'],
     first:    ['chords', 'progressions', 'bassline', 'melody'],
     musical:  ['melody-chords', 'velocity'],
     finish:   ['eightbar', 'structure'],
     toolkit:  ['inversions', 'sevenths', 'suspensions', 'extensions'],
-    advanced: ['modes', 'adv-intervals', 'harmonic-minor', 'dom-dim-aug', 'borrowed', 'circle'],
+    colour:   ['adv-intervals', 'harmonic-minor', 'dom-dim-aug'],
+    advanced: ['modes', 'borrowed', 'circle'],
     ear:      ['beatblock', 'challenges']
   };
 

@@ -95,6 +95,8 @@ function jsonStore(file) {
       if (patch.mode != null) p.mode = patch.mode;
       if (patch.theme != null) p.theme = patch.theme;
       if (patch.flat != null) p.flat = patch.flat;
+      /* the loop built across the course: replaced whole, it is one object */
+      if (patch.track != null && typeof patch.track === 'object') p.track = patch.track;
       p.updatedAt = now();
       flush();
       return p;

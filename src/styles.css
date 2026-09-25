@@ -519,6 +519,7 @@ td.hi{color:var(--accent-2)}
   background:var(--panel);border:1px solid var(--line-2);border-radius:var(--radius);
   box-shadow:0 18px 44px rgba(0,0,0,.18);padding:13px 14px;
   display:flex;flex-direction:column;gap:11px;
+  max-height:min(330px, 46vh);overflow-y:auto;overscroll-behavior:contain;
 }
 .setpop[hidden]{display:none}     /* a class with display: would outrank the attribute */
 .setrow{display:flex;flex-direction:column;gap:6px}
@@ -833,3 +834,78 @@ button.b:disabled{box-shadow:none;transform:none}
 
 /* Today's path, face-on */
 .flat-path .flat-lane-name{flex-basis:128px;white-space:normal;line-height:1.2}
+
+/* ═══ Course changes: the track, genres, glossary, cheat sheet, warm-ups ═══ */
+/* a practice round that grows */
+.practice .lvl{display:inline-block;margin-left:6px;font-family:"IBM Plex Mono",monospace;font-size:var(--t-xs);
+  color:var(--accent-2);background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:99px;padding:1px 8px}
+
+/* your track: four layers, filled as the course goes */
+.track-panel .layers{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 12px}
+.track-panel .layer{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;
+  border:1px dashed var(--line-2);color:var(--muted);font-size:var(--t-sm);font-weight:600;background:var(--panel)}
+.track-panel .layer i{width:10px;height:10px;border-radius:50%;border:1.5px solid currentColor;display:inline-block}
+.track-panel .layer .i{width:14px;height:14px}
+.track-panel .layer.on{border-style:solid;border-color:var(--accent);color:var(--accent-2);background:var(--accent-soft)}
+.track-panel .layer.here:not(.on){border-color:var(--accent);color:var(--text)}
+.track-panel .track-msg{margin:10px 0 0;color:var(--text-2)}
+.track-panel .track-msg:empty{display:none}
+
+/* hear it in a track */
+.genre-panel .ctl .b{min-width:92px}
+
+/* guess first */
+.panel.predict .opts{margin:6px 0 4px}
+.panel.predict .opt.chosen{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-line)}
+.panel.predict .why .say{margin:0 0 4px}
+
+/* the warm-up that opens a lesson */
+details.recap{padding:0;overflow:hidden}
+details.recap > summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:10px;
+  font-family:"Bricolage Grotesque",sans-serif;font-size:var(--t-sm);font-weight:600;color:var(--text-2);min-height:44px;box-sizing:border-box}
+details.recap > summary::-webkit-details-marker{display:none}
+details.recap > summary::before{content:"";flex:none;width:14px;height:14px;background:var(--accent);
+  transition:transform var(--d) var(--ease-out);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat}
+details.recap[open] > summary::before{transform:rotate(90deg)}
+details.recap > *:not(summary){margin-left:16px;margin-right:16px}
+details.recap > :last-child{margin-bottom:14px}
+.q.warm{box-shadow:none;padding:12px 14px;margin:10px 16px}
+.q.warm .qt{font-size:var(--t-sm);margin-bottom:8px}
+.small.muted{color:var(--muted)}
+
+/* tap a word */
+button.term{all:unset;cursor:help;color:inherit;border-bottom:1.5px dotted var(--accent);
+  text-decoration:none;border-radius:2px}
+button.term:hover, button.term[aria-expanded="true"]{color:var(--accent-2);background:var(--accent-soft)}
+button.term:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.term-pop{position:fixed;z-index:45;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 14px 40px rgba(0,0,0,.18);padding:12px 14px;font-size:var(--t-sm);line-height:1.5;color:var(--text-2);
+  animation:rise var(--d) var(--ease-out) both}
+.term-pop b{display:block;color:var(--text-strong);font-size:var(--t-base);margin-bottom:2px;text-transform:capitalize}
+.term-pop p{margin:0 0 8px}
+.term-pop p:last-child{margin-bottom:0}
+
+/* the MIDI keyboard, once one is playing */
+.midi-chip{display:inline-flex;align-items:center;gap:6px;pointer-events:none;font-size:var(--t-xs);font-weight:600;
+  color:var(--accent-2);background:var(--glass);border:1px solid var(--accent-line);padding:3px 9px;border-radius:99px}
+.midi-chip .i{width:14px;height:14px}
+.midi-chip[hidden]{display:none}
+.playwith{display:flex;flex-direction:column;gap:6px}
+.playwith .b{align-self:flex-start}
+
+/* the cheat sheet */
+.nav button.cheat-item .num{color:var(--accent-2)}
+.nav button.cheat-item .num .i{width:16px;height:16px}
+.cheat-top{margin:4px 0 8px}
+.cheat-sec h3{margin-top:26px}
+.cheat-notes{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px}
+.cheat-notes .b{font-family:"IBM Plex Mono",monospace;font-size:var(--t-sm)}
+.cheat-notes .b.blackkey{background:var(--text-strong);color:var(--panel);border-color:var(--text-strong)}
+.cheat-table td.play-cell{width:44px;padding-right:0}
+.cheat-table .b.hear{min-width:36px;min-height:36px;padding:0;display:inline-grid;place-items:center}
+.cheat-table .b.hear .i{width:14px;height:14px}
+
+@media (prefers-reduced-motion:reduce){ .term-pop{animation:none!important} }
+@media (pointer:coarse){ .cheat-table .b.hear{min-width:44px;min-height:44px} }

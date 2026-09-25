@@ -67,6 +67,7 @@ function recorder() {
       view._steps = steps; view._lanes = lanes; view.state = [];
       for (let l = 0; l < lanes; l++) view.state.push(new Array(steps).fill(0));
     },
+    range() { return [48, 72]; },
     clear() { view.marked = new Map(); return self; },
     mark(m, role) { view.marked.set(m, role || 'chord'); return self; },
     marks(list, role) { (list || []).forEach(m => view.marked.set(m, role || 'chord')); return self; },
@@ -101,6 +102,8 @@ const rackSrc = read('src/rack.js');
 const studioSrc = read('src/studio.js');
 const flatSrc = read('src/flat.js');
 const scenesSrc = read('src/scenes.js');
+const extraSrc = ['src/input.js','src/track.js','src/genres.js','src/glossary.js',
+                  'src/predict.js','src/cheatsheet.js'].map(read).join('\n');
 const lessonSrc = ['src/lessons-level1.js','src/lessons-level2.js','src/lessons-level3.js',
                    'src/simple-level1.js','src/simple-level2.js',
                    'src/lessons-production.js','src/simple-production.js',
@@ -130,14 +133,19 @@ const Vmock = { set:(kind, cfg) => {
                   return stage;
                 },
                 a11y:() => stage.a11y(), setTheme:() => {}, label:() => ({}), mount:() => {},
+                input:(m, vel) => { inputs.push([m, vel]); return m; },
                 get view() { return stage; } };
+const inputs = [];          /* every note the INPUT module handed to the stage */
 
 const sandbox = new Function('A', 'V', 'document', 'window', 'localStorage',
   theory.replace(/^const A = \(\(\)[\s\S]*$/m, '') + '\n' +
   mixerSrc + '\n' + instrSrc + '\n' +
-  uiSrc + '\n' + practiceSrc + '\n' + masterySrc + '\n' + studioSrc + '\n' + rackSrc + '\n' + flatSrc + '\n' + lessonSrc +
-  '\nreturn { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY, MIXER, INSTRUMENTS, RACK };');
-const { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY, MIXER, INSTRUMENTS, RACK } =
+  uiSrc + '\n' + practiceSrc + '\n' + masterySrc + '\n' + studioSrc + '\n' + rackSrc + '\n' + flatSrc + '\n' +
+  extraSrc + '\n' + lessonSrc +
+  '\nreturn { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY, MIXER, INSTRUMENTS, RACK,' +
+  ' INPUT, TRACK, GENRES, GLOSSARY, PREDICT, CHEAT, CURRICULUM };');
+const { LESSONS, UI, T, APP, PRACTICE, STUDIO, FLAT, MASTERY, MIXER, INSTRUMENTS, RACK,
+        INPUT, TRACK, GENRES, GLOSSARY, PREDICT, CHEAT, CURRICULUM } =
   sandbox(Amock, Vmock, global.document, global.window, global.localStorage);
 PRACTICE.plan(LESSONS);
 
@@ -345,6 +353,22 @@ head('Practice rounds');
     if (!L) return;
     ok(!!L.practice, id + ': the plan is attached to the lesson');
     const cfg = PRACTICE.PLAN[id];
+    if (cfg.mix) {
+      /* a mixed round borrows every other lesson's own maker */
+      const qs = PRACTICE.mixQueue(ids, 5);
+      eq(qs.length, 5, id + ': a mixed round has five questions');
+      ok(qs.every(e => e.lesson !== id && PRACTICE.MAKERS[e.kind]), id + ': each one from another lesson, with a maker');
+      return;
+    }
+    ok(typeof PRACTICE.MAKERS[cfg.kind] === 'function', id + ': its kind has a maker');
+    /* a piano roll only has the rows of its scale */
+    const rc = L.stage.cfg || {};
+    const rollRows = [];
+    if (L.stage.view === 'roll') {
+      for (let o = 0; o < (rc.octaves || 2); o++) T.SCALES[rc.scale || 'minor'].steps.forEach(st => rollRows.push((rc.root || 60) + st + 12 * o));
+      rollRows.push((rc.root || 60) + 12 * (rc.octaves || 2));
+    }
+    let offRoll = 0, badWheel = 0, badExample = 0;
     const lo = (L.stage.cfg && L.stage.cfg.lo) || 48;
     const hi = (L.stage.cfg && L.stage.cfg.hi) || 72;
     const onKeys = L.stage.view === 'keys';
@@ -359,12 +383,27 @@ head('Practice rounds');
         const all = heard.concat(q.build.mode === 'keys' ? shown : [], [q.build.from]);
         if (all.some(m => m < lo || m > hi)) bad++;
       }
-      if (q.build.mode === 'grid') {
-        const steps = (L.stage.cfg && L.stage.cfg.steps) || 16;
+      if (q.build.mode === 'grid' && q.build.column) {
+        if (q.build.column.on.length !== ((L.stage.cfg && L.stage.cfg.lanes) || []).length) offGrid++;
+      } else if (q.build.mode === 'grid') {
+        const steps = q.build.meter ? q.build.meter * 4 : ((L.stage.cfg && L.stage.cfg.steps) || 16);
         if (shown.length !== steps) offGrid++;
         if (!shown.some(v => v)) offGrid++;       /* an empty answer is not a pattern */
       }
+      if (q.build.mode === 'roll') {
+        const all = (q.build.expect || []).concat((q.build.show || []).map(n => n.midi));
+        if (all.some(m => rollRows.indexOf(m) < 0)) offRoll++;
+        /* the example it shows after a miss must itself pass */
+        if (q.build.check && !q.build.check((q.build.show || []).map(n => ({ step:n.step, midi:n.midi })))) badExample++;
+      }
+      if (q.build.mode === 'wheel') {
+        const t = q.build.expect;
+        if (!t || t.idx < 0 || t.idx > 11 || (t.ring !== 'maj' && t.ring !== 'min')) badWheel++;
+      }
     }
+    if (L.stage.view === 'roll') eq(offRoll, 0, id + ': every note it asks for is a row on the roll');
+    eq(badExample, 0, id + ': the example answer it shows passes its own check');
+    eq(badWheel, 0, id + ': every wheel answer is a real tile');
     eq(unanswerable, 0, id + ': the right answer is always among the options');
     eq(unnamed, 0, id + ': every round records a named concept');
     if (onKeys) eq(bad, 0, id + ': every note it plays or asks for fits the keyboard (' + lo + '-' + hi + ')');
@@ -862,6 +901,182 @@ head('Exporting a beat');
   /* and the single-track writer still works, because lessons use it */
   const one = STUDIO.midi([{ note:60, t:0, dur:240, vel:100 }], { bpm:100 });
   eq((one[10] << 8) | one[11], 2, 'the one-track export is untouched: tempo plus one');
+}
+
+/* ═══ Course changes ═══════════════════════════════════════════ */
+head('One explanation per lesson, about five minutes');
+{
+  const strip = h => String(h || '').replace(/<[^>]+>/g, ' ');
+  const words = bs => (bs || []).filter(b => !b.try).reduce((n, b) => {
+    const t = [b.h, b.p, b.small, b.note && b.note.h, b.note && b.note.p].concat(b.keys || [])
+      .concat(b.table ? [].concat(b.table.head, ...b.table.rows) : []).map(strip).join(' ');
+    return n + t.split(/\s+/).filter(Boolean).length;
+  }, 0);
+  const over = [];
+  LESSONS.forEach(L => {
+    if (words(L.blocks) > 500) over.push(L.id + ' (producer ' + words(L.blocks) + ')');
+    if (L.simple && words(L.simple.blocks) > 500) over.push(L.id + ' (simple ' + words(L.simple.blocks) + ')');
+  });
+  eq(over.join(', ') || 'none', 'none', 'no lesson explanation runs past 500 words (about two and a half minutes)');
+  const sizes = CURRICULUM.STAGES.map(st => (CURRICULUM.PATH[st.id] || []).length);
+  ok(Math.max.apply(null, sizes) <= 5, 'no stage is longer than five lessons (largest: ' + Math.max.apply(null, sizes) + ')');
+}
+
+head('Every lesson ends in practice');
+{
+  const none = LESSONS.filter(L => !L.practice).map(L => L.id);
+  eq(none.join(',') || 'none', 'none', 'all ' + LESSONS.length + ' lessons carry a hear-it, name-it, build-it round');
+}
+
+head('Naming notes comes before intervals');
+{
+  const ids = LESSONS.map(L => L.id);
+  ok(ids.indexOf('notes') >= 0 && ids.indexOf('notes') < ids.indexOf('intervals'),
+     'the half-step lesson sits right before intervals');
+  const L = lesson('notes');
+  eq(L.part, 'notes', 'and opens the Notes & Keys stage');
+  const q = PRACTICE.MAKERS.notename({ pool:[0], lo:55 });
+  eq(T.pc(q.show[0]), 0, 'its practice lights the key it asks about');
+  ok(q.options.indexOf(q.answer) >= 0, 'and offers the right name');
+  eq(Math.abs(q.build.expect[0] - q.show[0]) <= 2, true, 'then asks for a half or whole step from it');
+}
+
+head('Practice rounds grow in small groups');
+{
+  PRACTICE.clear();
+  const cfg = PRACTICE.PLAN.intervals;
+  eq(PRACTICE.level(cfg).pool.join(','), '3,4', 'intervals starts with just the two thirds');
+  ['3', '3', '4'].forEach(c => PRACTICE.record('intervals', 'interval', c, c, true));
+  eq(PRACTICE.level(cfg).n, 1, 'one right answer each is not yet enough');
+  PRACTICE.record('intervals', 'interval', '4', '4', true);
+  eq(PRACTICE.level(cfg).pool.join(','), '3,4,5,7', 'twice each and the 4th and 5th join');
+  eq(PRACTICE.level(PRACTICE.PLAN.scales).pool.join(','), 'major,minor', 'scales start with major and minor');
+  eq(PRACTICE.level(PRACTICE.PLAN.notes).pool.length, 7, 'note names start on the white keys');
+  PRACTICE.clear();
+  /* every ladder step is part of the full pool, so a review can still ask it */
+  ['intervals', 'scales', 'notes'].forEach(id => {
+    const c = PRACTICE.PLAN[id];
+    ok(c.ladder.every(st => st.pool.every(x => c.pool.indexOf(x) >= 0)), id + ': every step is in the full pool');
+  });
+}
+
+head('Melody shapes are judged by shape');
+{
+  const n = (s, m) => ({ step:s, midi:m });
+  eq(PRACTICE.shapeOf([n(0, 60), n(4, 63), n(8, 67), n(12, 70)]), 'rise', 'up, up, up is a rise');
+  eq(PRACTICE.shapeOf([n(0, 60), n(4, 67), n(8, 63), n(12, 62)]), 'arch', 'up then down is an arch');
+  eq(PRACTICE.shapeOf([n(0, 67), n(4, 60), n(8, 63), n(12, 65)]), 'valley', 'down then up is a valley');
+  eq(PRACTICE.shapeOf([n(0, 60), n(4, 60), n(8, 63)]), 'flat', 'a repeated note is not a direction');
+  eq(PRACTICE.shapeOf([n(0, 60), n(4, 63)]), 'too short', 'two notes are not a shape');
+}
+
+head('The ear warm-up');
+{
+  const q = PRACTICE.earQueue(['grid', 'notes', 'intervals'], 3);
+  eq(q.length, 3, 'three questions');
+  ok(q.every(e => e.lesson !== 'notes'), 'never the note-naming round, which needs your eyes');
+  eq(PRACTICE.earQueue(['grid'], 3).length, 3, 'from lesson one on, even with a single lesson reached');
+  eq(PRACTICE.earQueue(['notes'], 3).length, 0, 'and nothing at all rather than a question it cannot ask by ear');
+}
+
+head('Your track');
+{
+  TRACK.clear();
+  eq(TRACK.bed().map(c => c.label).join(' '), 'Cm A♭ E♭ B♭', 'an empty track plays the stock loop');
+  eq(TRACK.bass().map(n => n.midi).join(','), '36,32,39,34', 'with its roots as the bass');
+  const grid = [[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], new Array(16).fill(1)];
+  TRACK.set('drums', TRACK.fromGrid(grid));
+  eq(TRACK.drums().kick.filter(Boolean).length, 4, 'the beat from The Grid becomes the drums');
+  ok(TRACK.fitsKey('minor') && TRACK.fitsKey('harmonicMinor') && !TRACK.fitsKey('major'),
+     'only a minor progression fits a track in C minor');
+  /* the progression lesson hands over what it is showing */
+  const store = {};
+  const { ctx } = mount(lesson('progressions'), store);
+  ok(ctx.trackCfg && ctx.trackCfg.layer === 'chords', 'Progressions offers the chords layer');
+  ok(ctx.trackCfg.fits() !== true, 'and explains, rather than adds, a major progression');
+  ctx.trackCfg.fix.run();
+  eq(ctx.trackCfg.fits(), true, 'its one-press fix switches to a minor one');
+  TRACK.set('chords', ctx.trackCfg.read());
+  eq(TRACK.bed().map(c => c.label).join(' '), 'Cm A♭ E♭ B♭', 'i–VI–III–VII is the loop the lessons play');
+  ok(TRACK.bed().every(c => Math.min.apply(null, c.notes) >= 43 && Math.min.apply(null, c.notes) < 56),
+     'seated in the register the stock loop used');
+  ok(TRACK.bass().every(n => n.midi >= 32 && n.midi <= 43), 'and its bass roots sit in the bass register');
+  ['grid', 'progressions', 'bassline', 'melody'].forEach(id => {
+    const m = mount(lesson(id), {});
+    ok(m.ctx.trackCfg && TRACK.LAYERS.some(x => x.id === m.ctx.trackCfg.layer && x.lesson === id),
+       id + ': adds its own layer');
+  });
+  const e8 = mount(lesson('eightbar'), {});
+  ok(e8.ctx.trackCfg && e8.ctx.trackCfg.layer === null, 'Build an 8-Bar Idea shows the track it is built from');
+  TRACK.clear();
+}
+
+head('Guess first');
+{
+  const ids = Object.keys(PREDICT);
+  ok(ids.length >= 10, ids.length + ' lessons open with a guess');
+  ids.forEach(id => {
+    const P = PREDICT[id];
+    ok(!!lesson(id), id + ': is a real lesson');
+    ok(P.c >= 0 && P.c < P.a.length && new Set(P.a).size === P.a.length, id + ': a real answer among distinct options');
+    const c = { later:() => {}, read:() => {} };
+    ok(P.play(c) > 0 && !!P.why, id + ': plays, and says why');
+  });
+}
+
+head('Tap a word for its meaning');
+{
+  const T2 = GLOSSARY.TERMS;
+  ok(T2.length >= 30, T2.length + ' terms defined');
+  const forms = [];
+  T2.forEach(t => [t[0]].concat(t[1]).forEach(f => forms.push(f.toLowerCase())));
+  eq(forms.length, new Set(forms).size, 'no spelling belongs to two terms');
+  ok(T2.every(t => t[2] && t[2].length < 140), 'every definition is one short line');
+  ok(GLOSSARY.indexOf('Semitones') === GLOSSARY.indexOf('half step'), 'plural, case and synonyms find the same term');
+  ok(GLOSSARY.indexOf('keys') < 0, 'and "keys" is left alone — on a keyboard it means the keys');
+}
+
+head('Hear it in a track');
+{
+  let bad = 0;
+  GENRES.ORDER.forEach(id => {
+    const g = GENRES.STYLES[id];
+    ['kick', 'snare', 'hat'].forEach(k => { if (g[k].length !== 16) bad++; });
+    if (!INSTRUMENTS.kitById(g.kit) || !INSTRUMENTS.byId(g.voice) || !INSTRUMENTS.byId(g.lead)) bad++;
+  });
+  eq(bad, 0, 'four styles, each a real kit and real sounds over one bar of 16 steps');
+  const withMaterial = ['intervals', 'scales', 'chords', 'progressions'].filter(id => {
+    const m = mount(lesson(id), {});
+    const mat = m.ctx.material && m.ctx.material();
+    return mat && mat.chords.length && mat.line.length && mat.label;
+  });
+  eq(withMaterial.length, 4, 'intervals, scales, chords and progressions each hand over what they show');
+}
+
+head('Playing from a keyboard');
+{
+  inputs.length = 0;
+  global.document.body = { classList:{ contains:() => false } };
+  INPUT._key({ key:'a', target:{ tagName:'BODY' } });
+  INPUT._key({ key:'w', target:{ tagName:'BODY' } });
+  INPUT._key({ key:'a', target:{ tagName:'INPUT' } });
+  INPUT._key({ key:'a', ctrlKey:true, target:{ tagName:'BODY' } });
+  eq(inputs.length, 2, 'letters play, but not while typing and not with a modifier');
+  eq(inputs[1][0] - inputs[0][0], 1, 'A then W is a half step');
+  INPUT._message({ data:[0x90, 64, 127] });
+  INPUT._message({ data:[0x90, 64, 0] });
+  INPUT._message({ data:[0x80, 64, 90] });
+  eq(inputs.length, 3, 'a MIDI note-on plays; velocity 0 and note-off do not');
+  eq(inputs[2][0] + ',' + inputs[2][1], '64,1', 'at its own pitch and velocity');
+  INPUT._message({ data:[0x99, 36, 100] });
+  eq(inputs.length, 3, 'a drum pad on channel 10 is a drum, not a key');
+  delete global.document.body;
+}
+
+head('The cheat sheet');
+{
+  ok(typeof CHEAT.build === 'function', 'the page builder exists');
+  ok(/renderCheat/.test(uiSrc) && /cheatsheet/.test(uiSrc), 'and has its own page and address');
 }
 
 console.log('\n' + pass + ' checks passed' + (fail ? ', ' + fail + ' FAILED' : ''));

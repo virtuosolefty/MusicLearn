@@ -613,7 +613,13 @@ const V = (() => {
         api.tap(m);
       },
       /* the one place a key press happens, whether from the canvas or a button */
-      tap(m) { api.press(m); if (onKeyCb) onKeyCb(m); taps.forEach(f => f(m)); return api; },
+      tap(m, vel) {
+        api.press(m, null, vel == null ? null : { vel });
+        if (onKeyCb) onKeyCb(m); taps.forEach(f => f(m)); return api;
+      },
+      /* the keys this keyboard has, for anything playing it from outside —
+         a MIDI keyboard or the computer's own letters */
+      range() { return [cfg.lo, cfg.hi]; },
       /* an extra listener, for anything watching alongside the lesson's own */
       listen(cb) { taps.push(cb); return api; },
       unlisten(cb) { const i = taps.indexOf(cb); if (i >= 0) taps.splice(i, 1); return api; },
@@ -964,6 +970,7 @@ const V = (() => {
         m.position.y = role ? 0.22 : 0.1;
       });
     }
+    const taps = [];
     const api = {
       group:g,
       get pickables() { return outer.concat(inner); },
@@ -977,8 +984,11 @@ const V = (() => {
         const m = (ring === 'maj' ? outer : inner)[idx];
         if (m) { const v = tmpV(); m.getWorldPosition(v); v.y += 0.4; FX.burst(v, null, 12); }
         if (onTileCb) onTileCb(idx, ring);
+        taps.forEach(f => f(idx, ring));
         return api;
       },
+      listen(cb) { taps.push(cb); return api; },
+      unlisten(cb) { const i = taps.indexOf(cb); if (i >= 0) taps.splice(i, 1); return api; },
       a11y() {
         const mk = (ring, labels) => labels.map((lab, i) => ({
           label:lab,
@@ -1026,7 +1036,7 @@ const V = (() => {
     const beds = new THREE.Group(); g.add(beds);
     const ribbon = new THREE.Group(); g.add(ribbon);
     const S = cfg.steps, sx = 0.95, sz = 0.78;
-    let rows = [], noteList = [], onCellCb = null, chords = [];
+    let rows = [], noteList = [], onCellCb = null, chords = [], judgeCell = null;
     const taps = [];
 
     function buildRows() {
@@ -1115,12 +1125,7 @@ const V = (() => {
         const p = hit.point.clone(); g.worldToLocal(p);
         const s = Math.round((p.x - x0()) / sx), r = Math.round((z0() - p.z) / sz);
         if (s < 0 || s >= S || r < 0 || r >= rows.length) return;
-        const midi = rows[r];
-        const i = noteList.findIndex(n => n.step === s && n.midi === midi);
-        if (i >= 0) noteList.splice(i, 1); else noteList.push({ step:s, midi, len:1 });
-        drawNotes();
-        if (onCellCb) onCellCb(s, midi, i < 0);
-        taps.forEach(f => f(s, midi, i < 0));
+        api.tapCell(s, rows[r]);
       },
       onCell(cb) { onCellCb = cb; return api; },
       listen(cb) { taps.push(cb); return api; },
@@ -1132,7 +1137,7 @@ const V = (() => {
         const r = rows.indexOf(midi);
         if (i < 0 && r >= 0) {
           const v = tmpV(); v.set(x0() + step * sx, 0.35, rowZ(r)); g.localToWorld(v);
-          FX.burst(v, null, 10);
+          FX.burst(v, judgeCell ? judgeCell(step, midi) : null, 10);
         }
         if (onCellCb) onCellCb(step, midi, i < 0);
         taps.forEach(f => f(step, midi, i < 0));
@@ -1158,6 +1163,9 @@ const V = (() => {
           } };
       },
       get notes() { return noteList; },
+      get rows() { return rows.slice(); },
+      /* fn(step, midi) -> 'good' | 'bad' | null — a practice round's live verdict */
+      judge(fn) { judgeCell = typeof fn === 'function' ? fn : null; return api; },
       setNotes(list) { noteList = (list || []).slice(); drawNotes(); return api; },
       clearNotes() { noteList = []; drawNotes(); return api; },
       setScale(rootMidi, scale, octaves) {
@@ -1347,7 +1355,7 @@ const V = (() => {
   /* wrap a view so its own chaining still works, but every call pings */
   /* called every frame or purely visual: pinging on these would resync the
      accessible panel sixty times a second for nothing */
-  const SILENT = { update:1, fall:1, spot:1, judge:1, glowCell:1 };
+  const SILENT = { update:1, fall:1, spot:1, judge:1, glowCell:1, range:1 };
   function watch(api) {
     if (typeof Proxy !== 'function') return api;
     const p = new Proxy(api, { get(t, k) {
@@ -1406,7 +1414,24 @@ const V = (() => {
     confetti(size) { if (renderer && !paused) FX.confetti(size); },
     get reduced() { return FX.reduced(); }
   };
-  return { mount, set, label, setTheme, a11y, onPaint, clearPaint, setPaused, fx,
+  /* A note from outside the canvas — a MIDI keyboard, or the computer's
+     letters. On a keyboard it is exactly a tap (sound, glow, the lesson's own
+     response, a practice round's listener), folded into the keys the stage
+     has. Anywhere else it is simply heard. Returns the note that sounded. */
+  function input(m, vel) {
+    const v = current;
+    if (v && typeof v.range === 'function' && typeof v.tap === 'function') {
+      const r = v.range();
+      while (m < r[0]) m += 12;
+      while (m > r[1]) m -= 12;
+      v.tap(m, vel);
+      return m;
+    }
+    if (typeof A !== 'undefined') { A.resume(); A.note(m, 0.6, { gain:0.35 + 0.65 * (vel == null ? 0.8 : vel) }); }
+    return m;
+  }
+
+  return { mount, set, label, setTheme, a11y, onPaint, clearPaint, setPaused, fx, input,
            get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
            get headless() { return headless; },

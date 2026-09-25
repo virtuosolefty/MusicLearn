@@ -42,7 +42,7 @@ scrolling to 1,784px.
 A first visit asks three questions, each of which changes something: how much theory you already
 have (which sets where the course opens), how it should be explained (the reading level), and how
 long you want to practise a day (the length of the daily workout). One screen, skippable, never
-shown again — and **Reset progress** brings it back. Nothing is locked either way: all 26 chapters
+shown again — and **Reset progress** brings it back. Nothing is locked either way: all 27 chapters
 are in the sidebar from the first second.
 
 ## Two reading levels
@@ -76,13 +76,14 @@ never in a lesson.
 | Stage | Lessons |
 | --- | --- |
 | **1 · Start Making Music** | The Grid · Strong and Weak Beats · Simple and Compound Meter · The Piano Roll |
-| **2 · Notes & Keys** | Intervals · Scales |
+| **2 · Notes & Keys** | **Naming Notes** · Intervals · Scales |
 | **3 · Build Your First Track** | Building Chords · Progressions That Work · **Basslines** · Melody Craft |
 | **4 · Make It Musical** | Melody Over Chords · **Velocity and Groove** |
 | **5 · Finish an 8-Bar Idea** | **Build an 8-Bar Idea** · **Song Structure** |
 | **6 · Harmony Toolkit** | Inversions and Voicing · Seventh Chords · Suspensions · Chord Extensions |
-| **7 · Advanced Producer Theory** | Modes · Advanced Intervals · Harmonic Minor · Dominant, Diminished, Augmented · Borrowed and Chromatic Chords · The Circle of Fifths |
-| **8 · Ear & Production Skills** | A Cure for Beat-Block · Challenges |
+| **7 · Colour & Tension** | Advanced Intervals · Harmonic Minor · Dominant, Diminished, Augmented |
+| **8 · Modes & Keys** | Modes · Borrowed and Chromatic Chords · The Circle of Fifths |
+| **9 · Ear & Production Skills** | A Cure for Beat-Block · Challenges |
 
 The four chapters in bold are new: the bassline and arrangement material the course was missing,
 velocity and groove as a first-class topic rather than a footnote, and a capstone that checks
@@ -91,6 +92,37 @@ melody — as a MIDI file.
 
 Progress is remembered per browser, and each lesson ends with self-check questions that explain
 the answer either way.
+
+### Built to be easy to learn
+
+- **One loop, built across the course.** The Grid, Progressions That Work, Basslines and Melody
+  Craft each have an *Add to your track* button. Every later lesson that plays "the loop" plays
+  yours, and Build an 8-Bar Idea starts from the parts you made. The track is in C minor — the key
+  the bass and melody lessons use — so a major progression is explained, with a one-press switch
+  to a minor one, rather than silently refused. The Studio can pull your beat into the rack.
+- **Small steps.** *Naming Notes* (half steps, whole steps, sharps and flats) now comes before
+  intervals. Intervals, scales and note names are introduced in groups: the round starts with the
+  two thirds (or major and minor, or the white keys) and widens once each has come back right twice.
+- **Every lesson practises.** All 27 end in a hear-it / name-it / build-it round — including meter
+  (mark the beats in twos or threes), inversions, borrowed chords, the circle (tap where the key
+  went), melody (draw any tune with the same shape), and song structure (set a bar's layers).
+  Challenges is a mixed round of five, each on its own instrument.
+- **About five minutes each.** No explanation runs past 500 words, and no stage past five lessons —
+  the old seven-lesson advanced stage is now *Colour & Tension* and *Modes & Keys*. The tests hold
+  both limits.
+- **Ears from day one.** Today opens with a three-question ear warm-up drawn from whatever you
+  have reached, even if that is only The Grid.
+- **Hear it in a track.** Intervals, scales, chords and progressions can play what is on screen
+  as lo-fi, trap, pop or house, with the app's own kits and sounds.
+- **Guess first.** Fifteen lessons open with one question you answer *before* hearing anything —
+  which will sound sadder, which will feel faster. Not scored; it makes you listen for something.
+- **Warm-up.** A lesson whose previous one is done opens with one line and two questions from it.
+- **Tap a word.** The first mention of ~45 terms on a page is a button: one line, and usually a
+  sound. **Cheat sheet** (in the sidebar) has every interval, chord, scale, diatonic chord and
+  progression on one page, in any key, every row playable.
+- **Play it for real.** The computer keyboard plays the stage (A–K white keys, W E T Y U black,
+  Z/X octave), and **Display → Connect a MIDI keyboard** lets an Akai MPK Mini or any USB keyboard
+  play every lesson and every practice round like a tap.
 
 **Completion and understanding are tracked separately.** "Mark this lesson done" records that you
 worked through it; alongside it the sidebar keeps a **drill score** from the first answer you give
@@ -277,6 +309,12 @@ src/instruments.js      eight pitched presets and three drum kits, written as da
 src/rack.js             RACK = the channel rack, its project and its MIDI export
 src/icons.js            ICONS = one inline SVG sprite; decorates '▶ Play'-style labels
 src/scenes.js           V = one WebGL canvas: four instruments, the Today path, effects, both palettes
+src/input.js            INPUT = the computer keyboard and Web MIDI, both played as taps
+src/track.js            TRACK = your loop across the course: drums, chords, bass, melody
+src/genres.js           GENRES = lo-fi, trap, pop and house, playing what a lesson shows
+src/glossary.js         GLOSSARY = tap-a-word definitions, most of them with a sound
+src/predict.js          PREDICT = the guess-first question a lesson opens with
+src/cheatsheet.js       CHEAT = every table in the course on one playable page
 src/ui.js               UI = control builders · APP = nav, rendering, progress, mode, theme
 src/practice.js         PRACTICE = hear it / name it / build it, and the record of what you missed
 src/mastery.js          MASTERY = mastery scores, review dates, the day's workout, the streak
@@ -373,7 +411,7 @@ things that break when two parts of the app describe the same thing differently:
 - the MIDI it writes decodes back to the notes, channels and tempo it claims;
 - every ear-training drill records a concept the review knows how to ask again.
 
-All 26 lessons are also walked in a headless browser in both reading levels, both themes and both
+All 27 lessons are also walked in a headless browser in both reading levels, both themes and both
 instrument views, clicking every control and every quiz option.
 
 What it does not cover: pedagogy, lesson ordering and the wording of explanations — this has not
@@ -386,11 +424,10 @@ applied are in [docs/SOURCES.md](docs/SOURCES.md). Corrections are welcome via
 Honest list of what this is not, so nobody is misled:
 
 - **Not reviewed by a music educator.** The maths is verified; the teaching is not peer-reviewed.
-- **Eight lessons have no practice round.** The fourteen whose own instrument can express what
-  they teach have one. Meter, inversions, borrowed chords, the circle and the three melody
-  lessons do not — their ideas need a build step that has not been designed yet.
-- **Practice does not cover every lesson.** Sixteen of the twenty-six carry a hear-it/name-it/
-  build-it round; the rest end at the quiz.
+- **Melody and structure rounds judge shape, not taste.** A melody round checks the contour you
+  drew and a structure round checks which layers are on — neither can tell you whether it is good.
+- **Web MIDI is Chrome and Edge only.** Safari and Firefox have no Web MIDI; the computer
+  keyboard works everywhere.
 - **Saved work is per browser.** Ideas and progress live in `localStorage`: no account, no sync,
   and clearing site data clears them. MIDI export is the way to take work with you.
 - **The schedule is a heuristic, not a study.** The ladder (1, 2, 4, 8, 16, 30 days) and the

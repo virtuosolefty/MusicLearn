@@ -245,6 +245,14 @@ const APP = (() => {
       sb.addEventListener('click', () => { openStudio(); closeRail(); });
       nav.appendChild(sb);
     }
+    if (typeof CHEAT !== 'undefined') {
+      const cb = UI.el('button', 'cheat-item');
+      cb.type = 'button';
+      cb.innerHTML = '<span class="num">' + icon('note') + '</span><span>Cheat sheet</span><span class="tick"></span>';
+      cb.title = 'Every interval, chord, scale and progression on one page \u2014 tap a row to hear it';
+      cb.addEventListener('click', () => { openCheat(); closeRail(); });
+      nav.appendChild(cb);
+    }
     let seen = null;
     LESSONS.forEach((L, i) => {
       const key = L.part || L.level;
@@ -327,7 +335,7 @@ const APP = (() => {
       if (keys.filter(k => rec[k]).length * 3 < quiz.length * 2) return false;
       any = true;
     }
-    if (L.practice && typeof PRACTICE !== 'undefined') {
+    if (L.practice && !L.practice.mix && typeof PRACTICE !== 'undefined') {
       if (!PRACTICE.forLesson(L.id).some(e => (e.right || 0) > 0)) return false;
       any = true;
     }
@@ -426,6 +434,8 @@ const APP = (() => {
      talks to it through. */
   function openStage(L) {
     document.body.classList.remove('no-stage');
+    if (typeof CHEAT !== 'undefined') CHEAT.stop();
+    if (typeof GLOSSARY !== 'undefined') GLOSSARY.close();
     if (rackOn && rackOn.stop) { try { rackOn.stop(); } catch (e) {} rackOn = null; }
     leaving.forEach(fn => { try { fn(); } catch (e) {} });
     leaving = [];
@@ -498,7 +508,32 @@ const APP = (() => {
       [{ label:'\u2600 Light', value:'light' }, { label:'\u263E Dark', value:'dark' }],
       effTheme, v => { theme = v; try { localStorage.setItem(TKEY, theme); } catch (e) {} applyTheme(); draw(); });
     const note = UI.html('p', 'sethint', '');
-    pop.append(level, look, note);
+    /* playing the stage from a real instrument */
+    const play = UI.el('div', 'setrow');
+    play.appendChild(UI.html('span', 'lab', 'Play with'));
+    const pbody = UI.el('div', 'playwith');
+    pbody.appendChild(UI.html('p', 'sethint',
+      'Computer keys: <b>A S D F G H J K</b> are the white keys, <b>W E T Y U</b> the black ones, ' +
+      '<b>Z</b> and <b>X</b> move an octave.'));
+    const midiBtn = UI.btn('Connect a MIDI keyboard', () => {
+      if (typeof INPUT === 'undefined') return;
+      const st = INPUT.status();
+      if (st.midi) { INPUT.disconnect(); return; }
+      midiMsg.textContent = 'Asking the browser\u2026';
+      INPUT.connect().then(ok => { if (!ok) midiMsg.textContent = 'The browser did not allow MIDI. Chrome and Edge support it; Safari does not.'; });
+    });
+    const midiMsg = UI.html('p', 'sethint', '');
+    pbody.append(midiBtn, midiMsg);
+    play.appendChild(pbody);
+    const paintMidi = st => {
+      if (!st.supported) { midiBtn.disabled = true; midiMsg.textContent = 'This browser has no MIDI support \u2014 Chrome or Edge do.'; return; }
+      UI.label(midiBtn, st.midi ? 'Disconnect MIDI' : 'Connect a MIDI keyboard');
+      midiMsg.textContent = st.midi
+        ? (st.devices.length ? 'Playing from: ' + st.devices.join(', ') + '.' : 'MIDI is on \u2014 plug a keyboard in.')
+        : 'An Akai MPK Mini or any USB keyboard plays the stage like a tap.';
+    };
+    if (typeof INPUT !== 'undefined') { paintMidi(INPUT.status()); INPUT.onStatus(paintMidi); }
+    pop.append(level, look, play, note);
     function paint() {
       level.show(); look.show();
       note.textContent = mode === 'simple'
@@ -604,6 +639,87 @@ const APP = (() => {
     return d;
   }
 
+  /* ── Last time: one line and two questions from the lesson before ──
+     Shown when the previous lesson is finished and this one is not, so it
+     greets you on the way in and then gets out of the way. Not scored. */
+  function recapCard(L) {
+    const i = LESSONS.indexOf(L), prev = LESSONS[i - 1];
+    if (!prev || done[L.id] || !done[prev.id]) return null;
+    const S = (mode === 'simple' && prev.simple) ? prev.simple : prev;
+    const keysBlock = (S.blocks || []).filter(b => b.keys).slice(-1)[0];
+    const line = keysBlock && keysBlock.keys.length ? keysBlock.keys[0] : prev.lede;
+    const qs = quizFor(prev).slice().sort(() => Math.random() - 0.5).slice(0, 2);
+    const d = UI.el('details', 'panel recap');
+    d.open = true;
+    const sum = UI.el('summary');
+    sum.innerHTML = '<span>Warm-up \u00b7 two questions from <b>' + escHtml(prev.title) + '</b></span>';
+    d.appendChild(sum);
+    d.appendChild(UI.html('p', 'small', '<b>Last time:</b> ' + line));
+    qs.forEach(Q => {
+      const box = UI.el('div', 'q warm');
+      box.appendChild(UI.html('p', 'qt', Q.q));
+      const opts = UI.el('div', 'opts');
+      const why = UI.html('p', 'why', Q.why); why.hidden = true;
+      Q.a.forEach((txt, ai) => {
+        const b = UI.el('button', 'opt'); b.type = 'button';
+        b.appendChild(UI.el('span', null, txt));
+        b.addEventListener('click', () => {
+          const ok = ai === Q.c;
+          Array.from(opts.children).forEach((o, oi) => {
+            o.disabled = true;
+            if (oi === Q.c) o.classList.add('right', ok ? 'picked' : 'reveal');
+            if (oi === ai && !ok) o.classList.add('wrong', 'picked');
+          });
+          why.classList.add(ok ? 'good' : 'bad');
+          why.hidden = false;
+          chime(ok);
+        });
+        opts.appendChild(b);
+      });
+      box.append(opts, why);
+      d.appendChild(box);
+    });
+    d.appendChild(UI.html('p', 'small muted', 'Not scored \u2014 just to wake it up.'));
+    return d;
+  }
+
+  /* ── Guess first: a question before the sound ── */
+  function predictCard(P, ctx) {
+    const p = UI.el('div', 'panel predict');
+    p.appendChild(UI.html('h4', null, 'Guess first'));
+    p.appendChild(UI.html('p', null, P.q));
+    const opts = UI.el('div', 'opts');
+    const out = UI.el('div', 'why'); out.hidden = true;
+    const again = UI.btn('\u25B6 Hear it again', () => { A.resume(); P.play(ctx); });
+    again.hidden = true;
+    P.a.forEach((txt, ai) => {
+      const b = UI.el('button', 'opt'); b.type = 'button';
+      b.appendChild(UI.el('span', null, txt));
+      b.addEventListener('click', () => {
+        A.resume();
+        Array.from(opts.children).forEach(o => { o.disabled = true; });
+        b.classList.add('chosen');
+        const ms = P.play(ctx) || 2500;
+        out.hidden = false;
+        out.innerHTML = '<p class="say">Listen\u2026</p>';
+        later(() => {
+          const ok = ai === P.c;
+          Array.from(opts.children).forEach((o, oi) => {
+            if (oi === P.c) o.classList.add('right', ok ? 'picked' : 'reveal');
+            if (oi === ai && !ok) o.classList.add('wrong');
+          });
+          out.classList.add(ok ? 'good' : 'bad');
+          out.innerHTML = '<p class="say">' + iconLive(ok ? 'check' : 'cross') + '<span>' +
+            (ok ? 'You called it.' : 'Now you have heard it.') + '</span></p><p>' + P.why + '</p>';
+          again.hidden = false;
+        }, ms + 150);
+      });
+      opts.appendChild(b);
+    });
+    p.append(opts, out, UI.row(again));
+    return p;
+  }
+
   function render() {
     const L = LESSONS[idx];
     const ctx = openStage(L);
@@ -623,6 +739,10 @@ const APP = (() => {
     w.appendChild(crumb);
     w.appendChild(UI.html('h2', null, L.title));
     w.appendChild(UI.html('p', 'lede', lede));
+
+    /* two questions from last time, before anything new */
+    const recap = recapCard(L);
+    if (recap) w.appendChild(recap);
 
     /* A lesson is something you do. The explanation is one expander under the
        lede — open or shut as you last left it — so the instrument, the practice
@@ -647,7 +767,15 @@ const APP = (() => {
       });
       w.appendChild(det);
     }
+    /* guess first, then hear */
+    if (typeof PREDICT !== 'undefined' && PREDICT[L.id]) w.appendChild(predictCard(PREDICT[L.id], ctx));
     doing.forEach(b => paintBlock(b, w, ctx, L));
+    /* the idea inside a track, and the layer this lesson adds to yours —
+       both filled in after init, when the lesson's own state exists */
+    const genreSlot = UI.el('div');
+    w.appendChild(genreSlot);
+    const trackSlot = UI.el('div');
+    w.appendChild(trackSlot);
 
     /* ── practice: hear it, name it, build it ── */
     if (L.practice && typeof PRACTICE !== 'undefined') {
@@ -656,7 +784,15 @@ const APP = (() => {
       p.appendChild(UI.html('p', null, L.practice.p ||
         'One round takes a minute: listen, say what it was, then build the same thing ' +
         'on the instrument above. Getting it wrong here is what puts it in your review list.'));
-      p.appendChild(PRACTICE.build(ctx, L.practice));
+      if (L.practice.mix) {
+        /* a mixed round: each question brings its own instrument onto the stage */
+        const reached = reachedIds().filter(id => id !== L.id);
+        p.appendChild(PRACTICE.build(ctx, {
+          queue:PRACTICE.mixQueue(reached, 5), lazyStage:true,
+          onStage:cur => stageFor(ctx, cur),
+          onDone:() => render()
+        }));
+      } else p.appendChild(PRACTICE.build(ctx, L.practice));
       w.appendChild(p);
     }
 
@@ -784,6 +920,9 @@ const APP = (() => {
     /* the 3D instrument gets set up last, so it can talk to the DOM above */
     if (L.init) L.init(ctx);
 
+    if (ctx.material && typeof GENRES !== 'undefined') genreSlot.appendChild(GENRES.panel(ctx, ctx.material));
+    if (ctx.trackCfg && typeof TRACK !== 'undefined') trackSlot.appendChild(TRACK.panel(ctx, ctx.trackCfg));
+
     /* ── keep what you made ── */
     if (ctx.keepCfg && typeof STUDIO !== 'undefined') {
       const p = UI.el('div', 'panel studio-panel');
@@ -799,6 +938,8 @@ const APP = (() => {
     buildA11y(ctx);
     if (V.onPaint) V.onPaint(() => syncA11y(ctx));
     applyFlat();
+    /* tap a term for its meaning — the first mention of each, once the page is built */
+    if (typeof GLOSSARY !== 'undefined') GLOSSARY.decorate(w);
     document.querySelectorAll('#nav button').forEach(b =>
       b.setAttribute('aria-current', b.dataset.id === L.id ? 'true' : 'false'));
     const cur = document.querySelector('#nav button[aria-current="true"]');
@@ -1036,6 +1177,7 @@ const APP = (() => {
     try {
       const v = JSON.parse(localStorage.getItem(IKEY) || 'null');
       if (v && typeof v.start === 'number') startAt = Math.max(0, Math.min(LESSONS.length - 1, v.start));
+      if (v && v.startId) { const at = LESSONS.findIndex(x => x.id === v.startId); if (at >= 0) startAt = at; }
       return !!v;
     } catch (e) { return false; }
   }
@@ -1106,7 +1248,7 @@ const APP = (() => {
       workoutMins = pick.minutes;
       const at = LESSONS.findIndex(x => x.id === pick.start);
       startAt = at < 0 ? 0 : at;
-      saveIntake({ start:startAt, mode:pick.mode, minutes:pick.minutes, at:Date.now() });
+      saveIntake({ start:startAt, startId:pick.start, mode:pick.mode, minutes:pick.minutes, at:Date.now() });
       go(startAt);
     }, { primary:true });
     const skip = UI.btn('Skip \u2014 just take me in', () => {
@@ -1255,6 +1397,20 @@ const APP = (() => {
         ticked < LESSONS.length && at > 0
           ? UI.btn('Back to lesson 1', () => go(0)) : null));
       w.appendChild(p);
+    }
+
+    /* ── ear warm-up: three questions, ears only, from lesson one on ── */
+    if (typeof PRACTICE !== 'undefined' && PRACTICE.earQueue) {
+      const q3 = PRACTICE.earQueue(reachedIds(), 3);
+      if (q3.length) {
+        const p = UI.el('div', 'panel try ear-panel');
+        p.appendChild(UI.html('h4', null, 'Ear warm-up'));
+        p.appendChild(UI.html('p', null,
+          'Three quick ones, ears only: listen, then name it. Nothing to build, nothing to look at. ' +
+          'They come from the lessons you have reached, so this grows with you.'));
+        p.appendChild(PRACTICE.build(ctx, { queue:q3, earOnly:true }));
+        w.appendChild(p);
+      }
     }
 
     /* ── today's practice ── */
@@ -1458,8 +1614,41 @@ const APP = (() => {
   function openReview() { page = 'review'; renderReview(); closeRail(); }
   function openHome() { page = 'home'; renderHome(); }
   function openStudio() { page = 'studio'; renderStudio(); }
+  function openCheat() { page = 'cheat'; renderCheat(); }
+
+  /* ── The cheat sheet: every table in one place, each row playable ── */
+  function renderCheat() {
+    clearTimers(); transport.stop();
+    if (rackOn && rackOn.stop) { try { rackOn.stop(); } catch (e) {} rackOn = null; }
+    leaving.forEach(fn => { try { fn(); } catch (e) {} });
+    leaving = [];
+    document.body.classList.add('no-stage');
+    $('#hudTag').textContent = 'Cheat sheet';
+    $('#stageHint').textContent = '';
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap wide');
+    w.appendChild(UI.html('div', 'crumb', '<b>Cheat sheet</b> &nbsp;\u00b7&nbsp; tap a row to hear it'));
+    w.appendChild(UI.html('h2', null, 'Everything on one page'));
+    w.appendChild(UI.html('p', 'lede',
+      'The intervals, chords, scales and progressions from the whole course, spelled in whichever key ' +
+      'you pick. Every row plays. Nothing here is typed by hand \u2014 it comes from the same maths the ' +
+      'lessons use, so it cannot disagree with them.'));
+    const host = UI.el('div');
+    w.appendChild(host);
+    w.appendChild(footNote(false));
+    art.appendChild(w);
+    CHEAT.build(host);
+    if (typeof GLOSSARY !== 'undefined') GLOSSARY.decorate(w);
+    document.querySelectorAll('#nav button').forEach(b =>
+      b.setAttribute('aria-current', b.classList.contains('cheat-item') ? 'true' : 'false'));
+    $('#main').scrollTop = 0;
+    progress();
+    try { location.hash = 'cheatsheet'; } catch (e) {}
+  }
   function draw() {
     if (page === 'studio') renderStudio();
+    else if (page === 'cheat') renderCheat();
     else if (page === 'home') renderHome();
     else if (page === 'review') renderReview();
     else if (page === 'intake') renderIntake();
@@ -1565,6 +1754,19 @@ const APP = (() => {
     }
     buildNav();
     wireSettings();
+    /* a MIDI keyboard or the computer's letters play the stage like a tap */
+    if (typeof INPUT !== 'undefined') {
+      const chip = UI.el('span', 'midi-chip');
+      chip.hidden = true;
+      const hud = $('.hud'), ro = $('#readout');
+      if (hud && ro) hud.insertBefore(chip, ro);
+      INPUT.onStatus(st => {
+        chip.hidden = !(st.midi && st.devices.length);
+        chip.innerHTML = icon('keyboard') + '<span>' + escHtml(st.devices[0] || '') + '</span>';
+        chip.title = st.devices.join(', ');
+      });
+      INPUT.init();
+    }
     const asked = !!(function () { try { return localStorage.getItem(IKEY); } catch (e) { return null; } })();
     const hash = (location.hash || '').replace('#', '');
     const at = LESSONS.findIndex(l => l.id === hash);
@@ -1572,6 +1774,7 @@ const APP = (() => {
     /* A link straight to a lesson opens that lesson. Otherwise: the three
        questions on a first visit, and Home every time after that. */
     if (hash === 'studio' && typeof RACK !== 'undefined') openStudio();
+    else if (hash === 'cheatsheet' && typeof CHEAT !== 'undefined') openCheat();
     else if (at >= 0) { page = 'lesson'; render(); }
     else if (!asked && !Object.keys(done).length) { page = 'intake'; renderIntake(); }
     else openHome();
@@ -1608,6 +1811,7 @@ const APP = (() => {
     load(); loadMode(); loadDrills(); loadDepth(); loadTheme(); loadIntake();
     if (typeof PRACTICE !== 'undefined' && PRACTICE.reload) PRACTICE.reload();
     if (typeof STUDIO !== 'undefined' && STUDIO.reload) STUDIO.reload();
+    if (typeof TRACK !== 'undefined' && TRACK.reload) TRACK.reload();
   }
   /* called when the local server hands over a record after the app booted */
   function rehydrate() {

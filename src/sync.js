@@ -23,7 +23,8 @@ const SYNC = (() => {
     saves:'rbx-theory-saves-v1',
     mode:'rbx-theory-mode-v1',
     theme:'rbx-theory-theme-v1',
-    flat:'rbx-theory-flat-v1'
+    flat:'rbx-theory-flat-v1',
+    track:'rbx-theory-track-v1'
   };
   const UID = 'rbx-theory-user-v1';
   /* written by MASTERY, derived by the server from its own session rows */
@@ -55,6 +56,7 @@ const SYNC = (() => {
     if (p.mode) write(KEYS.mode, p.mode);
     if (p.theme) write(KEYS.theme, p.theme);
     if (p.flat) write(KEYS.flat, p.flat);
+    if (p.track && Object.keys(p.track).length) write(KEYS.track, JSON.stringify(p.track));
     if (profile.projects && profile.projects.length) {
       /* the studio stores saves under one key; keep its shape */
       const saves = profile.projects.filter(x => x.kind === 'studio').map(x => x.data);
@@ -89,7 +91,8 @@ const SYNC = (() => {
   const snapshot = () => ({
     lessons:parse(KEYS.lessons, {}),
     drills:parse(KEYS.drills, {}),
-    mode:read(KEYS.mode), theme:read(KEYS.theme), flat:read(KEYS.flat)
+    mode:read(KEYS.mode), theme:read(KEYS.theme), flat:read(KEYS.flat),
+    track:parse(KEYS.track, null)
   });
 
   function push(now) {

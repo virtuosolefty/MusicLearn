@@ -92,6 +92,9 @@ LESSONS.push({
     if (saved) saved.forEach((row, l) => ctx.v.pattern(l, row));
     ctx.v.onCell(sync);
     ctx.keepCfg = { kind:'grid', kinds:['kick','snare','hat'], name:'Beat', bpm:() => bpm };
+    /* the first layer of your track: this beat */
+    ctx.trackCfg = { layer:'drums',
+      read:() => ctx.v.state.some(r => r.some(Boolean)) ? TRACK.fromGrid(ctx.v.state) : null };
     ctx.read('one bar of 4/4\n16 boxes  \u00B7  press play');
   }
 });
@@ -194,9 +197,7 @@ LESSONS.push({
         ['4/4','Simple','4, split in 2','almost everything'],
         ['3/4','Simple','3, split in 2','waltz, ballads'],
         ['6/8','Compound','2, split in 3','Afro rhythms, ballads, drill rolls'],
-        ['12/8','Compound','4, split in 3','blues shuffle, gospel'],
-        ['5/4 · 7/8','Odd','5 or 7','prog, math rock, film cues'] ] } },
-    { p:'Odd meters are the leftovers drawer. Groups of 2, 3 and 4 dominate because they are what bodies walk to; a group of 5 or 7 will not divide evenly, so it reads as a limp or a skipped step.' },
+        ['12/8','Compound','4, split in 3','blues shuffle, gospel'] ] } },
     { h:'The cheat every producer uses' },
     { p:'You rarely change your DAW’s time signature. Instead you stay in 4/4 and place <b>triplets</b> — three notes in the space of two — for the compound feel, or turn on <b>swing</b>, which nudges every second 16th late so pairs of boxes become long-short. Swing at 0% is stiff and mechanical; at 100% it’s fully triplet.' },
     { try:{ h:'Two against three', p:'The pulse lane marks the big beats, and the tempo stays put when you switch. In 4/4 you get four beats of two boxes; in 12/8 (which is just two bars of 6/8 back to back) you get four beats of three. Same speed, different gait.',
@@ -363,6 +364,93 @@ LESSONS.push({
 });
 
 LESSONS.push({
+  id:'notes', level:1, tag:'Pitch', title:'Naming Notes',
+  hint:'Tap a key, then step from it',
+  lede:'Every note has a name, and every name is a number of small steps from its neighbours. Learn the two step sizes and you can find any note without counting up from C.',
+  stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } },
+  blocks:[
+    { h:'Seven letters, twelve notes' },
+    { p:'The white keys carry the seven letters <span class="k">C D E F G A B</span>, then the letters start again. The five black keys in between take their names from a neighbour, so twelve different notes share seven letters. The whole pattern repeats every <b>octave</b>: twelve notes up, the same letter, higher.' },
+    { h:'Two step sizes' },
+    { p:'A <b>half step</b> (a semitone) is the smallest move there is: to the very next key, black or white. A <b>whole step</b> is two half steps: skip one key. That is the entire measuring system. Every scale and chord later in this course is a recipe written in these two sizes.' },
+    { p:'Two pairs of white keys have no black key between them: <span class="k">E–F</span> and <span class="k">B–C</span>. Those are half steps. Every other pair of neighbouring white keys is a whole step apart, with a black key in the middle.' },
+    { table:{ head:['From','Half step up','Whole step up'],
+      rows:[
+        ['C','C♯ / D♭','D'],
+        ['E','F','F♯ / G♭'],
+        ['G','G♯ / A♭','A'],
+        ['B','C','C♯ / D♭'] ] } },
+    { h:'Sharps and flats are directions' },
+    { p:'<b>Sharp (♯)</b> means a half step up; <b>flat (♭)</b> means a half step down. So the black key after C is C♯, and coming down from D the same key is D♭. Same key, same sound, two names: that is called <b>enharmonic</b>. Which name gets written depends on the key you are in, and the lessons after this one spell it for you.' },
+    { note:{ h:'The two edges',
+      p:'Because E–F is already a half step, E♯ is simply the key F, and C♭ is the key B. You will rarely meet those names, but when you do, count the step instead of looking for a black key.' } },
+    { try:{ h:'Walk in steps', p:'Tap any key, then take a half step or a whole step from it and hear how big each one is. Turn the labels off when you want to find notes by the black-key groups alone.',
+      build:ctx => [
+        UI.btn('Half step up', () => ctx.step(1)),
+        UI.btn('Whole step up', () => ctx.step(2)),
+        UI.btn('Half step down', () => ctx.step(-1)),
+        UI.btn('Whole step down', () => ctx.step(-2)),
+        UI.btn('All twelve, in half steps', () => ctx.chromatic()),
+        UI.chips([{ label:'Names on', value:'names' }, { label:'Labels off', value:'none' }],
+          v => ctx.labels(v), 'names')
+      ] } },
+    { keys:[
+      'Seven letters, twelve notes: each black key borrows a neighbour’s name.',
+      'Half step = the very next key. Whole step = skip one key.',
+      'E–F and B–C are the two half steps between white keys.',
+      'Sharp = a half step up, flat = a half step down. C♯ and D♭ are the same key.',
+      'Twelve half steps make an octave: the same letter, higher.' ] }
+  ],
+  quiz:[
+    { q:'Which pair of white keys is only a half step apart?', a:['C–D','E–F','G–A','A–B'], c:1,
+      why:'There is no black key between E and F (or between B and C), so they are next to each other: one half step.' },
+    { q:'A whole step up from E is…', a:['F','F♯','G','E♭'], c:1,
+      why:'E to F is a half step, F to F♯ another one. Two half steps make a whole step, so F♯.' },
+    { q:'D♭ is the same key as…', a:['C♯','D♯','C','E♭'], c:0,
+      why:'Flat means a half step down. From D that lands on the black key after C, which is also called C♯.' },
+    { q:'How many half steps are in an octave?', a:['7','8','12','13'], c:2,
+      why:'Twelve different notes, then the letter comes round again.' }
+  ],
+  init:ctx => {
+    let last = 60;
+    const nm = m => T.isBlack(m) ? T.name(m) + ' / ' + T.name(m, true) : T.name(m);
+    const say = m => ctx.read(nm(m) + T.oct(m) + '\nhalf step up: ' + nm(m + 1) + ' · whole step up: ' + nm(m + 2));
+    ctx.v.onKey(m => {
+      A.note(m, .8); last = m;
+      ctx.v.clear().mark(m, 'root').apply();
+      say(m);
+    });
+    ctx.step = d => {
+      const to = last + d;
+      if (to < 48 || to > 72) { ctx.read('edge of the keyboard\ntry the other direction'); return; }
+      const from = last;
+      A.note(from, .45); ctx.v.press(from);
+      last = to;
+      ctx.later(() => {
+        A.note(to, .6); ctx.v.press(to);
+        ctx.v.clear().mark(from, 'root').mark(to, 'target').apply();
+        ctx.read(nm(from) + ' → ' + nm(to) + '\n' + (Math.abs(d) === 1 ? 'a half step' : 'a whole step') +
+          (d > 0 ? ' up' : ' down') + ' · ' + Math.abs(d) + (Math.abs(d) === 1 ? ' key' : ' keys') + ' along');
+      }, 380);
+    };
+    ctx.chromatic = () => {
+      for (let i = 0; i <= 12; i++) {
+        if (ctx.v.fall) ctx.v.fall(60 + i, i * 170);
+        ctx.later(() => {
+          A.note(60 + i, .35); ctx.v.press(60 + i);
+          ctx.read(nm(60 + i) + '\n' + i + (i === 1 ? ' half step' : ' half steps') + ' above C');
+        }, i * 170);
+      }
+    };
+    ctx.labels = v => { ctx.v.labelMode(v); ctx.keep('labels', v); };
+    const lab = ctx.recall('labels');
+    if (lab) ctx.v.labelMode(lab);
+    ctx.v.clear().mark(60, 'root').apply();
+    say(60);
+  }
+});
+
+LESSONS.push({
   id:'intervals', level:1, tag:'Pitch', title:'Intervals',
   hint:'Pick two notes, hear the gap',
   lede:'An interval is the distance between two notes, measured in semitones. Every chord, scale and hook is built from a handful of them — and each one has a mood.',
@@ -412,14 +500,17 @@ LESSONS.push({
       why:'It sits dead centre of the octave and belongs to no comfortable chord on its own, so it pulls hard toward resolution. It’s the engine inside every dominant 7th chord.' }
   ],
   init:ctx => {
-    const base = 60; let together = true, answer = null;
+    const base = 60; let together = true, answer = null, lastN = 7;
     ctx.setTogether = v => { together = v; };
+    /* in a track: the interval as a two-note hook over a plain power chord */
+    ctx.material = () => ({ label:'a ' + T.ivl(lastN).label + ' hook, C up to ' + T.spellIvl('C', lastN),
+      chords:[[48, 55, 60]], line:[base, base + lastN, base, base + lastN, base + lastN, base, base + lastN, base] });
     const playPair = (a, b) => {
       if (together) { A.note(a, 1.5, { gain:.9 }); A.note(b, 1.5, { gain:.9 }); }
       else { A.note(a, .8); ctx.later(() => A.note(b, 1.2), 450); }
     };
     ctx.show = n => {
-      answer = null;
+      answer = null; lastN = n;
       const hi = base + n;
       ctx.v.clear().mark(base, 'root').mark(hi, 'chord').apply().clearExtras();
       const I = T.ivl(n);
@@ -458,14 +549,12 @@ LESSONS.push({
   stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } },
   blocks:[
     { h:'The major scale is a pattern of steps' },
-    { p:'Start on any note and walk up using this recipe of tones (T) and semitones (S): <span class="k a">T T S T T T S</span>. That’s the <b>major scale</b>. From C it uses no black keys at all: <span class="k">C D E F G A B</span>. From any other root the same recipe automatically tells you which black keys you need.' },
-    { p:'In semitones from the root it looks like this: <span class="k">0 2 4 5 7 9 11</span>. Memorise those seven numbers and you can build a major scale from any note in your head.' },
+    { p:'Start on any note and walk up using this recipe of tones (T) and semitones (S): <span class="k a">T T S T T T S</span>. That’s the <b>major scale</b>. From C it uses no black keys at all: <span class="k">C D E F G A B</span>. From any other root the same recipe tells you which black keys you need. In semitones from the root: <span class="k">0 2 4 5 7 9 11</span>.' },
     { h:'Scale degrees are the real vocabulary' },
-    { p:'Inside a scale, each note gets a number — <b>degree</b> 1 to 7 — and that number, not the letter, is what producers actually think in. Degree 1 is the <b>tonic</b>: home. Degree 5 is the <b>dominant</b>: the strongest pull back to home. Degree 3 decides major or minor. Degree 7 is the leading note; it leans hard into the tonic.' },
-    { p:'This is why you can move a melody from C minor to F minor and it still “works” — the degrees are the same, only the letters changed. Learn degrees and transposing becomes free.' },
+    { p:'Inside a scale, each note gets a number — <b>degree</b> 1 to 7 — and that number, not the letter, is what producers actually think in. Degree 1 is the <b>tonic</b>: home. Degree 5 is the <b>dominant</b>: the strongest pull back to home. Degree 3 decides major or minor.' },
     { h:'Minor: the same seven notes, a different home' },
     { p:'The <b>natural minor</b> scale is <span class="k a">T S T T S T T</span>, or <span class="k">0 2 3 5 7 8 10</span>. Compare with major: the 3rd, 6th and 7th are each one semitone lower. That flat 3rd is the whole difference between “happy” and “serious”.' },
-    { p:'Here’s the shortcut that saves hours: every major scale has a <b>relative minor</b> that uses <em>exactly the same notes</em>, starting from its 6th degree. C major and A minor are the same seven white keys. The notes don’t change — which note feels like home does.' },
+    { p:'Every major scale has a <b>relative minor</b> that uses <em>exactly the same notes</em>, starting from its 6th degree. C major and A minor are the same seven white keys. The notes don’t change — which note feels like home does.' },
     { table:{ head:['Scale','Semitones from root','From C','Used for'],
       rows:[
         ['Major','0 2 4 5 7 9 11','C D E F G A B','pop, house, gospel'],
@@ -474,9 +563,9 @@ LESSONS.push({
         ['Major pentatonic','0 2 4 7 9','C D E G A','safe, singable melodies'],
         ['Blues','0 3 5 6 7 10','C E♭ F G♭ G B♭','grit, soul, guitar'] ] } },
     { note:{ h:'Pentatonics are the beginner’s cheat code',
-      p:'A pentatonic scale is a 7-note scale with the two most argumentative notes removed. Fewer notes means fewer ways to fight the harmony, which is why hooks so often live here. If your melodies keep clashing, write the hook in minor pentatonic first, then add colour notes back one at a time.' } },
+      p:'A pentatonic scale is a 7-note scale with the two most argumentative notes removed. Fewer notes, fewer ways to fight the harmony — which is why so many hooks live here.' } },
     { note:{ h:'“In the scale” does not mean “safe”',
-      p:'A scale keeps you in the key — it does not guarantee agreement with the chord playing underneath. Hold a D over a C chord and it is a 9th (lovely); hold the same D over a G7 and it is the 5th (plain); hold an F over a C major chord and it fights the E a semitone below it, even though F is in C major. Lesson 20 is entirely about that difference. Treat a scale as a shortlist, not a guarantee.' } },
+      p:'A scale keeps you in the key — it does not guarantee agreement with the chord playing underneath. Hold an F over a C major chord and it rubs against the E a semitone below it, even though F is in C major. <em>Melody Over Chords</em> is all about that difference.' } },
     { try:{ h:'Build a scale from any root', p:'Change the root and the scale type, and watch which keys light up — the pattern moves with the root, the shape stays the same.',
       build:ctx => [
         UI.select('Root', [48,49,50,51,52,53,54,55,56,57,58,59].map(m =>
@@ -532,6 +621,14 @@ LESSONS.push({
     };
     ctx.setRoot = v => { rootPc = v; ctx.keep('root', v); paint(); };
     ctx.setScale = v => { type = v; ctx.keep('type', v); paint(); };
+    /* in a track: the scale as a line up and back, over its home chord */
+    ctx.material = () => {
+      const ns = notes().concat([rootPc + 24]);
+      const minorish = T.SCALES[type].steps.indexOf(4) < 0;
+      return { label:RN() + ' ' + T.SCALES[type].label.toLowerCase(),
+        chords:[T.chordNotes(rootPc, minorish ? 'min' : 'maj'), T.chordNotes(rootPc, minorish ? 'min' : 'maj')],
+        line:ns.concat(ns.slice(0, -1).reverse()).slice(0, 16) };
+    };
     ctx.degrees = v => { showDeg = v; paint(); };
     ctx.run = () => {
       const ns = notes().concat([rootPc + 24]);
@@ -699,6 +796,13 @@ LESSONS.push({
     };
     ctx.deg = d => { deg = d; ctx.keep('deg', d); show(); };
     ctx.key = k => { keyType = k; ctx.keep('key', k); show(); };
+    /* in a track: the chord on screen as a two-bar vamp, arpeggiated on top */
+    ctx.material = () => {
+      const ch = T.diatonic(root, keyType)[deg - 1];
+      const nm = T.chordName(T.inKey(ch.root, RN(), keyType), ch.quality);
+      const up = ch.notes.map(n => n + 12);
+      return { label:nm, chords:[ch.notes, ch.notes], line:up.concat([up[1]], up, [up[1]]) };
+    };
     ctx.all = () => {
       T.diatonic(root, keyType).forEach((ch, i) => ctx.later(() => {
         deg = i + 1; show();
@@ -791,6 +895,7 @@ LESSONS.push({
     const store = () => {
       ctx.keep('state', { keyType, seq:seq.slice(), sevens, preset });
       if (ctx.contentChanged) ctx.contentChanged();
+      if (ctx.trackPaint) ctx.trackPaint();
     };
     const RN = () => T.rootFor(root, keyType === 'major' ? 'major' : 'minor');
     const chordAt = d => {
@@ -824,6 +929,10 @@ LESSONS.push({
       showChord(0);
     };
     ctx.sevenths = v => { sevens = v; store(); showChord(0); };
+    /* in a track: your four chords, one a bar, with their top notes as a line */
+    ctx.material = () => ({ label:seq.map(d => chordAt(d).num).join(' \u2013 '),
+      chords:seq.map(d => chordAt(d).notes),
+      line:seq.map(d => { const ns = chordAt(d).notes; return Math.max.apply(null, ns) + 12; }) });
     ctx.loop = () => {
       if (playing) return;
       playing = true;
@@ -852,6 +961,16 @@ LESSONS.push({
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN(), keyType) + T.oct(m)); });
     /* what is worth keeping here is the progression itself — four chords a bar
        each, exported in the key you are hearing */
+    /* the chords layer of your track — which lives in C minor, so a major
+       progression is explained rather than quietly refused */
+    ctx.trackCfg = { layer:'chords',
+      read:() => ({ keyType, seq:seq.slice(), sevens,
+        bars:seq.map(d => { const c = chordAt(d); return { notes:c.notes, root:c.root, label:c.label, spell:c.spell, num:c.num }; }) }),
+      fits:() => (typeof TRACK === 'undefined' || TRACK.fitsKey(keyType)) ? true
+        : 'Your track is in <b>C minor</b> \u2014 the key the bass and melody lessons use \u2014 and this ' +
+          'progression is in C major. Pick one of the minor progressions to add it.',
+      fix:{ label:'Use i\u2013VI\u2013III\u2013VII', run:() => {
+        ctx.loadProg('m1,6,3,7'); if (ctx.pills) ctx.pills.show(3); } } };
     ctx.keepCfg = { kind:'chords', name:'Progression', bpm:() => 96,
       read: () => ({ chords:seq.map(d => chordAt(d).notes), keyType, seq:seq.slice(), sevens }),
       write: d => {

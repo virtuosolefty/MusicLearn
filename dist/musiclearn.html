@@ -530,6 +530,7 @@ td.hi{color:var(--accent-2)}
   background:var(--panel);border:1px solid var(--line-2);border-radius:var(--radius);
   box-shadow:0 18px 44px rgba(0,0,0,.18);padding:13px 14px;
   display:flex;flex-direction:column;gap:11px;
+  max-height:min(330px, 46vh);overflow-y:auto;overscroll-behavior:contain;
 }
 .setpop[hidden]{display:none}     /* a class with display: would outrank the attribute */
 .setrow{display:flex;flex-direction:column;gap:6px}
@@ -845,6 +846,81 @@ button.b:disabled{box-shadow:none;transform:none}
 /* Today's path, face-on */
 .flat-path .flat-lane-name{flex-basis:128px;white-space:normal;line-height:1.2}
 
+/* ═══ Course changes: the track, genres, glossary, cheat sheet, warm-ups ═══ */
+/* a practice round that grows */
+.practice .lvl{display:inline-block;margin-left:6px;font-family:"IBM Plex Mono",monospace;font-size:var(--t-xs);
+  color:var(--accent-2);background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:99px;padding:1px 8px}
+
+/* your track: four layers, filled as the course goes */
+.track-panel .layers{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 12px}
+.track-panel .layer{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;
+  border:1px dashed var(--line-2);color:var(--muted);font-size:var(--t-sm);font-weight:600;background:var(--panel)}
+.track-panel .layer i{width:10px;height:10px;border-radius:50%;border:1.5px solid currentColor;display:inline-block}
+.track-panel .layer .i{width:14px;height:14px}
+.track-panel .layer.on{border-style:solid;border-color:var(--accent);color:var(--accent-2);background:var(--accent-soft)}
+.track-panel .layer.here:not(.on){border-color:var(--accent);color:var(--text)}
+.track-panel .track-msg{margin:10px 0 0;color:var(--text-2)}
+.track-panel .track-msg:empty{display:none}
+
+/* hear it in a track */
+.genre-panel .ctl .b{min-width:92px}
+
+/* guess first */
+.panel.predict .opts{margin:6px 0 4px}
+.panel.predict .opt.chosen{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-line)}
+.panel.predict .why .say{margin:0 0 4px}
+
+/* the warm-up that opens a lesson */
+details.recap{padding:0;overflow:hidden}
+details.recap > summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:10px;
+  font-family:"Bricolage Grotesque",sans-serif;font-size:var(--t-sm);font-weight:600;color:var(--text-2);min-height:44px;box-sizing:border-box}
+details.recap > summary::-webkit-details-marker{display:none}
+details.recap > summary::before{content:"";flex:none;width:14px;height:14px;background:var(--accent);
+  transition:transform var(--d) var(--ease-out);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat}
+details.recap[open] > summary::before{transform:rotate(90deg)}
+details.recap > *:not(summary){margin-left:16px;margin-right:16px}
+details.recap > :last-child{margin-bottom:14px}
+.q.warm{box-shadow:none;padding:12px 14px;margin:10px 16px}
+.q.warm .qt{font-size:var(--t-sm);margin-bottom:8px}
+.small.muted{color:var(--muted)}
+
+/* tap a word */
+button.term{all:unset;cursor:help;color:inherit;border-bottom:1.5px dotted var(--accent);
+  text-decoration:none;border-radius:2px}
+button.term:hover, button.term[aria-expanded="true"]{color:var(--accent-2);background:var(--accent-soft)}
+button.term:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.term-pop{position:fixed;z-index:45;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 14px 40px rgba(0,0,0,.18);padding:12px 14px;font-size:var(--t-sm);line-height:1.5;color:var(--text-2);
+  animation:rise var(--d) var(--ease-out) both}
+.term-pop b{display:block;color:var(--text-strong);font-size:var(--t-base);margin-bottom:2px;text-transform:capitalize}
+.term-pop p{margin:0 0 8px}
+.term-pop p:last-child{margin-bottom:0}
+
+/* the MIDI keyboard, once one is playing */
+.midi-chip{display:inline-flex;align-items:center;gap:6px;pointer-events:none;font-size:var(--t-xs);font-weight:600;
+  color:var(--accent-2);background:var(--glass);border:1px solid var(--accent-line);padding:3px 9px;border-radius:99px}
+.midi-chip .i{width:14px;height:14px}
+.midi-chip[hidden]{display:none}
+.playwith{display:flex;flex-direction:column;gap:6px}
+.playwith .b{align-self:flex-start}
+
+/* the cheat sheet */
+.nav button.cheat-item .num{color:var(--accent-2)}
+.nav button.cheat-item .num .i{width:16px;height:16px}
+.cheat-top{margin:4px 0 8px}
+.cheat-sec h3{margin-top:26px}
+.cheat-notes{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px}
+.cheat-notes .b{font-family:"IBM Plex Mono",monospace;font-size:var(--t-sm)}
+.cheat-notes .b.blackkey{background:var(--text-strong);color:var(--panel);border-color:var(--text-strong)}
+.cheat-table td.play-cell{width:44px;padding-right:0}
+.cheat-table .b.hear{min-width:36px;min-height:36px;padding:0;display:inline-grid;place-items:center}
+.cheat-table .b.hear .i{width:14px;height:14px}
+
+@media (prefers-reduced-motion:reduce){ .term-pop{animation:none!important} }
+@media (pointer:coarse){ .cheat-table .b.hear{min-width:44px;min-height:44px} }
+
 </style>
 </head>
 <body>
@@ -858,11 +934,11 @@ button.b:disabled{box-shadow:none;transform:none}
       </svg>
       <div>
         <h1>Producer Theory Lab</h1>
-        <p>26 lessons in 8 stages · sound on</p>
+        <p>27 lessons in 9 stages · sound on</p>
       </div>
     </div>
     <div class="prog">
-      <div class="prog-row"><span>Lessons</span><span class="mono" id="progTxt">0 / 26</span></div>
+      <div class="prog-row"><span>Lessons</span><span class="mono" id="progTxt">0 / 27</span></div>
       <div class="prog-bar"><i id="progBar"></i></div>
       <div class="prog-row" style="margin-top:11px"><span>Drills</span><span class="mono" id="drillTxt">not started</span></div>
       <div class="prog-bar"><i id="drillBar"></i></div>
@@ -1023,7 +1099,8 @@ const SYNC = (() => {
     saves:'rbx-theory-saves-v1',
     mode:'rbx-theory-mode-v1',
     theme:'rbx-theory-theme-v1',
-    flat:'rbx-theory-flat-v1'
+    flat:'rbx-theory-flat-v1',
+    track:'rbx-theory-track-v1'
   };
   const UID = 'rbx-theory-user-v1';
   /* written by MASTERY, derived by the server from its own session rows */
@@ -1055,6 +1132,7 @@ const SYNC = (() => {
     if (p.mode) write(KEYS.mode, p.mode);
     if (p.theme) write(KEYS.theme, p.theme);
     if (p.flat) write(KEYS.flat, p.flat);
+    if (p.track && Object.keys(p.track).length) write(KEYS.track, JSON.stringify(p.track));
     if (profile.projects && profile.projects.length) {
       /* the studio stores saves under one key; keep its shape */
       const saves = profile.projects.filter(x => x.kind === 'studio').map(x => x.data);
@@ -1089,7 +1167,8 @@ const SYNC = (() => {
   const snapshot = () => ({
     lessons:parse(KEYS.lessons, {}),
     drills:parse(KEYS.drills, {}),
-    mode:read(KEYS.mode), theme:read(KEYS.theme), flat:read(KEYS.flat)
+    mode:read(KEYS.mode), theme:read(KEYS.theme), flat:read(KEYS.flat),
+    track:parse(KEYS.track, null)
   });
 
   function push(now) {
@@ -2426,7 +2505,13 @@ const V = (() => {
         api.tap(m);
       },
       /* the one place a key press happens, whether from the canvas or a button */
-      tap(m) { api.press(m); if (onKeyCb) onKeyCb(m); taps.forEach(f => f(m)); return api; },
+      tap(m, vel) {
+        api.press(m, null, vel == null ? null : { vel });
+        if (onKeyCb) onKeyCb(m); taps.forEach(f => f(m)); return api;
+      },
+      /* the keys this keyboard has, for anything playing it from outside —
+         a MIDI keyboard or the computer's own letters */
+      range() { return [cfg.lo, cfg.hi]; },
       /* an extra listener, for anything watching alongside the lesson's own */
       listen(cb) { taps.push(cb); return api; },
       unlisten(cb) { const i = taps.indexOf(cb); if (i >= 0) taps.splice(i, 1); return api; },
@@ -2777,6 +2862,7 @@ const V = (() => {
         m.position.y = role ? 0.22 : 0.1;
       });
     }
+    const taps = [];
     const api = {
       group:g,
       get pickables() { return outer.concat(inner); },
@@ -2790,8 +2876,11 @@ const V = (() => {
         const m = (ring === 'maj' ? outer : inner)[idx];
         if (m) { const v = tmpV(); m.getWorldPosition(v); v.y += 0.4; FX.burst(v, null, 12); }
         if (onTileCb) onTileCb(idx, ring);
+        taps.forEach(f => f(idx, ring));
         return api;
       },
+      listen(cb) { taps.push(cb); return api; },
+      unlisten(cb) { const i = taps.indexOf(cb); if (i >= 0) taps.splice(i, 1); return api; },
       a11y() {
         const mk = (ring, labels) => labels.map((lab, i) => ({
           label:lab,
@@ -2839,7 +2928,7 @@ const V = (() => {
     const beds = new THREE.Group(); g.add(beds);
     const ribbon = new THREE.Group(); g.add(ribbon);
     const S = cfg.steps, sx = 0.95, sz = 0.78;
-    let rows = [], noteList = [], onCellCb = null, chords = [];
+    let rows = [], noteList = [], onCellCb = null, chords = [], judgeCell = null;
     const taps = [];
 
     function buildRows() {
@@ -2928,12 +3017,7 @@ const V = (() => {
         const p = hit.point.clone(); g.worldToLocal(p);
         const s = Math.round((p.x - x0()) / sx), r = Math.round((z0() - p.z) / sz);
         if (s < 0 || s >= S || r < 0 || r >= rows.length) return;
-        const midi = rows[r];
-        const i = noteList.findIndex(n => n.step === s && n.midi === midi);
-        if (i >= 0) noteList.splice(i, 1); else noteList.push({ step:s, midi, len:1 });
-        drawNotes();
-        if (onCellCb) onCellCb(s, midi, i < 0);
-        taps.forEach(f => f(s, midi, i < 0));
+        api.tapCell(s, rows[r]);
       },
       onCell(cb) { onCellCb = cb; return api; },
       listen(cb) { taps.push(cb); return api; },
@@ -2945,7 +3029,7 @@ const V = (() => {
         const r = rows.indexOf(midi);
         if (i < 0 && r >= 0) {
           const v = tmpV(); v.set(x0() + step * sx, 0.35, rowZ(r)); g.localToWorld(v);
-          FX.burst(v, null, 10);
+          FX.burst(v, judgeCell ? judgeCell(step, midi) : null, 10);
         }
         if (onCellCb) onCellCb(step, midi, i < 0);
         taps.forEach(f => f(step, midi, i < 0));
@@ -2971,6 +3055,9 @@ const V = (() => {
           } };
       },
       get notes() { return noteList; },
+      get rows() { return rows.slice(); },
+      /* fn(step, midi) -> 'good' | 'bad' | null — a practice round's live verdict */
+      judge(fn) { judgeCell = typeof fn === 'function' ? fn : null; return api; },
       setNotes(list) { noteList = (list || []).slice(); drawNotes(); return api; },
       clearNotes() { noteList = []; drawNotes(); return api; },
       setScale(rootMidi, scale, octaves) {
@@ -3160,7 +3247,7 @@ const V = (() => {
   /* wrap a view so its own chaining still works, but every call pings */
   /* called every frame or purely visual: pinging on these would resync the
      accessible panel sixty times a second for nothing */
-  const SILENT = { update:1, fall:1, spot:1, judge:1, glowCell:1 };
+  const SILENT = { update:1, fall:1, spot:1, judge:1, glowCell:1, range:1 };
   function watch(api) {
     if (typeof Proxy !== 'function') return api;
     const p = new Proxy(api, { get(t, k) {
@@ -3219,11 +3306,157 @@ const V = (() => {
     confetti(size) { if (renderer && !paused) FX.confetti(size); },
     get reduced() { return FX.reduced(); }
   };
-  return { mount, set, label, setTheme, a11y, onPaint, clearPaint, setPaused, fx,
+  /* A note from outside the canvas — a MIDI keyboard, or the computer's
+     letters. On a keyboard it is exactly a tap (sound, glow, the lesson's own
+     response, a practice round's listener), folded into the keys the stage
+     has. Anywhere else it is simply heard. Returns the note that sounded. */
+  function input(m, vel) {
+    const v = current;
+    if (v && typeof v.range === 'function' && typeof v.tap === 'function') {
+      const r = v.range();
+      while (m < r[0]) m += 12;
+      while (m > r[1]) m -= 12;
+      v.tap(m, vel);
+      return m;
+    }
+    if (typeof A !== 'undefined') { A.resume(); A.note(m, 0.6, { gain:0.35 + 0.65 * (vel == null ? 0.8 : vel) }); }
+    return m;
+  }
+
+  return { mount, set, label, setTheme, a11y, onPaint, clearPaint, setPaused, fx, input,
            get C() { return C; }, get ROLE() { return ROLE; },
            get theme() { return theme; }, get view() { return current; },
            get headless() { return headless; },
            get orbit() { return orb; }, resize };
+})();
+
+
+/* ── src/input.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   INPUT — play the stage from a real instrument.
+
+   Two routes in, both ending at V.input(), which is exactly a tap:
+   • the computer keyboard, laid out like a piano — the A-row is the white
+     keys, the row above is the black keys, Z and X move an octave;
+   • a MIDI keyboard (an Akai MPK Mini, anything class-compliant) through
+     Web MIDI. The browser asks permission once; after that it reconnects
+     by itself on every visit.
+
+   Nothing here knows about lessons. A practice round listening for keys
+   hears a MIDI note the same way it hears a click.
+   ═══════════════════════════════════════════════════════════════ */
+const INPUT = (() => {
+  /* letter -> semitones above the octave's C */
+  const LETTERS = { a:0, w:1, s:2, e:3, d:4, f:5, t:6, g:7, y:8, h:9, u:10, j:11, k:12, o:13, l:14, p:15, ';':16 };
+  /* the General MIDI drum notes most pad controllers send */
+  const PADS = { 35:'kick', 36:'kick', 37:'snare', 38:'snare', 39:'clap', 40:'snare',
+                 42:'hat', 44:'hat', 46:'hat' };
+  const KEY = 'rbx-theory-midi-v1';
+  let shift = 0;                 /* octaves, from the computer keyboard's Z/X */
+  let access = null, devices = [];
+  const statusFns = [];
+  const noteFns = [];
+
+  const status = () => ({ midi:!!access, devices:devices.slice(), supported:supported(), shift });
+  const tell = () => statusFns.forEach(fn => { try { fn(status()); } catch (e) {} });
+  function supported() {
+    return typeof navigator !== 'undefined' && typeof navigator.requestMIDIAccess === 'function';
+  }
+
+  /* the C the letter A plays: the keyboard's second C when it has two
+     octaves, so the row sits in the middle of what the lesson shows */
+  function baseC() {
+    const v = typeof V !== 'undefined' ? V.view : null;
+    let lo = 48, hi = 72;
+    if (v && typeof v.range === 'function') { const r = v.range(); lo = r[0]; hi = r[1]; }
+    let c = Math.ceil(lo / 12) * 12;
+    if (c + 12 <= hi - 12) c += 12;
+    return c + 12 * shift;
+  }
+
+  function play(m, vel, from) {
+    if (typeof document !== 'undefined' && document.body &&
+        document.body.classList.contains('no-stage')) {
+      /* the Studio hides the stage: a note is just a note there */
+      if (typeof A !== 'undefined') { A.resume(); A.note(m, 0.6, { gain:0.35 + 0.65 * vel }); }
+    } else if (typeof V !== 'undefined' && V.input) {
+      m = V.input(m, vel);
+    }
+    noteFns.forEach(fn => { try { fn(m, vel, from); } catch (e) {} });
+  }
+
+  function onKeyDown(e) {
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' ||
+              t.isContentEditable)) return;
+    if (typeof document !== 'undefined' && document.querySelector('.celebrate')) return;
+    const k = (e.key || '').toLowerCase();
+    if (k === 'z' || k === 'x') {
+      shift = Math.max(-2, Math.min(2, shift + (k === 'z' ? -1 : 1)));
+      tell();
+      return;
+    }
+    if (!(k in LETTERS)) return;
+    if (typeof A !== 'undefined') A.resume();
+    play(baseC() + LETTERS[k], 0.8, 'keys');
+  }
+
+  function onMessage(ev) {
+    const d = ev.data; if (!d || d.length < 3) return;
+    const cmd = d[0] & 0xF0, ch = d[0] & 0x0F;
+    if (cmd !== 0x90 || d[2] === 0) return;           /* note-ons only */
+    const vel = d[2] / 127;
+    if (ch === 9 && PADS[d[1]]) {                     /* a drum pad */
+      if (typeof A !== 'undefined') { A.resume(); A.click(PADS[d[1]], undefined, vel); }
+      noteFns.forEach(fn => { try { fn(d[1], vel, 'pad'); } catch (e) {} });
+      return;
+    }
+    play(d[1], vel, 'midi');
+  }
+
+  function wire() {
+    devices = [];
+    access.inputs.forEach(inp => {
+      inp.onmidimessage = onMessage;
+      devices.push(inp.name || 'MIDI keyboard');
+    });
+    tell();
+  }
+
+  /* ask for MIDI. Remembered, so the next visit reconnects without asking. */
+  function connect() {
+    if (!supported()) return Promise.resolve(false);
+    return navigator.requestMIDIAccess({ sysex:false }).then(a => {
+      access = a;
+      access.onstatechange = wire;
+      wire();
+      try { localStorage.setItem(KEY, '1'); } catch (e) {}
+      return true;
+    }).catch(() => {
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      tell();
+      return false;
+    });
+  }
+  function disconnect() {
+    if (access) access.inputs.forEach(inp => { inp.onmidimessage = null; });
+    access = null; devices = [];
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    tell();
+  }
+
+  function init() {
+    if (typeof document !== 'undefined') document.addEventListener('keydown', onKeyDown);
+    let asked = null;
+    try { asked = localStorage.getItem(KEY); } catch (e) {}
+    if (asked && supported()) connect();
+  }
+
+  return { init, connect, disconnect, status, supported,
+           onStatus:fn => { statusFns.push(fn); },
+           onNote:fn => { noteFns.push(fn); },
+           LETTERS, PADS, baseC, _message:onMessage, _key:onKeyDown };
 })();
 
 
@@ -3623,6 +3856,14 @@ const APP = (() => {
       sb.addEventListener('click', () => { openStudio(); closeRail(); });
       nav.appendChild(sb);
     }
+    if (typeof CHEAT !== 'undefined') {
+      const cb = UI.el('button', 'cheat-item');
+      cb.type = 'button';
+      cb.innerHTML = '<span class="num">' + icon('note') + '</span><span>Cheat sheet</span><span class="tick"></span>';
+      cb.title = 'Every interval, chord, scale and progression on one page \u2014 tap a row to hear it';
+      cb.addEventListener('click', () => { openCheat(); closeRail(); });
+      nav.appendChild(cb);
+    }
     let seen = null;
     LESSONS.forEach((L, i) => {
       const key = L.part || L.level;
@@ -3705,7 +3946,7 @@ const APP = (() => {
       if (keys.filter(k => rec[k]).length * 3 < quiz.length * 2) return false;
       any = true;
     }
-    if (L.practice && typeof PRACTICE !== 'undefined') {
+    if (L.practice && !L.practice.mix && typeof PRACTICE !== 'undefined') {
       if (!PRACTICE.forLesson(L.id).some(e => (e.right || 0) > 0)) return false;
       any = true;
     }
@@ -3804,6 +4045,8 @@ const APP = (() => {
      talks to it through. */
   function openStage(L) {
     document.body.classList.remove('no-stage');
+    if (typeof CHEAT !== 'undefined') CHEAT.stop();
+    if (typeof GLOSSARY !== 'undefined') GLOSSARY.close();
     if (rackOn && rackOn.stop) { try { rackOn.stop(); } catch (e) {} rackOn = null; }
     leaving.forEach(fn => { try { fn(); } catch (e) {} });
     leaving = [];
@@ -3876,7 +4119,32 @@ const APP = (() => {
       [{ label:'\u2600 Light', value:'light' }, { label:'\u263E Dark', value:'dark' }],
       effTheme, v => { theme = v; try { localStorage.setItem(TKEY, theme); } catch (e) {} applyTheme(); draw(); });
     const note = UI.html('p', 'sethint', '');
-    pop.append(level, look, note);
+    /* playing the stage from a real instrument */
+    const play = UI.el('div', 'setrow');
+    play.appendChild(UI.html('span', 'lab', 'Play with'));
+    const pbody = UI.el('div', 'playwith');
+    pbody.appendChild(UI.html('p', 'sethint',
+      'Computer keys: <b>A S D F G H J K</b> are the white keys, <b>W E T Y U</b> the black ones, ' +
+      '<b>Z</b> and <b>X</b> move an octave.'));
+    const midiBtn = UI.btn('Connect a MIDI keyboard', () => {
+      if (typeof INPUT === 'undefined') return;
+      const st = INPUT.status();
+      if (st.midi) { INPUT.disconnect(); return; }
+      midiMsg.textContent = 'Asking the browser\u2026';
+      INPUT.connect().then(ok => { if (!ok) midiMsg.textContent = 'The browser did not allow MIDI. Chrome and Edge support it; Safari does not.'; });
+    });
+    const midiMsg = UI.html('p', 'sethint', '');
+    pbody.append(midiBtn, midiMsg);
+    play.appendChild(pbody);
+    const paintMidi = st => {
+      if (!st.supported) { midiBtn.disabled = true; midiMsg.textContent = 'This browser has no MIDI support \u2014 Chrome or Edge do.'; return; }
+      UI.label(midiBtn, st.midi ? 'Disconnect MIDI' : 'Connect a MIDI keyboard');
+      midiMsg.textContent = st.midi
+        ? (st.devices.length ? 'Playing from: ' + st.devices.join(', ') + '.' : 'MIDI is on \u2014 plug a keyboard in.')
+        : 'An Akai MPK Mini or any USB keyboard plays the stage like a tap.';
+    };
+    if (typeof INPUT !== 'undefined') { paintMidi(INPUT.status()); INPUT.onStatus(paintMidi); }
+    pop.append(level, look, play, note);
     function paint() {
       level.show(); look.show();
       note.textContent = mode === 'simple'
@@ -3982,6 +4250,87 @@ const APP = (() => {
     return d;
   }
 
+  /* ── Last time: one line and two questions from the lesson before ──
+     Shown when the previous lesson is finished and this one is not, so it
+     greets you on the way in and then gets out of the way. Not scored. */
+  function recapCard(L) {
+    const i = LESSONS.indexOf(L), prev = LESSONS[i - 1];
+    if (!prev || done[L.id] || !done[prev.id]) return null;
+    const S = (mode === 'simple' && prev.simple) ? prev.simple : prev;
+    const keysBlock = (S.blocks || []).filter(b => b.keys).slice(-1)[0];
+    const line = keysBlock && keysBlock.keys.length ? keysBlock.keys[0] : prev.lede;
+    const qs = quizFor(prev).slice().sort(() => Math.random() - 0.5).slice(0, 2);
+    const d = UI.el('details', 'panel recap');
+    d.open = true;
+    const sum = UI.el('summary');
+    sum.innerHTML = '<span>Warm-up \u00b7 two questions from <b>' + escHtml(prev.title) + '</b></span>';
+    d.appendChild(sum);
+    d.appendChild(UI.html('p', 'small', '<b>Last time:</b> ' + line));
+    qs.forEach(Q => {
+      const box = UI.el('div', 'q warm');
+      box.appendChild(UI.html('p', 'qt', Q.q));
+      const opts = UI.el('div', 'opts');
+      const why = UI.html('p', 'why', Q.why); why.hidden = true;
+      Q.a.forEach((txt, ai) => {
+        const b = UI.el('button', 'opt'); b.type = 'button';
+        b.appendChild(UI.el('span', null, txt));
+        b.addEventListener('click', () => {
+          const ok = ai === Q.c;
+          Array.from(opts.children).forEach((o, oi) => {
+            o.disabled = true;
+            if (oi === Q.c) o.classList.add('right', ok ? 'picked' : 'reveal');
+            if (oi === ai && !ok) o.classList.add('wrong', 'picked');
+          });
+          why.classList.add(ok ? 'good' : 'bad');
+          why.hidden = false;
+          chime(ok);
+        });
+        opts.appendChild(b);
+      });
+      box.append(opts, why);
+      d.appendChild(box);
+    });
+    d.appendChild(UI.html('p', 'small muted', 'Not scored \u2014 just to wake it up.'));
+    return d;
+  }
+
+  /* ── Guess first: a question before the sound ── */
+  function predictCard(P, ctx) {
+    const p = UI.el('div', 'panel predict');
+    p.appendChild(UI.html('h4', null, 'Guess first'));
+    p.appendChild(UI.html('p', null, P.q));
+    const opts = UI.el('div', 'opts');
+    const out = UI.el('div', 'why'); out.hidden = true;
+    const again = UI.btn('\u25B6 Hear it again', () => { A.resume(); P.play(ctx); });
+    again.hidden = true;
+    P.a.forEach((txt, ai) => {
+      const b = UI.el('button', 'opt'); b.type = 'button';
+      b.appendChild(UI.el('span', null, txt));
+      b.addEventListener('click', () => {
+        A.resume();
+        Array.from(opts.children).forEach(o => { o.disabled = true; });
+        b.classList.add('chosen');
+        const ms = P.play(ctx) || 2500;
+        out.hidden = false;
+        out.innerHTML = '<p class="say">Listen\u2026</p>';
+        later(() => {
+          const ok = ai === P.c;
+          Array.from(opts.children).forEach((o, oi) => {
+            if (oi === P.c) o.classList.add('right', ok ? 'picked' : 'reveal');
+            if (oi === ai && !ok) o.classList.add('wrong');
+          });
+          out.classList.add(ok ? 'good' : 'bad');
+          out.innerHTML = '<p class="say">' + iconLive(ok ? 'check' : 'cross') + '<span>' +
+            (ok ? 'You called it.' : 'Now you have heard it.') + '</span></p><p>' + P.why + '</p>';
+          again.hidden = false;
+        }, ms + 150);
+      });
+      opts.appendChild(b);
+    });
+    p.append(opts, out, UI.row(again));
+    return p;
+  }
+
   function render() {
     const L = LESSONS[idx];
     const ctx = openStage(L);
@@ -4001,6 +4350,10 @@ const APP = (() => {
     w.appendChild(crumb);
     w.appendChild(UI.html('h2', null, L.title));
     w.appendChild(UI.html('p', 'lede', lede));
+
+    /* two questions from last time, before anything new */
+    const recap = recapCard(L);
+    if (recap) w.appendChild(recap);
 
     /* A lesson is something you do. The explanation is one expander under the
        lede — open or shut as you last left it — so the instrument, the practice
@@ -4025,7 +4378,15 @@ const APP = (() => {
       });
       w.appendChild(det);
     }
+    /* guess first, then hear */
+    if (typeof PREDICT !== 'undefined' && PREDICT[L.id]) w.appendChild(predictCard(PREDICT[L.id], ctx));
     doing.forEach(b => paintBlock(b, w, ctx, L));
+    /* the idea inside a track, and the layer this lesson adds to yours —
+       both filled in after init, when the lesson's own state exists */
+    const genreSlot = UI.el('div');
+    w.appendChild(genreSlot);
+    const trackSlot = UI.el('div');
+    w.appendChild(trackSlot);
 
     /* ── practice: hear it, name it, build it ── */
     if (L.practice && typeof PRACTICE !== 'undefined') {
@@ -4034,7 +4395,15 @@ const APP = (() => {
       p.appendChild(UI.html('p', null, L.practice.p ||
         'One round takes a minute: listen, say what it was, then build the same thing ' +
         'on the instrument above. Getting it wrong here is what puts it in your review list.'));
-      p.appendChild(PRACTICE.build(ctx, L.practice));
+      if (L.practice.mix) {
+        /* a mixed round: each question brings its own instrument onto the stage */
+        const reached = reachedIds().filter(id => id !== L.id);
+        p.appendChild(PRACTICE.build(ctx, {
+          queue:PRACTICE.mixQueue(reached, 5), lazyStage:true,
+          onStage:cur => stageFor(ctx, cur),
+          onDone:() => render()
+        }));
+      } else p.appendChild(PRACTICE.build(ctx, L.practice));
       w.appendChild(p);
     }
 
@@ -4162,6 +4531,9 @@ const APP = (() => {
     /* the 3D instrument gets set up last, so it can talk to the DOM above */
     if (L.init) L.init(ctx);
 
+    if (ctx.material && typeof GENRES !== 'undefined') genreSlot.appendChild(GENRES.panel(ctx, ctx.material));
+    if (ctx.trackCfg && typeof TRACK !== 'undefined') trackSlot.appendChild(TRACK.panel(ctx, ctx.trackCfg));
+
     /* ── keep what you made ── */
     if (ctx.keepCfg && typeof STUDIO !== 'undefined') {
       const p = UI.el('div', 'panel studio-panel');
@@ -4177,6 +4549,8 @@ const APP = (() => {
     buildA11y(ctx);
     if (V.onPaint) V.onPaint(() => syncA11y(ctx));
     applyFlat();
+    /* tap a term for its meaning — the first mention of each, once the page is built */
+    if (typeof GLOSSARY !== 'undefined') GLOSSARY.decorate(w);
     document.querySelectorAll('#nav button').forEach(b =>
       b.setAttribute('aria-current', b.dataset.id === L.id ? 'true' : 'false'));
     const cur = document.querySelector('#nav button[aria-current="true"]');
@@ -4414,6 +4788,7 @@ const APP = (() => {
     try {
       const v = JSON.parse(localStorage.getItem(IKEY) || 'null');
       if (v && typeof v.start === 'number') startAt = Math.max(0, Math.min(LESSONS.length - 1, v.start));
+      if (v && v.startId) { const at = LESSONS.findIndex(x => x.id === v.startId); if (at >= 0) startAt = at; }
       return !!v;
     } catch (e) { return false; }
   }
@@ -4484,7 +4859,7 @@ const APP = (() => {
       workoutMins = pick.minutes;
       const at = LESSONS.findIndex(x => x.id === pick.start);
       startAt = at < 0 ? 0 : at;
-      saveIntake({ start:startAt, mode:pick.mode, minutes:pick.minutes, at:Date.now() });
+      saveIntake({ start:startAt, startId:pick.start, mode:pick.mode, minutes:pick.minutes, at:Date.now() });
       go(startAt);
     }, { primary:true });
     const skip = UI.btn('Skip \u2014 just take me in', () => {
@@ -4633,6 +5008,20 @@ const APP = (() => {
         ticked < LESSONS.length && at > 0
           ? UI.btn('Back to lesson 1', () => go(0)) : null));
       w.appendChild(p);
+    }
+
+    /* ── ear warm-up: three questions, ears only, from lesson one on ── */
+    if (typeof PRACTICE !== 'undefined' && PRACTICE.earQueue) {
+      const q3 = PRACTICE.earQueue(reachedIds(), 3);
+      if (q3.length) {
+        const p = UI.el('div', 'panel try ear-panel');
+        p.appendChild(UI.html('h4', null, 'Ear warm-up'));
+        p.appendChild(UI.html('p', null,
+          'Three quick ones, ears only: listen, then name it. Nothing to build, nothing to look at. ' +
+          'They come from the lessons you have reached, so this grows with you.'));
+        p.appendChild(PRACTICE.build(ctx, { queue:q3, earOnly:true }));
+        w.appendChild(p);
+      }
     }
 
     /* ── today's practice ── */
@@ -4836,8 +5225,41 @@ const APP = (() => {
   function openReview() { page = 'review'; renderReview(); closeRail(); }
   function openHome() { page = 'home'; renderHome(); }
   function openStudio() { page = 'studio'; renderStudio(); }
+  function openCheat() { page = 'cheat'; renderCheat(); }
+
+  /* ── The cheat sheet: every table in one place, each row playable ── */
+  function renderCheat() {
+    clearTimers(); transport.stop();
+    if (rackOn && rackOn.stop) { try { rackOn.stop(); } catch (e) {} rackOn = null; }
+    leaving.forEach(fn => { try { fn(); } catch (e) {} });
+    leaving = [];
+    document.body.classList.add('no-stage');
+    $('#hudTag').textContent = 'Cheat sheet';
+    $('#stageHint').textContent = '';
+    const art = $('#console');
+    art.innerHTML = '';
+    const w = UI.el('div', 'wrap wide');
+    w.appendChild(UI.html('div', 'crumb', '<b>Cheat sheet</b> &nbsp;\u00b7&nbsp; tap a row to hear it'));
+    w.appendChild(UI.html('h2', null, 'Everything on one page'));
+    w.appendChild(UI.html('p', 'lede',
+      'The intervals, chords, scales and progressions from the whole course, spelled in whichever key ' +
+      'you pick. Every row plays. Nothing here is typed by hand \u2014 it comes from the same maths the ' +
+      'lessons use, so it cannot disagree with them.'));
+    const host = UI.el('div');
+    w.appendChild(host);
+    w.appendChild(footNote(false));
+    art.appendChild(w);
+    CHEAT.build(host);
+    if (typeof GLOSSARY !== 'undefined') GLOSSARY.decorate(w);
+    document.querySelectorAll('#nav button').forEach(b =>
+      b.setAttribute('aria-current', b.classList.contains('cheat-item') ? 'true' : 'false'));
+    $('#main').scrollTop = 0;
+    progress();
+    try { location.hash = 'cheatsheet'; } catch (e) {}
+  }
   function draw() {
     if (page === 'studio') renderStudio();
+    else if (page === 'cheat') renderCheat();
     else if (page === 'home') renderHome();
     else if (page === 'review') renderReview();
     else if (page === 'intake') renderIntake();
@@ -4943,6 +5365,19 @@ const APP = (() => {
     }
     buildNav();
     wireSettings();
+    /* a MIDI keyboard or the computer's letters play the stage like a tap */
+    if (typeof INPUT !== 'undefined') {
+      const chip = UI.el('span', 'midi-chip');
+      chip.hidden = true;
+      const hud = $('.hud'), ro = $('#readout');
+      if (hud && ro) hud.insertBefore(chip, ro);
+      INPUT.onStatus(st => {
+        chip.hidden = !(st.midi && st.devices.length);
+        chip.innerHTML = icon('keyboard') + '<span>' + escHtml(st.devices[0] || '') + '</span>';
+        chip.title = st.devices.join(', ');
+      });
+      INPUT.init();
+    }
     const asked = !!(function () { try { return localStorage.getItem(IKEY); } catch (e) { return null; } })();
     const hash = (location.hash || '').replace('#', '');
     const at = LESSONS.findIndex(l => l.id === hash);
@@ -4950,6 +5385,7 @@ const APP = (() => {
     /* A link straight to a lesson opens that lesson. Otherwise: the three
        questions on a first visit, and Home every time after that. */
     if (hash === 'studio' && typeof RACK !== 'undefined') openStudio();
+    else if (hash === 'cheatsheet' && typeof CHEAT !== 'undefined') openCheat();
     else if (at >= 0) { page = 'lesson'; render(); }
     else if (!asked && !Object.keys(done).length) { page = 'intake'; renderIntake(); }
     else openHome();
@@ -4986,6 +5422,7 @@ const APP = (() => {
     load(); loadMode(); loadDrills(); loadDepth(); loadTheme(); loadIntake();
     if (typeof PRACTICE !== 'undefined' && PRACTICE.reload) PRACTICE.reload();
     if (typeof STUDIO !== 'undefined' && STUDIO.reload) STUDIO.reload();
+    if (typeof TRACK !== 'undefined' && TRACK.reload) TRACK.reload();
   }
   /* called when the local server hands over a record after the app booted */
   function rehydrate() {
@@ -5092,6 +5529,23 @@ const PRACTICE = (() => {
   /* `only` pins which concept comes up — that is how the review asks again
      about the exact thing you missed, with fresh notes. The options still come
      from the whole pool, or the question would answer itself. */
+  /* the direction a melody takes, read from its notes left to right */
+  function shapeOf(notes) {
+    const ns = (notes || []).slice().sort((a, b) => a.step - b.step);
+    if (ns.length < 3) return 'too short';
+    const dir = [];
+    for (let i = 1; i < ns.length; i++) {
+      if (ns[i].step === ns[i - 1].step) return 'chord';
+      const d = ns[i].midi - ns[i - 1].midi;
+      if (!d) return 'flat';
+      dir.push(d > 0 ? 1 : -1);
+    }
+    const turns = dir.filter((d, i) => i && d !== dir[i - 1]).length;
+    if (!turns) return dir[0] > 0 ? 'rise' : 'fall';
+    if (turns === 1) return dir[0] > 0 ? 'arch' : 'valley';
+    return 'zigzag';
+  }
+
   const MAKERS = {
     /* two notes, name the gap, then play it back from a given root */
     interval(cfg, only) {
@@ -5104,8 +5558,13 @@ const PRACTICE = (() => {
         concept:String(n), label:I.label,
         notes:[[base], [base + n]], gap:420,
         answer:I.label, options:uniq(pool.map(x => T.ivl(x).label)),
-        build:{ mode:'keys', from:base, expect:[base, base + n], exact:true,
-          prompt:'Play a ' + I.label + ' up from ' + rn + ' — tap the two keys.' },
+        build:cfg.roll
+          ? { mode:'roll', expect:[base, base + n], exact:true, ordered:true,
+              show:[{ step:0, midi:base }, { step:4, midi:base + n }],
+              prompt:'On the roll: ' + rn + T.oct(base) + ' on beat 1 (box 1), then a ' + I.label +
+                     ' above it on beat 2 (box 5).' }
+          : { mode:'keys', from:base, expect:[base, base + n], exact:true,
+              prompt:'Play ' + (/^[aeiou8]|^11/i.test(I.label) ? 'an ' : 'a ') + I.label + ' up from ' + rn + ' — tap the two keys.' },
         why:rn + ' up to ' + T.spellIvl(rn, n) + ' is ' + n + ' semitones.'
       };
     },
@@ -5179,11 +5638,210 @@ const PRACTICE = (() => {
         concept:p.join(''), label:nameOf(p),
         notes:p.map(d => dia[d - 1].notes), gap:820,
         answer:nameOf(p), options:uniq(pool.map(nameOf)),
-        build:{ mode:'keys', ordered:true, from:dia[p[0] - 1].root,
-          expect:p.map(d => dia[d - 1].root),
-          prompt:'Tap the four chord roots in order: ' + nameOf(p) + '.' },
+        build:cfg.roll
+          ? { mode:'roll', ordered:true, expect:p.map(d => dia[d - 1].root),
+              show:p.map((d, i) => ({ step:i * 4, midi:dia[d - 1].root })),
+              prompt:'On the roll, put the four chord roots in order, one on each beat ' +
+                     '(boxes 1, 5, 9, 13): ' + nameOf(p) + '.' }
+          : { mode:'keys', ordered:true, from:dia[p[0] - 1].root,
+              expect:p.map(d => dia[d - 1].root),
+              prompt:'Tap the four chord roots in order: ' + nameOf(p) + '.' },
         why:'In ' + rn + ': ' +
             p.map(d => T.chordName(T.inKey(dia[d - 1].root, rn, type), dia[d - 1].quality)).join(' ') + '.'
+      };
+    },
+    /* a lit key: say its name, then find the key a half or whole step away */
+    notename(cfg, only) {
+      const pcs = cfg.pool || [0,2,4,5,7,9,11];
+      const want = only != null ? Number(only) : rnd(pcs);
+      const lo = cfg.lo || 55;
+      const m = lo + ((want - T.pc(lo) + 12) % 12);
+      const nm = x => T.isBlack(x) ? T.name(x) + ' / ' + T.name(x, true) : T.name(x);
+      const moves = cfg.moves || [[1, 'half step up'], [2, 'whole step up'], [-1, 'half step down'], [-2, 'whole step down']];
+      const mv = rnd(moves);
+      const target = m + mv[0];
+      const others = shuffle([0,1,2,3,4,5,6,7,8,9,10,11].filter(x => x !== want &&
+        (pcs.indexOf(x) >= 0 || pcs.length < 4))).slice(0, 3);
+      return {
+        concept:String(want), label:nm(m),
+        notes:[[m]], show:[m],
+        answer:nm(m), options:uniq([nm(m)].concat(others.map(x => nm(lo + ((x - T.pc(lo) + 12) % 12))))),
+        build:{ mode:'keys', from:m, expect:[target], exact:true,
+          prompt:'Tap the key a <b>' + mv[1] + '</b> from the lit one.' },
+        why:'The lit key is ' + nm(m) + '. A ' + mv[1] + ' from it is ' + nm(target) + '.'
+      };
+    },
+    /* a bar that walks in twos or rolls in threes: say which, then mark the beats */
+    meter(cfg, only) {
+      const g = only === 'compound' ? 3 : only === 'simple' ? 2 : rnd([2, 3]);
+      const LAB = { 2:'simple \u2014 2 per beat', 3:'compound \u2014 3 per beat' };
+      const expect = [];
+      for (let i = 0; i < g * 4; i++) expect.push(i % g === 0 ? 1 : 0);
+      return {
+        concept:g === 3 ? 'compound' : 'simple', label:LAB[g],
+        play:ctx => {
+          const beat = 560;
+          for (let bt = 0; bt < 8; bt++) for (let s2 = 0; s2 < g; s2++) {
+            ctx.later(() => A.click(s2 ? 'hat' : (bt % 4 === 0 ? 'strong' : 'mid'), undefined, s2 ? 0.45 : 0.9),
+              bt * beat + s2 * beat / g);
+          }
+        },
+        answer:LAB[g], options:[LAB[2], LAB[3]],
+        build:{ mode:'grid', lane:cfg.lane == null ? 1 : cfg.lane, meter:g, expect,
+          prompt:'The grid now splits each beat in ' + (g === 3 ? 'three' : 'two') + '. Put a kick on ' +
+                 'every beat \u2014 the first box of each group \u2014 then check.' },
+        why:g === 3 ? 'Each beat split in three \u2014 straw-ber-ry. That rolling feel is compound meter.'
+                    : 'Each beat split in two \u2014 ap-ple. That walking feel is simple meter.'
+      };
+    },
+    /* four notes with a shape: name the shape, then draw any melody with it */
+    contour(cfg, only) {
+      const SHAPES = { rise:'rises', fall:'falls', arch:'rises, then falls', valley:'falls, then rises' };
+      const pool = withOnly(cfg.pool || Object.keys(SHAPES), only);
+      const k = only || rnd(pool);
+      const root = cfg.root || 60, sc = cfg.scale || 'minor';
+      const rows = T.scaleNotes(root, sc).concat([root + 12]);
+      const pick = shuffle(rows.map((_, i) => i)).slice(0, 4).sort((a, b) => a - b);
+      const [w, x, y, z] = pick;
+      const order = { rise:[w, x, y, z], fall:[z, y, x, w], arch:[x, z, y, w], valley:[y, w, x, z] }[k];
+      const ns = order.map(i => rows[i]);
+      const rn = T.rootFor(root, sc);
+      return {
+        concept:k, label:'a melody that ' + SHAPES[k],
+        notes:ns.map(m => [m]), gap:380,
+        answer:'it ' + SHAPES[k], options:uniq(pool.map(x2 => 'it ' + SHAPES[x2])),
+        build:{ mode:'roll', shape:k,
+          check:notes => shapeOf(notes) === k,
+          show:ns.map((m, i) => ({ step:i * 4, midi:m })),
+          prompt:'Draw your own four-note melody that ' + SHAPES[k] + ' \u2014 one note on each beat ' +
+                 '(boxes 1, 5, 9 and 13). Any notes, as long as the shape is right.' },
+        why:'It ' + SHAPES[k] + ': ' + ns.map(m => T.inKey(m, rn, sc)).join(' \u2192 ') +
+            '. The shape is what the ear remembers, long before the notes.'
+      };
+    },
+    /* a chord, then one note over it: does the note belong? then place one that does */
+    chordtone(cfg, only) {
+      const root = cfg.root || 60, sc = cfg.scale || 'minor';
+      const rn = T.rootFor(root, sc);
+      const dia = T.diatonic(root, sc);
+      const pool = (cfg.pool || [1, 4, 6, 7]).map(String);
+      const d = Number(only || rnd(pool));
+      const c = dia[d - 1];
+      const cn = T.chordName(T.inKey(c.root, rn, sc), c.quality);
+      const rows = T.scaleNotes(root, sc).concat([root + 12]);
+      const inChord = m => c.notes.some(x => T.pc(x) === T.pc(m));
+      const tone = Math.random() < 0.5;
+      const m = rnd(rows.filter(x => inChord(x) === tone));
+      const YES = 'a chord tone \u2014 it sits', NO = 'not a chord tone \u2014 it leans';
+      const low = c.notes.map(n => n - 12);
+      return {
+        concept:String(d), label:'the notes of ' + cn,
+        notes:[low, [m]], gap:760,
+        answer:tone ? YES : NO, options:[YES, NO],
+        build:{ mode:'roll',
+          check:notes => { const on1 = notes.filter(n => n.step === 0); return on1.length > 0 && on1.every(n => inChord(n.midi)); },
+          judgeCell:(st, mm) => st !== 0 ? null : inChord(mm) ? 'good' : 'bad',
+          show:[{ step:0, midi:rows.filter(inChord)[0] }],
+          prompt:'Put a note on beat 1 (box 1) that belongs to <b>' + cn + '</b>.' },
+        why:cn + ' is ' + T.spellChord(T.inKey(c.root, rn, sc), c.quality).join(' ') + '. ' +
+            T.inKey(m, rn, sc) + (tone ? ' is one of them, so it sits still.' : ' is not, so it wants to step onto one.')
+      };
+    },
+    /* one chord in three voicings: which note is at the bottom? then play that voicing */
+    inversion(cfg, only) {
+      const INV = [['root', 'root position', 'root'], ['first', '1st inversion', '3rd'], ['second', '2nd inversion', '5th']];
+      const i = only ? Math.max(0, INV.findIndex(x => x[0] === only)) : Math.floor(Math.random() * 3);
+      const q = rnd(cfg.types || ['maj', 'min']);
+      const root = rnd(cfg.roots || [55, 57, 60]);
+      let ns = T.chordNotes(root, q);
+      for (let k = 0; k < i; k++) ns = ns.slice(1).concat([ns[0] + 12]);
+      while (Math.max.apply(null, ns) > (cfg.hi || 72)) ns = ns.map(n => n - 12);
+      const cn = T.chordName(T.MAJ_ROOT[T.pc(root)], q);
+      return {
+        concept:INV[i][0], label:INV[i][1],
+        notes:[ns].concat(ns.map(n => [n])),
+        gap:520,
+        answer:INV[i][1], options:INV.map(x => x[1]),
+        build:{ mode:'keys', from:ns[0], expect:ns, exact:true,
+          prompt:'Play ' + cn + ' in ' + INV[i][1] + ' \u2014 the lit key is the bottom note.' },
+        why:'The bottom note is ' + T.name(ns[0]) + ', the ' + INV[i][2] + ' of ' + cn + ': ' +
+            ns.map(n => T.name(n) + T.oct(n)).join(' ') + '.'
+      };
+    },
+    /* home, a chord from the parallel minor, home again: which one was borrowed? */
+    borrowed(cfg, only) {
+      const B = { iv:{ lab:'iv \u2014 the minor four', off:5, q:'min' },
+                  bVI:{ lab:'\u266DVI \u2014 the flat six', off:8, q:'maj' },
+                  bVII:{ lab:'\u266DVII \u2014 the flat seven', off:10, q:'maj' },
+                  bIII:{ lab:'\u266DIII \u2014 the flat three', off:3, q:'maj' } };
+      const pool = withOnly(cfg.pool || Object.keys(B), only);
+      const k = only || rnd(pool);
+      const home = rnd(cfg.roots || [48, 50, 53]);
+      const kn = T.MAJ_ROOT[T.pc(home)];
+      const r = home + B[k].off;
+      const ns = T.chordNotes(r, B[k].q);
+      const rname = T.name(r, true);
+      const cn = T.chordName(rname, B[k].q);
+      return {
+        concept:k, label:B[k].lab,
+        notes:[T.chordNotes(home, 'maj'), ns, T.chordNotes(home, 'maj')], gap:900,
+        answer:B[k].lab, options:pool.map(x => B[x].lab),
+        build:{ mode:'keys', from:r, expect:ns,
+          prompt:'Build that borrowed chord \u2014 ' + cn + ' \u2014 up from the lit key.' },
+        why:'In ' + kn + ' major, ' + B[k].lab.split(' \u2014 ')[0] + ' is ' + cn + ' (' +
+            T.spellChord(rname, B[k].q).join(' ') + '), borrowed from ' + kn + ' minor.'
+      };
+    },
+    /* two keys in a row: how far round the wheel did it move? then tap where it went */
+    neighbour(cfg, only) {
+      const M = { up:['a 5th up', 'one step clockwise'], down:['a 5th down', 'one step anticlockwise'],
+                  rel:['its relative minor', 'the inner ring, same spoke'] };
+      const pool = withOnly(cfg.pool || Object.keys(M), only);
+      const k = only || rnd(pool);
+      const i = Math.floor(Math.random() * 12);
+      const t = k === 'up' ? { idx:(i + 1) % 12, ring:'maj' } : k === 'down' ? { idx:(i + 11) % 12, ring:'maj' }
+              : { idx:i, ring:'min' };
+      const pcOf = (idx, ring) => ((idx * 7) % 12 + (ring === 'min' ? 9 : 0)) % 12;
+      const chord = (idx, ring) => T.chordNotes(48 + pcOf(idx, ring), ring === 'min' ? 'min' : 'maj');
+      const lab = (idx, ring) => ring === 'min' ? T.MINOR_LABEL[idx] : T.KEY_LABEL[idx];
+      return {
+        concept:k, label:M[k][0],
+        notes:[chord(i, 'maj'), chord(t.idx, t.ring)], gap:950,
+        answer:M[k][0] + ' \u2014 ' + M[k][1], options:pool.map(x => M[x][0] + ' \u2014 ' + M[x][1]),
+        build:{ mode:'wheel', from:i, expect:t, target:lab(t.idx, t.ring),
+          prompt:'On the wheel, tap the key that is ' + M[k][0] + ' from ' + T.KEY_LABEL[i] + '.' },
+        why:T.KEY_LABEL[i] + ' \u2192 ' + lab(t.idx, t.ring) + ': ' + M[k][1] + '.'
+      };
+    },
+    /* a few bars of the loop with some layers out: which section is it? */
+    section(cfg, only) {
+      const S = { intro:['intro \u2014 chords alone', [0, 0, 1, 0]],
+                  verse:['verse \u2014 drums, bass and chords', [1, 1, 1, 0]],
+                  drop:['chorus or drop \u2014 everything in', [1, 1, 1, 1]],
+                  breakdown:['breakdown \u2014 drums and bass out', [0, 0, 1, 1]] };
+      const pool = withOnly(cfg.pool || Object.keys(S), only);
+      const k = only || rnd(pool);
+      const on = S[k][1];
+      return {
+        concept:k, label:S[k][0],
+        play:ctx => {
+          const bed = (typeof TRACK !== 'undefined') ? TRACK.bed() : null;
+          const chords = bed || [{ notes:[48,51,55], root:36 }, { notes:[44,48,51], root:32 },
+                                  { notes:[51,55,58], root:39 }, { notes:[46,50,53], root:34 }];
+          const beat = 330;
+          for (let st = 0; st < 16; st++) ctx.later(() => {
+            const c = chords[Math.floor(st / 4) % chords.length];
+            if (on[0]) { if (st % 4 === 0) A.click('kick'); if (st % 8 === 4) A.click('snare'); A.click('hat', undefined, 0.35); }
+            if (on[1] && st % 2 === 0) A.note(c.root, 0.3, { gain:0.8 });
+            if (on[2] && st % 4 === 0) A.chord(c.notes.map(n => n + 12), 1.2, { spread:0.03, gain:0.35 });
+            if (on[3] && st % 2 === 1) A.note(c.notes[(st >> 1) % c.notes.length] + 24, 0.25, { gain:0.6 });
+          }, st * beat / 2);
+        },
+        answer:S[k][0], options:pool.map(x => S[x][0]),
+        build:{ mode:'grid', column:{ step:0, on:on.slice() },
+          prompt:'In the first column (bar 1), switch on exactly the layers a <b>' + k +
+                 '</b> uses \u2014 and switch the others off.' },
+        why:'A ' + k + ' is ' + S[k][0].split(' \u2014 ')[1] + '. Arrangement is mostly deciding what is missing.'
       };
     },
     /* a one-bar drum pattern, name it, then place it on the grid */
@@ -5209,11 +5867,32 @@ const PRACTICE = (() => {
      concept, fresh notes, and the instrument the concept belongs on. */
   function queued(entry) {
     const base = PLAN[entry.lesson] || {};
-    return { kind:entry.kind || base.kind, only:entry.concept, lesson:entry.lesson,
-             pool:base.pool, roots:base.roots, root:base.root, type:base.type,
-             lane:base.lane, laneName:base.laneName, sound:base.sound };
+    /* everything the lesson's own round knows — its roots, its roll, its
+       grid lane — plus which concept to ask about */
+    return Object.assign({}, base, { kind:entry.kind || base.kind, only:entry.concept,
+                                     lesson:entry.lesson, queue:undefined });
   }
 
+  /* ── a round that grows ─────────────────────────────────────
+     A lesson can introduce its ideas in small groups: `ladder` lists them in
+     order, and the next group joins the round once every idea already in it
+     has come back right twice. Nothing to switch on; it just widens. */
+  function level(cfg) {
+    if (!cfg.ladder) return null;
+    const got = {};
+    forLesson(cfg.lesson).forEach(e => { got[e.concept] = e.right || 0; });
+    let n = 1;
+    while (n < cfg.ladder.length &&
+           cfg.ladder.slice(0, n).every(st => st.pool.every(c => (got[String(c)] || 0) >= 2))) n++;
+    const pool = [].concat.apply([], cfg.ladder.slice(0, n).map(st => st.pool));
+    return { n, of:cfg.ladder.length, pool, name:cfg.ladder[n - 1].name };
+  }
+  const withLevel = cfg => {
+    const lv = level(cfg);
+    return lv ? Object.assign({}, cfg, { pool:lv.pool }) : cfg;
+  };
+
+  let lastQ = null;          /* the question most recently asked, for tests and tools */
   function build(ctx, cfg) {
     const queue = cfg.queue ? cfg.queue.slice() : null;
     const wrap = UI.el('div', 'practice');
@@ -5224,7 +5903,7 @@ const PRACTICE = (() => {
     let q = null, stage = 'hear', tapped = [], listener = null, identifiedOk = null, pending = null;
     /* the learner's own beat, put back the moment the exercise is over — a
        practice round must not quietly overwrite what they were working on */
-    let borrowedLane = null;
+    let borrowedLane = null, borrowedGrid = null, borrowedRoll = null;
     const head = UI.html('p', 'small', '');
     const controls = UI.el('div', 'ctl');
     const answers = UI.el('div', 'ctl');
@@ -5236,6 +5915,10 @@ const PRACTICE = (() => {
     const say = t => { head.innerHTML = t; };
     const playQ = () => {
       A.resume();
+      if (q.show && q.build.mode === 'keys' && ctx.v.mark) {
+        ctx.v.clear().marks(q.show, 'root').apply();
+      }
+      if (q.play) { q.play(ctx); return; }
       const groups = q.notes || [[60]];
       const gap = q.gap || 0;
       if (q.pattern) {                        /* rhythm plays as clicks */
@@ -5254,11 +5937,26 @@ const PRACTICE = (() => {
       if (ctx.v && ctx.v.judge) ctx.v.judge(null);
     };
     const giveLaneBack = () => {
-      if (!borrowedLane) return;
-      ctx.v.pattern(borrowedLane.lane, borrowedLane.row);
-      borrowedLane = null;
-      if (ctx.saveInstrument) ctx.saveInstrument();
+      if (borrowedLane && ctx.v.pattern) {
+        ctx.v.pattern(borrowedLane.lane, borrowedLane.row);
+        borrowedLane = null;
+        if (ctx.saveInstrument) ctx.saveInstrument();
+      }
+      if (borrowedGrid && ctx.v.pattern) {
+        borrowedGrid.forEach((row, l) => ctx.v.pattern(l, row));
+        borrowedGrid = null;
+        if (ctx.saveInstrument) ctx.saveInstrument();
+      }
+      if (borrowedRoll && ctx.v.setNotes) {
+        ctx.v.setNotes(borrowedRoll);
+        if (ctx.keep) ctx.keep('notes', borrowedRoll.slice());
+        borrowedRoll = null;
+        if (ctx.syncA11y) ctx.syncA11y();
+      }
     };
+    /* the notes on the roll that the learner put there, left to right */
+    const placed = () => (ctx.v.notes || []).filter(n => n.role !== 'seed')
+      .slice().sort((a, b) => a.step - b.step || a.midi - b.midi);
 
     /* step 3 — build it on the instrument */
     function startBuild() {
@@ -5268,7 +5966,8 @@ const PRACTICE = (() => {
       tapped = [];
       const b = q.build;
       say('<b>Now build it.</b> ' + b.prompt);
-      const note = UI.el('span', 'val', b.mode === 'keys' ? '0 tapped' : 'tap the grid');
+      const note = UI.el('span', 'val', b.mode === 'keys' ? '0 tapped' : b.mode === 'roll' ? 'tap the roll'
+        : b.mode === 'wheel' ? 'tap the wheel' : 'tap the grid');
       if (b.mode === 'keys') {
         ctx.v.clear().mark(b.from, 'root').apply().clearExtras();
         listener = m => {
@@ -5283,11 +5982,54 @@ const PRACTICE = (() => {
         const wanted = b.expect.map(norm);
         if (ctx.v.judge) ctx.v.judge(m => wanted.indexOf(norm(m)) >= 0 ? 'good' : 'bad');
       }
-      if (b.mode === 'grid') {
+      if (b.mode === 'grid' && b.column) {
+        /* an arrangement question: the whole first column is the answer */
+        if (!borrowedGrid) borrowedGrid = ctx.v.state.map(r => r.slice());
+        ctx.v.state.forEach((r, l) => { const nr = r.slice(); nr[b.column.step] = 0; ctx.v.pattern(l, nr); });
+        if (ctx.v.judge) ctx.v.judge((l, s) => s !== b.column.step ? null : b.column.on[l] ? 'good' : 'bad');
+      } else if (b.mode === 'grid') {
+        /* a meter question brings its own grid: two or three boxes to a beat */
+        if (b.meter && (ctx.v.state[b.lane] || []).length !== b.expect.length) {
+          /* the meter lesson knows how to redraw its own grid; anywhere else
+             (Today, a mixed round) the grid is simply swapped for one that fits */
+          if (ctx.setMeter && ctx.L && ctx.L.id === 'meter') ctx.setMeter(b.meter);
+          else {
+            ctx.v = V.set('grid', { steps:b.meter * 4, group:b.meter,
+              lanes:[{ name:'Pulse', kind:'click' }, { name:'Kick', kind:'kick' }, { name:'Hat', kind:'hat' }] });
+            if (ctx.syncA11y) ctx.syncA11y();
+          }
+        }
         const row = (ctx.v.state[b.lane] || []).slice();
-        if (!borrowedLane) borrowedLane = { lane:b.lane, row };
+        if (!borrowedLane && !b.meter) borrowedLane = { lane:b.lane, row };
         ctx.v.pattern(b.lane, row.map(() => 0));    /* an empty lane to work in */
         if (ctx.v.judge) ctx.v.judge((l, s) => l !== b.lane ? null : b.expect[s] ? 'good' : 'bad');
+      }
+      if (b.mode === 'roll') {
+        if (!borrowedRoll) borrowedRoll = (ctx.v.notes || []).slice();
+        ctx.v.setNotes([]);
+        listener = () => {
+          const n = placed().length;
+          note.textContent = n + (n === 1 ? ' note' : ' notes') + ' placed';
+        };
+        ctx.v.listen(listener);
+        if (ctx.v.judge) {
+          if (b.judgeCell) ctx.v.judge(b.judgeCell);
+          else if (b.expect) {
+            const norm = m => b.exact ? m : T.pc(m);
+            const wanted = b.expect.map(norm);
+            ctx.v.judge((st, m) => wanted.indexOf(norm(m)) >= 0 ? 'good' : 'bad');
+          }
+        }
+        if (ctx.syncA11y) ctx.syncA11y();
+      }
+      if (b.mode === 'wheel') {
+        if (ctx.v.roles) ctx.v.roles({});
+        if (b.from != null && ctx.v.select) ctx.v.select(b.from);
+        listener = (idx, ring) => {
+          tapped = [{ idx, ring }];
+          note.textContent = (ring === 'min' ? T.MINOR_LABEL[idx] : T.KEY_LABEL[idx]) + ' picked';
+        };
+        ctx.v.listen(listener);
       }
       const check = UI.btn('Check my answer', () => finish(judgeBuild()), { primary:true });
       const again = UI.btn('Start over', () => startBuild());
@@ -5296,6 +6038,20 @@ const PRACTICE = (() => {
 
     function judgeBuild() {
       const b = q.build;
+      if (b.mode === 'grid' && b.column) {
+        return b.column.on.every((v, l) => !!(ctx.v.state[l] || [])[b.column.step] === !!v);
+      }
+      if (b.mode === 'wheel') {
+        const t = tapped[tapped.length - 1];
+        return !!t && t.idx === b.expect.idx && t.ring === b.expect.ring;
+      }
+      if (b.mode === 'roll') {
+        const ns = placed();
+        if (b.check) return !!b.check(ns);
+        const norm = m => b.exact ? m : T.pc(m);
+        return ns.map(n => norm(n.midi)).join(',') === b.expect.map(norm).join(',');
+      }
+      if (b.check) return !!b.check(tapped);
       if (b.mode === 'grid') {
         const row = (ctx.v.state[b.lane] || []).slice(0, b.expect.length);
         return row.join('') === b.expect.join('');
@@ -5312,6 +6068,27 @@ const PRACTICE = (() => {
       const got = uniq(tapped.map(norm)).sort((x, y) => x - y).join(',');
       return want === got;
     }
+
+    /* the ear warm-up stops at "name it": no instrument, one channel only */
+    function finishEar() {
+      stage = 'done';
+      const ok = !!identifiedOk;
+      record(cur.lesson || ctx.L.id, cur.kind, q.concept, q.label, ok);
+      if (cfg.onResult) cfg.onResult(ok, q, cur);
+      verdict.hidden = false;
+      verdict.classList.toggle('good', ok);
+      verdict.classList.toggle('bad', !ok);
+      verdict.innerHTML = '<span class="say">' + (typeof ICONS !== 'undefined'
+        ? ICONS.inline(ok ? 'check' : 'cross') : '') + '<span>' + (ok ? 'Right \u2014 ' : 'It was ') +
+        escape(q.answer) + '.</span></span>' + q.why;
+      say(ok ? '<b>By ear.</b> Nothing to look at, and you still knew.' : '<b>Listen again</b>, now that you know.');
+      controls.innerHTML = '';
+      const more = !queue || at < queue.length;
+      controls.append(
+        UI.btn(queue ? (more ? 'Next →' : 'Finish') : '↻ Another', () => reset(), { primary:true }),
+        UI.btn('🔊 Hear it again', () => playQ()));
+    }
+    const escape = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
     function finish(builtOk) {
       stopListening();
@@ -5335,8 +6112,24 @@ const PRACTICE = (() => {
       if (q.build.mode === 'keys') {
         ctx.v.clear().marks(q.build.expect, 'chord').mark(q.build.from, 'root').apply();
       }
-      if (q.build.mode === 'grid') ctx.v.pattern(q.build.lane, q.build.expect);
-      say(ok ? '<b>Both right.</b> That is the one that sticks.'
+      if (q.build.mode === 'grid' && q.build.column) {
+        q.build.column.on.forEach((v, l) => {
+          const r = (ctx.v.state[l] || []).slice(); r[q.build.column.step] = v ? 1 : 0; ctx.v.pattern(l, r);
+        });
+      } else if (q.build.mode === 'grid') ctx.v.pattern(q.build.lane, q.build.expect);
+      if (q.build.mode === 'roll' && !builtOk && q.build.show) {
+        ctx.v.setNotes(q.build.show.map(n => ({ step:n.step, midi:n.midi, len:1, role:'chord' })));
+      }
+      if (q.build.mode === 'wheel') {
+        const t = q.build.expect;
+        if (t.ring === 'maj') ctx.v.select(t.idx); else ctx.v.roles({ ['m' + t.idx]:'chord' });
+      }
+      if (ctx.syncA11y) ctx.syncA11y();
+      const lvAfter = level(cur);
+      const up = lvAfter && q.level && lvAfter.n > q.level.n;
+      say(up ? '<b>Level up.</b> ' + lvAfter.name.charAt(0).toUpperCase() + lvAfter.name.slice(1) +
+               ' join the round from the next question.'
+         : ok ? '<b>Both right.</b> That is the one that sticks.'
              : '<b>Worth another go.</b> The bit you missed is now in your review list.');
       controls.innerHTML = '';
       const more = !queue || at < queue.length;
@@ -5348,6 +6141,10 @@ const PRACTICE = (() => {
 
     const hint = () => {
       const b = q.build;
+      if (b.mode === 'grid' && b.column) return 'Bar 1 should have: ' +
+        ['drums', 'bass', 'chords', 'melody'].filter((x, i) => b.column.on[i]).join(', ') + '.';
+      if (b.mode === 'wheel') return 'The answer is ' + b.target + '.';
+      if (b.mode === 'roll' && b.check) return 'One that works is on the roll now.';
       if (b.mode === 'grid') return 'It should look like: ' +
         b.expect.map(v => v ? '■' : '·').join(' ');
       return 'The notes are ' + b.expect.map(m => T.name(m) + T.oct(m)).join(' ') + '.';
@@ -5372,7 +6169,8 @@ const PRACTICE = (() => {
             if (c !== b && c.textContent === q.answer) c.classList.add('reveal');
           });
           if (ctx.chime) ctx.chime(identifiedOk);
-          ctx.later(() => startBuild(), 450);
+          if (cfg.earOnly) ctx.later(() => finishEar(), 350);
+          else ctx.later(() => startBuild(), 450);
         });
         answers.appendChild(b);
       });
@@ -5393,7 +6191,10 @@ const PRACTICE = (() => {
         }
       }
       if (!maker()) { if (cfg.onDone) cfg.onDone(); return; }
-      q = maker()(cur, cur.only);
+      const lvBefore = level(cur);
+      q = maker()(cur.only == null ? withLevel(cur) : cur, cur.only);
+      q.level = lvBefore;
+      lastQ = q;
       stage = 'hear';
       identifiedOk = null;
       tapped = [];
@@ -5402,7 +6203,9 @@ const PRACTICE = (() => {
       controls.innerHTML = '';
       say(queue ? 'Listen first — <b>' + at + ' of ' + queue.length + '</b>: ' +
                   (cur.only ? 'the one you missed, with different notes.' : '')
-                : 'Listen first — you only need your ears for this part.');
+                : 'Listen first — you only need your ears for this part.' +
+                  (q.level ? ' <span class="lvl">Level ' + q.level.n + ' of ' + q.level.of +
+                    ' \u00b7 ' + q.level.name + '</span>' : ''));
       const hear = UI.btn('🔊 Hear it', () => {
         if (pending) { const p = pending; pending = null; cfg.onStage(p); }
         playQ();
@@ -5426,8 +6229,44 @@ const PRACTICE = (() => {
     pianoroll:   { kind:'interval', pool:[1,2,12], roots:[55,57,60],
                    p:'Three distances, and the whole keyboard is made of them: one key, two keys, ' +
                      'and the same note again twelve keys up.' },
-    intervals:   { kind:'interval', pool:[3,4,5,7,8,9,12], roots:[55,57,60] },
-    scales:      { kind:'scale', pool:['major','minor','majorPent','minorPent','blues'], roots:[55,57,60] },
+    notes:       { kind:'notename', pool:[0,1,2,3,4,5,6,7,8,9,10,11], lo:55,
+                   ladder:[{ name:'the white keys', pool:[0,2,4,5,7,9,11] },
+                           { name:'the black keys', pool:[1,3,6,8,10] }],
+                   p:'A key lights up: say its name, then find the key a half or a whole step away. ' +
+                     'White keys first; the black ones join once those come back right.' },
+    intervals:   { kind:'interval', pool:[3,4,5,7,8,9,12], roots:[55,57,60],
+                   ladder:[{ name:'the two thirds', pool:[3,4] },
+                           { name:'the 4th and 5th', pool:[5,7] },
+                           { name:'the sixths and the octave', pool:[8,9,12] }],
+                   p:'It starts with just the two thirds \u2014 sad and happy. The 4th and 5th join once ' +
+                     'you have landed both twice, then the sixths and the octave.' },
+    scales:      { kind:'scale', pool:['major','minor','majorPent','minorPent','blues'], roots:[55,57,60],
+                   ladder:[{ name:'major and minor', pool:['major','minor'] },
+                           { name:'the two pentatonics', pool:['majorPent','minorPent'] },
+                           { name:'the blues scale', pool:['blues'] }],
+                   p:'Major and minor first. The pentatonics join once both come back right twice, ' +
+                     'then the blues scale.' },
+    meter:       { kind:'meter', lane:1, laneName:'kick',
+                   p:'Hear a bar, say whether it walks in twos or rolls in threes, then mark the beats.' },
+    melody:      { kind:'contour', root:60, scale:'minor',
+                   p:'Hear four notes and say which way they go. Then draw your own \u2014 any notes, same shape.' },
+    'melody-chords': { kind:'chordtone', root:60, scale:'minor', pool:[1,4,6,7],
+                   p:'A chord, then one note over it. Does it sit, or lean? Then put a note that sits on beat 1.' },
+    eightbar:    { kind:'progression', roll:true, type:'minor', roots:[60],
+                   pool:[[1,6,3,7],[1,4,5,1],[6,7,1,1],[1,7,6,7]],
+                   p:'Four chords in C minor. Name the numerals, then lay the four roots out on the roll.' },
+    structure:   { kind:'section',
+                   p:'A few bars of the loop with layers taken out. Name the section, then set bar 1 to match.' },
+    inversions:  { kind:'inversion', types:['maj','min'], roots:[55,57,60],
+                   p:'The same chord, three ways up. Listen for the bottom note, then play that voicing.' },
+    borrowed:    { kind:'borrowed', roots:[48,50,53],
+                   p:'Home, one borrowed chord, home again. Name the stranger, then build it.' },
+    circle:      { kind:'neighbour',
+                   p:'Two chords in a row. How far round the wheel did it move? Then tap where it went.' },
+    beatblock:   { kind:'contour', root:57, scale:'minor', pool:['rise','fall','arch','valley'],
+                   p:'A starting motif is a shape before it is notes. Name this one, then draw your own.' },
+    challenges:  { kind:'mix', mix:true,
+                   p:'Five questions from the lessons you have reached, each on its own instrument.' },
     modes:       { kind:'scale', pool:T.MODE_ORDER, roots:[55,57,60] },
     chords:      { kind:'chord', pool:['maj','min','dim','aug'], roots:[55,57,60] },
     progressions:{ kind:'progression', roots:[48,50,52,53], type:'major',
@@ -5440,17 +6279,36 @@ const PRACTICE = (() => {
     'harmonic-minor': { kind:'scale', pool:['minor','harmonicMinor','melodicMinor','phrygianDom'],
                         roots:[55,57,60] },
     /* bass moves: the distances a bassline actually walks */
-    bassline:    { kind:'interval', pool:[0,5,7,12], roots:[40,43,45],
+    bassline:    { kind:'interval', pool:[0,5,7,12], roots:[36,39,43], roll:true,
                    p:'Root, 4th, 5th, octave \u2014 four distances, and most basslines are made of them.' },
     velocity:    { kind:'rhythm', lane:2, laneName:'hat', sound:'hat',
                    p:'Name the pattern, then place it. Velocity is what you bring to it afterwards.' }
   };
-  const plan = lessons => lessons.forEach(L => { if (PLAN[L.id]) L.practice = PLAN[L.id]; });
+  const plan = lessons => lessons.forEach(L => {
+    if (PLAN[L.id]) { PLAN[L.id].lesson = L.id; L.practice = PLAN[L.id]; }
+  });
+  /* the ear warm-up: kinds that can be named from sound alone */
+  const EAR = ['interval','chord','scale','rhythm','meter','progression','inversion','borrowed',
+               'neighbour','contour','chordtone','section','degree'];
+  function earQueue(ids, n) {
+    const pool = shuffle((ids || []).filter(id => PLAN[id] && EAR.indexOf(PLAN[id].kind) >= 0));
+    const out = [];
+    for (let i = 0; pool.length && i < (n || 3); i++) {
+      const id = pool[i % pool.length];
+      out.push({ lesson:id, kind:PLAN[id].kind, concept:null });
+    }
+    return out;
+  }
+  /* a mixed round: one question each from lessons already reached, fresh notes */
+  function mixQueue(ids, n) {
+    const pool = shuffle((ids || []).filter(id => PLAN[id] && !PLAN[id].mix));
+    return pool.slice(0, n || 5).map(id => ({ lesson:id, kind:PLAN[id].kind, concept:null }));
+  }
 
   return { build, record, misses, forLesson, entries, trend, clear, watch, reload:load,
-           MAKERS, plan, PLAN,
+           MAKERS, plan, PLAN, mixQueue, earQueue, EAR, level, shapeOf,
            queued, RHYTHMS,
-           get log() { return log; } };
+           get log() { return log; }, get current() { return lastQ; } };
 })();
 
 
@@ -6038,7 +6896,19 @@ const RACK = (() => {
       project.channels.forEach(c => { c.steps = barsOf([]); });
       touch(); paintAll();
     });
-    acts.append(dl, clear);
+    /* the beat you made in The Grid and added to your track, on every bar */
+    const mine = UI.btn('Use the beat from your track', () => {
+      if (typeof TRACK === 'undefined' || !TRACK.has('drums')) {
+        if (opts.onSay) opts.onSay('no beat in your track yet \u00b7 add one in The Grid');
+        return;
+      }
+      const d = TRACK.drums();
+      project.channels.forEach(c => { c.steps = barsOf((d[c.part] || []).map(v => v ? 1 : 0)); });
+      touch(); paintAll();
+      if (opts.onSay) opts.onSay('your beat from The Grid \u00b7 on all four bars');
+    });
+    mine.hidden = typeof TRACK === 'undefined' || !TRACK.has('drums');
+    acts.append(dl, mine, clear);
     wrap.appendChild(acts);
 
     /* ── painting ── */
@@ -6363,6 +7233,762 @@ const FLAT = (() => {
 })();
 
 
+/* ── src/track.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   TRACK — one loop, built across the whole course.
+
+   Four lessons each hand over one layer: the beat from The Grid, the
+   chords from Progressions That Work, the bass from Basslines and the
+   tune from Melody Craft. Every lesson after that which plays "the loop"
+   plays yours, and Build an 8-Bar Idea starts from what you made rather
+   than from a stock example. Finishing the course means finishing a loop.
+
+   The track lives in C minor at one tempo, because that is the key the
+   bass and melody lessons are drawn in. A progression in a major key is
+   not refused silently: the panel says why and offers the minor version.
+
+   A layer is plain data — step rows for drums, note lists for everything
+   else — kept in this browser like the rest of your progress.
+   ═══════════════════════════════════════════════════════════════ */
+const TRACK = (() => {
+  const KEY = 'rbx-theory-track-v1';
+  const LAYERS = [
+    { id:'drums',  name:'Drums',  lesson:'grid',         from:'The Grid' },
+    { id:'chords', name:'Chords', lesson:'progressions', from:'Progressions That Work' },
+    { id:'bass',   name:'Bass',   lesson:'bassline',     from:'Basslines' },
+    { id:'melody', name:'Melody', lesson:'melody',       from:'Melody Craft' }
+  ];
+  /* what plays before you have made anything: the loop the lessons used to hard-code */
+  const DEFAULT_BED = [
+    { step:0,  len:4, notes:[48,51,55], root:36, label:'Cm',  spell:['C','E♭','G'] },
+    { step:4,  len:4, notes:[44,48,51], root:32, label:'A♭', spell:['A♭','C','E♭'] },
+    { step:8,  len:4, notes:[51,55,58], root:39, label:'E♭', spell:['E♭','G','B♭'] },
+    { step:12, len:4, notes:[46,50,53], root:34, label:'B♭', spell:['B♭','D','F'] }
+  ];
+  const DEFAULT_DRUMS = {
+    kick: [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0],
+    snare:[0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+    hat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0]
+  };
+  const MINORISH = ['minor', 'harmonicMinor'];
+
+  let t = {};
+  function load() {
+    try { t = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { t = {}; }
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch (e) {} }
+  load();
+  const fns = [];
+  const tell = () => fns.forEach(fn => { try { fn(status()); } catch (e) {} });
+
+  const has = id => !!t[id];
+  const status = () => { const o = {}; LAYERS.forEach(L => { o[L.id] = has(L.id); }); return o; };
+  function set(id, data) {
+    t[id] = data; t.at = Date.now(); save(); tell();
+  }
+  function clear(id) { if (id) delete t[id]; else t = {}; save(); tell(); }
+
+  /* the bass register the stock loop uses: A♭1 up to G2 */
+  const bassRoot = pc => 32 + ((pc - 8 + 12) % 12);
+  /* chords sit where the stock loop's did — the lessons add an octave on playback */
+  const seat = notes => {
+    let ns = notes.slice();
+    while (Math.min.apply(null, ns) >= 56) ns = ns.map(n => n - 12);
+    while (Math.min.apply(null, ns) < 43) ns = ns.map(n => n + 12);
+    return ns;
+  };
+
+  /* the four chords under everything, one per beat-group of the 16-step loop */
+  function bed() {
+    const c = t.chords;
+    if (!c || !c.bars || c.bars.length !== 4) return DEFAULT_BED;
+    return c.bars.map((b, i) => ({ step:i * 4, len:4, notes:seat(b.notes), root:bassRoot(T.pc(b.root)),
+                                   label:b.label, spell:b.spell || [] }));
+  }
+  const drums = () => t.drums || DEFAULT_DRUMS;
+  /* your bassline, or the roots of whatever chords are in the track */
+  const bass = () => (t.bass && t.bass.length) ? t.bass
+    : bed().map(c => ({ step:c.step, midi:c.root, len:3 }));
+  const melody = () => (t.melody && t.melody.length) ? t.melody : null;
+  const bpm = () => t.bpm || 92;
+
+  /* ── the lessons hand their layer over through these ── */
+  const fromGrid = state => ({ kick:(state[0] || []).slice(0, 16), snare:(state[1] || []).slice(0, 16),
+                               hat:(state[2] || []).slice(0, 16) });
+  /* only a minor progression fits a track in C minor */
+  const fitsKey = keyType => MINORISH.indexOf(keyType) >= 0;
+
+  /* ── one pass of the loop, through the lesson's own transport ── */
+  function play(ctx, opt) {
+    opt = opt || {};
+    const mute = opt.mute || {};
+    const b = bed(), d = drums(), bs = bass(), mel = opt.melody || melody();
+    ctx.seq({ bpm:opt.bpm || bpm(), div:16, steps:16, cb:(step, when) => {
+      if (!mute.chords && (has('chords') || opt.all)) {
+        const c = b.find(x => x.step === step);
+        if (c) A.chord(c.notes.map(n => n + 12), 2.1, { when, spread:0.03, gain:0.38 });
+      }
+      if (!mute.drums && (has('drums') || opt.all)) {
+        if (d.kick[step]) A.click('kick', when);
+        if (d.snare[step]) A.click('snare', when);
+        if (d.hat[step]) A.click('hat', when, step % 4 === 0 ? 0.8 : 0.45);
+      }
+      if (!mute.bass && (has('bass') || opt.all)) {
+        bs.filter(n => n.step === step).forEach(n => A.note(n.midi, 0.22 * (n.len || 1) + 0.3, { when }));
+      }
+      if (!mute.melody && mel) {
+        mel.filter(n => n.step === step).forEach(n => A.note(n.midi, 0.28 * (n.len || 1) + 0.25, { when, gain:0.95 }));
+      }
+      if (opt.onStep) opt.onStep(step, when);
+    } });
+  }
+
+  /* ── the panel a source lesson shows ─────────────────────────
+     cfg: { layer:'drums'|'chords'|'bass'|'melody', read:() => data,
+            fits:() => true | 'why not', fix:{ label, run } } */
+  function panel(ctx, cfg) {
+    if (!cfg.layer) return summary(ctx);
+    const L = LAYERS.find(x => x.id === cfg.layer);
+    const p = UI.el('div', 'panel track-panel');
+    p.appendChild(UI.html('h4', null, 'Your track'));
+    p.appendChild(UI.html('p', 'small',
+      'One loop, built across the course. Four lessons each add a layer — this one adds the <b>' +
+      L.name.toLowerCase() + '</b>. By <em>Build an 8-Bar Idea</em> you arrange parts you made yourself.'));
+    const strip = UI.el('div', 'layers');
+    const msg = UI.html('p', 'small track-msg', '');
+    const paint = () => {
+      strip.innerHTML = '';
+      LAYERS.forEach(x => {
+        const on = has(x.id), here = x.id === L.id;
+        const c = UI.el('span', 'layer' + (on ? ' on' : '') + (here ? ' here' : ''));
+        c.innerHTML = (on && typeof ICONS !== 'undefined' ? ICONS.svg('check') : '<i></i>') +
+          '<span>' + x.name + '</span>';
+        c.title = on ? x.name + ': in your track' : x.name + ': from ' + x.from;
+        strip.appendChild(c);
+      });
+      const why = cfg.fits ? cfg.fits() : true;
+      add.disabled = why !== true;
+      UI.label(add, has(L.id) ? 'Replace the ' + L.name.toLowerCase() + ' in your track'
+                              : 'Add these ' + L.name.toLowerCase() + ' to your track');
+      if (L.id === 'melody' || L.id === 'bass') UI.label(add, has(L.id)
+        ? 'Replace the ' + L.name.toLowerCase() + ' in your track' : 'Add this ' + L.name.toLowerCase() + ' to your track');
+      fixBtn.hidden = why === true || !cfg.fix;
+      if (why !== true) msg.innerHTML = why;
+    };
+    const add = UI.btn('Add', () => {
+      const data = cfg.read();
+      if (!data) { msg.textContent = 'Nothing to add yet — make something above first.'; return; }
+      set(L.id, data);
+      msg.innerHTML = '<b>Added.</b> ' + (LAYERS.every(x => has(x.id))
+        ? 'All four layers are in — open Build an 8-Bar Idea to arrange them.'
+        : 'Still to come: ' + LAYERS.filter(x => !has(x.id)).map(x => x.name.toLowerCase() + ' (' + x.from + ')').join(', ') + '.');
+      if (ctx.chime) ctx.chime(true);
+      if (typeof V !== 'undefined' && V.fx) V.fx.ring(null, 'good');
+      paint();
+    }, { primary:true });
+    const fixBtn = UI.btn(cfg.fix ? cfg.fix.label : '', () => { if (cfg.fix) cfg.fix.run(); paint(); });
+    const hear = UI.toggle('▶ Hear your track', on => {
+      if (!on) { ctx.stop(); return; }
+      const any = LAYERS.some(x => has(x.id));
+      if (!any) { msg.textContent = 'Your track is empty so far — add this layer first.'; return; }
+      play(ctx, {});
+    });
+    p.append(strip, UI.row(add, fixBtn, hear), msg);
+    paint();
+    ctx.trackPaint = paint;
+    return p;
+  }
+
+  /* where the layers come together: what is yours, and where the rest comes from */
+  function summary(ctx) {
+    const p = UI.el('div', 'panel track-panel');
+    p.appendChild(UI.html('h4', null, 'Your track'));
+    const mine = LAYERS.filter(x => has(x.id)), rest = LAYERS.filter(x => !has(x.id));
+    p.appendChild(UI.html('p', 'small', mine.length
+      ? 'Playing under the roll: your ' + mine.map(x => x.name.toLowerCase()).join(', ') + '.' +
+        (rest.length ? ' Still stock: ' + rest.map(x => x.name.toLowerCase() + ' (add it in ' + x.from + ')').join(', ') + '.'
+                     : ' Every layer is yours.')
+      : 'Nothing of yours yet, so the stock loop is playing. Each of these lessons adds a layer: ' +
+        LAYERS.map(x => x.from).join(', ') + '.'));
+    const strip = UI.el('div', 'layers');
+    LAYERS.forEach(x => {
+      const on = has(x.id);
+      const c = UI.el('span', 'layer' + (on ? ' on' : ''));
+      c.innerHTML = (on && typeof ICONS !== 'undefined' ? ICONS.svg('check') : '<i></i>') + '<span>' + x.name + '</span>';
+      strip.appendChild(c);
+    });
+    p.appendChild(strip);
+    return p;
+  }
+
+  return { LAYERS, DEFAULT_BED, DEFAULT_DRUMS, load, reload:load, set, clear, has, status,
+           bed, drums, bass, melody, bpm, play, panel, fromGrid, fitsKey, bassRoot,
+           onChange:fn => { fns.push(fn); },
+           get data() { return t; } };
+})();
+
+
+/* ── src/genres.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   GENRES — the idea you are learning, inside a track.
+
+   An interval played on its own is an exercise; the same two notes as a
+   hook over a lo-fi beat is music. Four small styles, each a tempo, a kit,
+   a sound for the chords and a drum pattern, play whatever the lesson on
+   screen is currently showing. Nothing is sampled: every sound is the same
+   synth the rest of the app uses.
+   ═══════════════════════════════════════════════════════════════ */
+const GENRES = (() => {
+  const S = {
+    lofi:{ name:'Lo-fi', bpm:78, kit:'lofi', voice:'keys', lead:'bell',
+      why:'Slow, dusty, swung. The chords do the talking.',
+      kick:[1,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0], snare:[0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hat:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0], swing:0.14, bass:[0, 10] },
+    trap:{ name:'Trap', bpm:140, kit:'808', voice:'pad', lead:'pluck',
+      why:'Half-time: the snare lands on beat 3, and the hats do the running.',
+      kick:[1,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0], snare:[0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+      hat:[1,0,1,0, 1,0,1,1, 1,0,1,0, 1,1,1,1], swing:0, bass:[0, 10] },
+    pop:{ name:'Pop', bpm:108, kit:'acoustic', voice:'pluck', lead:'lead',
+      why:'Straight eighths, backbeat on 2 and 4 — the default setting of the radio.',
+      kick:[1,0,0,0, 0,0,0,1, 1,0,0,0, 0,0,0,0], snare:[0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hat:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0], swing:0, bass:[0, 8] },
+    house:{ name:'House', bpm:124, kit:'acoustic', voice:'organ', lead:'bell',
+      why:'Four on the floor, open hats on the offbeat.',
+      kick:[1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], snare:[0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+      hat:[0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0], swing:0, bass:[2, 6, 10, 14] }
+  };
+  const ORDER = ['lofi', 'trap', 'pop', 'house'];
+
+  /* material: { chords:[[midi…], …] one per bar, line:[midi…] spread across them } */
+  function play(ctx, id, material) {
+    const g = S[id]; if (!g || !material) return;
+    const chords = (material.chords && material.chords.length) ? material.chords : [[48, 55, 60]];
+    const bars = Math.max(2, chords.length);
+    const line = material.line || [];
+    const perBar = line.length ? Math.max(1, Math.ceil(line.length / bars)) : 0;
+    const slots = perBar > 4 ? [0, 2, 4, 6, 8, 10, 12, 14] : perBar > 2 ? [0, 4, 8, 12] : [0, 8];
+    const has = typeof INSTRUMENTS !== 'undefined';
+    ctx.seq({ bpm:g.bpm, div:16, steps:16 * bars, cb:(step, when, dt) => {
+      const bar = Math.floor(step / 16), s = step % 16;
+      const late = (s % 2 === 1) ? g.swing * dt : 0;
+      const t = when + late;
+      const c = chords[bar % chords.length];
+      if (has) {
+        if (g.kick[s]) INSTRUMENTS.hit(g.kit, 'kick', t, 1);
+        if (g.snare[s]) INSTRUMENTS.hit(g.kit, id === 'trap' || id === 'house' ? 'clap' : 'snare', t, 0.9);
+        if (g.hat[s]) INSTRUMENTS.hit(g.kit, 'hat', t, s % 4 === 0 ? 0.7 : 0.45);
+        if (s === 0) c.forEach(m => INSTRUMENTS.play(g.voice, m, 60 / g.bpm * 3.6, { when:t, gain:0.42 }));
+        if (g.bass.indexOf(s) >= 0) {
+          let r = Math.min.apply(null, c); while (r >= 48) r -= 12;
+          INSTRUMENTS.play(id === 'trap' ? 'sub' : 'pluckbass', r, 60 / g.bpm * 0.9, { when:t, gain:0.9 });
+        }
+        if (perBar) {
+          const k = slots.indexOf(s);
+          if (k >= 0 && k < perBar) {
+            const m = line[(bar * perBar + k) % line.length];
+            if (m != null) INSTRUMENTS.play(g.lead, m + (Math.min.apply(null, line) < 60 ? 12 : 0), 60 / g.bpm * 0.8, { when:t, gain:0.7 });
+          }
+        }
+      } else {
+        if (g.kick[s]) A.click('kick', t);
+        if (g.snare[s]) A.click('snare', t);
+        if (s === 0) A.chord(c, 1.5, { when:t, gain:0.4 });
+      }
+    } });
+  }
+
+  /* the panel under a lesson's controls. getMaterial is read on every press,
+     so it always plays what the lesson is showing right now */
+  function panel(ctx, getMaterial) {
+    const p = UI.el('div', 'panel genre-panel');
+    p.appendChild(UI.html('h4', null, 'Hear it in a track'));
+    const note = UI.html('p', 'small', 'The same idea inside four styles. Change it above, then press a style again.');
+    p.appendChild(note);
+    const row = UI.el('div', 'ctl');
+    let on = null;
+    const btns = {};
+    const paint = () => ORDER.forEach(id => {
+      btns[id].classList.toggle('on', on === id);
+      btns[id].setAttribute('aria-pressed', on === id ? 'true' : 'false');
+      UI.label(btns[id], (on === id ? '■ ' : '▶ ') + S[id].name);
+    });
+    ORDER.forEach(id => {
+      const b = UI.btn(S[id].name, () => {
+        A.resume();
+        if (on === id) { ctx.stop(); on = null; paint(); note.textContent = 'Stopped.'; return; }
+        const m = getMaterial();
+        on = id; paint();
+        play(ctx, id, m);
+        note.innerHTML = '<b>' + S[id].name + ', ' + S[id].bpm + ' BPM.</b> ' + S[id].why +
+          (m && m.label ? ' Playing: ' + m.label + '.' : '');
+      });
+      btns[id] = b; row.appendChild(b);
+    });
+    paint();
+    p.appendChild(row);
+    return p;
+  }
+
+  return { STYLES:S, ORDER, play, panel };
+})();
+
+
+/* ── src/glossary.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   GLOSSARY — tap a word, get one line and, where it helps, a sound.
+
+   The first time a term appears on a page it becomes a small button. Its
+   definition is one sentence written for someone who has never met the
+   word, and most of them can be heard, because "a minor 3rd" defined in
+   words is worse than one played.
+
+   Only the first mention on a page is marked, so a paragraph never turns
+   into a row of underlines.
+   ═══════════════════════════════════════════════════════════════ */
+const GLOSSARY = (() => {
+  const ch = (ns, gap) => () => { A.resume(); A.chord(ns, 1.4, { spread:gap || 0.04 }); };
+  const run = (ns, gap) => () => { A.resume(); ns.forEach((m, i) => setTimeout(() => A.note(m, 0.45), i * (gap || 260))); };
+  const beats = (pattern) => () => {
+    A.resume();
+    pattern.forEach((v, i) => { if (v) setTimeout(() => A.click(v === 2 ? 'strong' : 'hat', undefined, v === 2 ? 0.9 : 0.5), i * 150); });
+  };
+
+  /* [term, other forms, one-line definition, sound] — longest forms match first */
+  const TERMS = [
+    ['beat', ['beats'], 'The steady pulse you nod your head to. Four of them make a bar of 4/4.', beats([2,0,0,0,2,0,0,0,2,0,0,0,2])],
+    ['bar', ['bars'], 'One lap of the beat pattern — in 4/4, four beats. Loops are counted in bars.', beats([2,0,1,0,1,0,1,0,2])],
+    ['BPM', [], 'Beats per minute: how fast the beats go by. It counts beats, not the small boxes.', null],
+    ['16th note', ['16th notes', 'sixteenth note', 'sixteenth notes'], 'A quarter of a beat — one small box of a DAW’s grid. Sixteen fill a bar of 4/4.', beats([2,1,1,1,2,1,1,1])],
+    ['time signature', ['time signatures'], 'Two stacked numbers, like 4/4: how many units in a bar, and which note is one unit.', null],
+    ['triplet', ['triplets'], 'Three notes squeezed into the space where two normally go. It gives a rolling feel.', beats([2,0,0,1,0,0,2,0,0,1,0,0])],
+    ['swing', [], 'Every second small note played a little late, so pairs go long-short.', null],
+    ['semitone', ['semitones', 'half step', 'half steps'], 'The smallest step: from one key to the very next, black or white.', run([60, 61])],
+    ['whole step', ['whole steps'], 'Two half steps — skip one key.', run([60, 62])],
+    ['octave', ['octaves'], 'Twelve half steps up: the same note name, higher. It sounds like the same note.', run([48, 60])],
+    ['sharp', ['sharps'], 'A half step up. C♯ is the key just above C.', run([60, 61])],
+    ['flat', ['flats'], 'A half step down. D♭ is the key just below D — the same key as C♯.', run([62, 61])],
+    ['enharmonic', [], 'Two names for the same key, like C♯ and D♭. Same sound, different spelling.', null],
+    ['interval', ['intervals'], 'The distance between two notes, counted in half steps and given a name.', run([60, 67])],
+    ['scale', ['scales'], 'A set of notes that belong together, walked in order from a home note.', run([60, 62, 64, 65, 67, 69, 71, 72], 180)],
+    ['tonic', [], 'Degree 1: the home note of a key. Music feels finished there.', run([67, 65, 64, 62, 60])],
+    ['root', ['roots'], 'The note a chord is built on and named after.', ch([48, 52, 55])],
+    ['degree', ['degrees'], 'A note’s number inside a scale, 1 to 7. Producers think in these, because they work in every key.', null],
+    ['triad', ['triads'], 'A three-note chord: a root, the note a third above, and the note a fifth above.', ch([60, 64, 67])],
+    ['chord', ['chords'], 'Three or more notes played together.', ch([60, 64, 67])],
+    ['major', [], 'The bright, settled sound. A major chord has a major 3rd (4 half steps) above the root.', ch([60, 64, 67])],
+    ['minor', [], 'The darker, serious sound. A minor chord has a minor 3rd (3 half steps) above the root.', ch([60, 63, 67])],
+    ['diatonic', [], 'Belonging to the key — built only from the notes of the scale.', null],
+    ['Roman numeral', ['Roman numerals', 'numeral', 'numerals'], 'A chord named by its degree: I, IV, V. Capitals are major, small letters minor.', null],
+    ['progression', ['progressions'], 'Chords in an order — the harmony of a loop.', null],
+    ['cadence', ['cadences'], 'How a phrase ends: a full stop (V → I), a comma (ending on V), or a surprise.', ch([55, 59, 62])],
+    ['inversion', ['inversions'], 'A chord with a note other than its root at the bottom. Same chord, different weight.', ch([64, 67, 72])],
+    ['seventh chord', ['seventh chords', '7th chord', '7th chords'], 'A triad with one more third on top — four notes, richer and less settled.', ch([60, 64, 67, 71])],
+    ['suspended', ['sus chord', 'sus chords', 'sus2', 'sus4'], 'A chord with the 3rd swapped for the 2nd or 4th. Neither major nor minor; it wants to resolve.', ch([60, 65, 67])],
+    ['extension', ['extensions'], 'A note stacked above the 7th — a 9th, 11th or 13th — for colour.', ch([48, 52, 55, 59, 62])],
+    ['mode', ['modes'], 'A scale started from a different note of the same set, which moves where home is.', null],
+    ['relative minor', [], 'The minor key that shares every note with a major key, starting on its 6th degree.', null],
+    ['circle of fifths', [], 'The twelve keys in a ring, each a 5th from its neighbours. Neighbours share almost every note.', null],
+    ['borrowed chord', ['borrowed chords'], 'A chord taken from the parallel key — the minor version of the key you are in.', ch([53, 56, 60])],
+    ['dominant', [], 'Degree 5, and the chord built on it. It pulls hardest back to home.', ch([55, 59, 62, 65])],
+    ['leading note', ['leading tone'], 'Degree 7 of a major scale, a half step below home. It leans into it.', run([71, 72])],
+    ['resolve', ['resolves', 'resolution'], 'To move from a tense sound to a settled one.', null],
+    ['tension', [], 'The pull you hear in a sound that wants to move somewhere else.', ch([60, 66])],
+    ['chord tone', ['chord tones'], 'A note that belongs to the chord playing underneath. Melodies land on these.', null],
+    ['passing note', ['passing notes', 'passing tone'], 'A note between two chord tones, on the way from one to the other.', null],
+    ['motif', ['motifs'], 'A short melodic idea — often three or four notes — that a tune is built from.', run([63, 67, 65, 63], 220)],
+    ['contour', [], 'The shape a melody draws: up, down, an arch or a valley.', null],
+    ['velocity', [], 'How hard a note is hit, 1 to 127. Varying it is what makes programmed parts sound played.', null],
+    ['pentatonic', [], 'A five-note scale — a 7-note scale with the two most clashing notes removed.', run([60, 62, 64, 67, 69, 72], 200)],
+    ['chromatic', [], 'Moving in half steps, using all twelve notes.', run([60, 61, 62, 63, 64], 140)]
+  ];
+
+  /* one lookup, longest spelling first, so "seventh chord" beats "chord" */
+  const FORMS = [];
+  TERMS.forEach((t, i) => [t[0]].concat(t[1]).forEach(f => FORMS.push({ f, i })));
+  FORMS.sort((a, b) => b.f.length - a.f.length);
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const RX = new RegExp('\\b(' + FORMS.map(x => esc(x.f)).join('|') + ')\\b', 'i');
+  const indexOf = word => {
+    const w = word.toLowerCase();
+    const hit = FORMS.find(x => x.f.toLowerCase() === w);
+    return hit ? hit.i : -1;
+  };
+
+  /* never inside these — a button inside a button, a term inside a heading */
+  const SKIP = /^(BUTTON|A|H1|H2|H3|H4|SUMMARY|SELECT|OPTION|INPUT|TEXTAREA|SCRIPT|STYLE|SVG|TH|LABEL)$/;
+  function skipped(node, root) {
+    for (let n = node.parentNode; n && n !== root; n = n.parentNode) {
+      if (n.nodeType === 1 && (SKIP.test(n.tagName) || n.classList.contains('k') ||
+          n.classList.contains('term') || n.classList.contains('opts') || n.classList.contains('ctl'))) return true;
+    }
+    return false;
+  }
+
+  let pop = null, openBtn = null;
+  function close() {
+    if (!pop) return;
+    pop.hidden = true;
+    if (openBtn) { openBtn.setAttribute('aria-expanded', 'false'); }
+    openBtn = null;
+  }
+  function show(btn, i) {
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.className = 'term-pop';
+      pop.setAttribute('role', 'dialog');
+      pop.hidden = true;
+      document.body.appendChild(pop);
+      document.addEventListener('click', e => {
+        if (pop && !pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest('.term'))) close();
+      });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && pop && !pop.hidden) { const b = openBtn; close(); if (b) b.focus(); }
+      });
+      window.addEventListener('scroll', close, true);
+    }
+    if (openBtn === btn) { close(); return; }
+    const t = TERMS[i];
+    pop.setAttribute('aria-label', t[0]);
+    pop.innerHTML = '<b>' + t[0] + '</b><p>' + t[2] + '</p>';
+    if (t[3]) {
+      const h = document.createElement('button');
+      h.type = 'button'; h.className = 'b';
+      if (typeof ICONS !== 'undefined') ICONS.label(h, '▶ Hear it'); else h.textContent = 'Hear it';
+      h.addEventListener('click', e => { e.stopPropagation(); t[3](); });
+      pop.appendChild(h);
+    }
+    pop.hidden = false;
+    if (openBtn) openBtn.setAttribute('aria-expanded', 'false');
+    openBtn = btn;
+    btn.setAttribute('aria-expanded', 'true');
+    const r = btn.getBoundingClientRect();
+    const w = Math.min(300, window.innerWidth - 24);
+    pop.style.width = w + 'px';
+    pop.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left)) + 'px';
+    const below = r.bottom + 8, h2 = pop.offsetHeight;
+    pop.style.top = (below + h2 > window.innerHeight - 8 ? Math.max(8, r.top - h2 - 8) : below) + 'px';
+  }
+
+  /* mark the first mention of each term inside `root` */
+  function decorate(root) {
+    if (!root || typeof document === 'undefined' || !document.createTreeWalker) return 0;
+    const seen = {};
+    let made = 0;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
+    nodes.forEach(node => {
+      if (!node.nodeValue || !node.nodeValue.trim() || skipped(node, root)) return;
+      let cur = node;
+      for (let guard = 0; guard < 6 && cur; guard++) {
+        const m = RX.exec(cur.nodeValue);
+        if (!m) break;
+        const i = indexOf(m[1]);
+        if (i < 0 || seen[i]) {
+          /* already marked on this page: look further along the same text */
+          const rest = cur.splitText(m.index + m[1].length);
+          cur = rest; continue;
+        }
+        seen[i] = true;
+        const word = cur.splitText(m.index);
+        const after = word.splitText(m[1].length);
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'term';
+        b.textContent = word.nodeValue;
+        b.setAttribute('aria-expanded', 'false');
+        b.setAttribute('aria-label', word.nodeValue + ' — what this means');
+        b.addEventListener('click', e => { e.stopPropagation(); show(b, i); });
+        word.parentNode.replaceChild(b, word);
+        made++;
+        cur = after;
+      }
+    });
+    return made;
+  }
+
+  return { TERMS, decorate, close, indexOf };
+})();
+
+
+/* ── src/predict.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   PREDICT — guess first, then listen.
+
+   A few lessons open with one question the learner answers before hearing
+   anything: which will sound sadder, which will feel faster. A guess — even
+   a wrong one — makes the sound that follows land as an answer rather
+   than as one more example. It is not scored; it is only there to make you
+   listen for something.
+
+   Each entry: q, a (options), c (the answer), play(ctx) → how long it
+   takes in ms, and why.
+   ═══════════════════════════════════════════════════════════════ */
+const PREDICT = (() => {
+  const note = (ctx, m, at, d) => ctx.later(() => A.note(m, d || 0.5), at);
+  const chord = (ctx, ns, at, d) => ctx.later(() => A.chord(ns, d || 1.2, { spread:0.03 }), at);
+  const tell = (ctx, at, t) => ctx.later(() => ctx.read(t), at);
+  const hats = (ctx, n, span, at) => { for (let i = 0; i < n; i++) ctx.later(() => A.click('hat', undefined, i % (n / 4) === 0 ? 0.8 : 0.45), at + i * span / n); };
+
+  const P = {
+    grid:{ q:'Same tempo, two hi-hat lines: one on every 8th, one on every 16th. Which will feel faster?',
+      a:['The 8ths', 'The 16ths', 'Neither — the tempo is the same'], c:1,
+      play:ctx => { tell(ctx, 0, 'A · 8ths'); hats(ctx, 8, 2400, 0); tell(ctx, 2900, 'B · 16ths'); hats(ctx, 16, 2400, 2900); return 5400; },
+      why:'Twice as many hits in the same time. The tempo never moved; the subdivision did. That is why trap at 70 BPM can feel frantic.' },
+    meter:{ q:'Same tempo again: one bar splits each beat in two, the next in three. Which one will gallop?',
+      a:['Split in two', 'Split in three', 'They will feel the same'], c:1,
+      play:ctx => {
+        tell(ctx, 0, 'A · two per beat');
+        for (let b = 0; b < 4; b++) for (let s = 0; s < 2; s++) ctx.later(() => A.click(s ? 'hat' : 'mid'), b * 600 + s * 300);
+        tell(ctx, 2600, 'B · three per beat');
+        for (let b = 0; b < 4; b++) for (let s = 0; s < 3; s++) ctx.later(() => A.click(s ? 'hat' : 'mid'), 2600 + b * 600 + s * 200);
+        return 5000; },
+      why:'Three pieces per beat rolls; two walks. Your foot tapped at the same speed both times.' },
+    notes:{ q:'Two moves up from C: a half step, then a whole step. Which will sound like the bigger jump?',
+      a:['The half step', 'The whole step', 'The same size'], c:1,
+      play:ctx => { tell(ctx, 0, 'A · half step: C → C♯'); note(ctx, 60, 0); note(ctx, 61, 450);
+        tell(ctx, 1300, 'B · whole step: C → D'); note(ctx, 60, 1300); note(ctx, 62, 1750); return 2500; },
+      why:'A whole step is two half steps — twice the distance, and you can hear it.' },
+    intervals:{ q:'Two pairs of notes, played together: a perfect 5th, then a tritone. Which will sound like it wants to move?',
+      a:['The 5th', 'The tritone', 'Both equally'], c:1,
+      play:ctx => { tell(ctx, 0, 'A · perfect 5th: C + G'); chord(ctx, [60, 67], 0, 1.4);
+        tell(ctx, 1700, 'B · tritone: C + F♯'); chord(ctx, [60, 66], 1700, 1.4); return 3300; },
+      why:'The 5th is stable enough to hold forever. The tritone is the most restless interval there is — it wants to slide somewhere.' },
+    scales:{ q:'The same five-note run twice: once from the major scale, once from the minor. Which will sound more serious?',
+      a:['The major run', 'The minor run', 'No difference'], c:1,
+      play:ctx => {
+        tell(ctx, 0, 'A · C major'); [60, 62, 64, 65, 67].forEach((m, i) => note(ctx, m, i * 230, 0.4));
+        tell(ctx, 1500, 'B · C minor'); [60, 62, 63, 65, 67].forEach((m, i) => note(ctx, m, 1500 + i * 230, 0.4));
+        return 2900; },
+      why:'One note changed — the 3rd, a half step lower — and the mood went with it.' },
+    chords:{ q:'C major, then C minor. Only the middle note moves, by one half step. Which will sound sadder?',
+      a:['C major', 'C minor', 'Neither'], c:1,
+      play:ctx => { tell(ctx, 0, 'A · C major: C E G'); chord(ctx, [60, 64, 67], 0);
+        tell(ctx, 1500, 'B · C minor: C E♭ G'); chord(ctx, [60, 63, 67], 1500); return 3000; },
+      why:'The minor 3rd is the whole difference between bright and sad.' },
+    progressions:{ q:'Two endings in C: G → C, and C → G. Which one sounds finished?',
+      a:['G → C', 'C → G', 'Both'], c:0,
+      play:ctx => { tell(ctx, 0, 'A · G → C'); chord(ctx, [55, 59, 62], 0); chord(ctx, [48, 52, 55, 60], 900, 1.6);
+        tell(ctx, 2800, 'B · C → G'); chord(ctx, [48, 52, 55, 60], 2800); chord(ctx, [55, 59, 62], 3700, 1.6); return 5400; },
+      why:'V → I is a full stop. Ending on V is a comma — it leaves the question hanging, which is exactly what a loop wants.' },
+    bassline:{ q:'A C minor chord with three different bass notes under it: C, then E♭, then B♭. Which will sound most settled?',
+      a:['C', 'E♭', 'B♭'], c:0,
+      play:ctx => {
+        [[36, 'C'], [39, 'E♭'], [34, 'B♭']].forEach(([b, n], i) => {
+          tell(ctx, i * 1400, String.fromCharCode(65 + i) + ' · ' + n + ' in the bass');
+          chord(ctx, [60, 63, 67], i * 1400, 1.1); note(ctx, b, i * 1400, 1.1);
+        });
+        return 4300; },
+      why:'The root under its own chord confirms what the ear already hears. The others colour it — useful, but not settled.' },
+    velocity:{ q:'The same hi-hat line twice: every hit equally loud, then with loud and soft hits. Which will sound played by a person?',
+      a:['All equal', 'Loud and soft', 'No difference'], c:1,
+      play:ctx => {
+        tell(ctx, 0, 'A · every hit the same');
+        for (let i = 0; i < 8; i++) ctx.later(() => A.click('hat', undefined, 0.6), i * 250);
+        tell(ctx, 2300, 'B · accents and ghosts');
+        [0.9, 0.3, 0.6, 0.25, 0.85, 0.3, 0.65, 0.4].forEach((v, i) => ctx.later(() => A.click('hat', undefined, v), 2300 + i * 250));
+        return 4400; },
+      why:'Nobody hits every note equally. Velocity is how a programmed part stops sounding programmed.' },
+    inversions:{ q:'C major, then the same three notes with E at the bottom. Will it still be a C major chord?',
+      a:['Yes — same notes', 'No — it becomes E minor', 'No — it becomes a new chord'], c:0,
+      play:ctx => { tell(ctx, 0, 'A · C E G'); chord(ctx, [60, 64, 67], 0);
+        tell(ctx, 1500, 'B · E G C'); chord(ctx, [64, 67, 72], 1500); return 3000; },
+      why:'Same three notes, same chord. What changes is the weight: the bottom note colours it, and the bass line gets smoother.' },
+    sevenths:{ q:'Cmaj7, then C7. One note differs. Which will sound bluesy?',
+      a:['Cmaj7', 'C7', 'Neither'], c:1,
+      play:ctx => { tell(ctx, 0, 'A · Cmaj7: C E G B'); chord(ctx, [60, 64, 67, 71], 0, 1.4);
+        tell(ctx, 1700, 'B · C7: C E G B♭'); chord(ctx, [60, 64, 67, 70], 1700, 1.4); return 3300; },
+      why:'The flat 7th in C7 is the blues sound — and the pull of a dominant chord. Maj7 is dreamier and stays put.' },
+    suspensions:{ q:'Csus4, then C major. Which one sounds like it is waiting for something?',
+      a:['Csus4', 'C major', 'Neither'], c:0,
+      play:ctx => { tell(ctx, 0, 'A · Csus4: C F G'); chord(ctx, [60, 65, 67], 0, 1.4);
+        tell(ctx, 1700, 'B · C major: C E G'); chord(ctx, [60, 64, 67], 1700, 1.4); return 3300; },
+      why:'The 4th sits where the 3rd wants to be. Resolve it down to the 3rd and the wait is over.' },
+    borrowed:{ q:'C, F, then F minor. Will the F minor sound brighter or darker than the F?',
+      a:['Brighter', 'Darker', 'The same'], c:1,
+      play:ctx => { chord(ctx, [48, 52, 55, 60], 0); tell(ctx, 900, 'F'); chord(ctx, [53, 57, 60], 900);
+        tell(ctx, 1800, 'F minor, borrowed'); chord(ctx, [53, 56, 60], 1800); chord(ctx, [48, 52, 55, 60], 2700, 1.6); return 4300; },
+      why:'One note, A down to A♭, borrowed from C minor. A sudden shadow in a major key.' },
+    modes:{ q:'Dorian, then Phrygian, both from D. Which will sound darker?',
+      a:['Dorian', 'Phrygian', 'The same'], c:1,
+      play:ctx => {
+        tell(ctx, 0, 'A · D Dorian'); [62, 64, 65, 67, 69].forEach((m, i) => note(ctx, m, i * 220, 0.4));
+        tell(ctx, 1500, 'B · D Phrygian'); [62, 63, 65, 67, 69].forEach((m, i) => note(ctx, m, 1500 + i * 220, 0.4));
+        return 2800; },
+      why:'Phrygian’s flat 2nd sits a half step above home. That one note is the darkness.' },
+    circle:{ q:'From C, two jumps: to G (next door on the circle), then to F♯ (straight across). Which will sound more natural?',
+      a:['C → G', 'C → F♯', 'Both the same'], c:0,
+      play:ctx => { tell(ctx, 0, 'A · C → G'); chord(ctx, [48, 52, 55], 0); chord(ctx, [55, 59, 62], 900);
+        tell(ctx, 2300, 'B · C → F♯'); chord(ctx, [48, 52, 55], 2300); chord(ctx, [54, 58, 61], 3200); return 4600; },
+      why:'Neighbours on the circle share six of seven notes. Opposite sides share almost none.' }
+  };
+  return P;
+})();
+
+
+/* ── src/cheatsheet.js ── */
+/* ═══════════════════════════════════════════════════════════════
+   CHEAT — one page with every table the course uses, each row playable.
+
+   Nothing here is typed in by hand: intervals, chord formulas, scale
+   patterns and the diatonic chords all come from the same music maths the
+   lessons use (theory.js), so this page cannot disagree with them. Pick a
+   key at the top and every spelled example follows it.
+   ═══════════════════════════════════════════════════════════════ */
+const CHEAT = (() => {
+  const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const STEP = { 1:'H', 2:'W', 3:'W+H', 4:'2W' };
+  const CHORD_LIST = ['maj', 'min', 'dim', 'aug', 'sus2', 'sus4', 'maj7', 'min7', 'dom7', 'm7b5', 'dim7', 'add9', 'maj9', 'min9'];
+  const SCALE_LIST = ['major', 'minor', 'harmonicMinor', 'majorPent', 'minorPent', 'blues',
+                      'dorian', 'phrygian', 'lydian', 'mixolydian'];
+  const PROGS = [
+    { t:'major', seq:[1,5,6,4], feel:'the pop loop' },
+    { t:'major', seq:[6,4,1,5], feel:'the same loop, starting sadder' },
+    { t:'major', seq:[2,5,1,1], feel:'jazz, neo-soul, R&B' },
+    { t:'major', seq:[1,4,5,1], feel:'a full stop at the end' },
+    { t:'minor', seq:[1,6,3,7], feel:'big minor — trap, drill, film' },
+    { t:'minor', seq:[1,4,6,5], feel:'dark, cinematic' },
+    { t:'minor', seq:[1,7,6,7], feel:'a two-chord vamp with a lift' }
+  ];
+  const VALUES = [
+    ['Whole note', '1 per bar', [1]], ['Half note', '2 per bar', [1, 0, 0, 0, 0, 0, 0, 0, 1]],
+    ['Quarter note', '4 per bar — the beat', [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]],
+    ['8th note', '8 per bar', [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]],
+    ['16th note', '16 per bar — one grid box', [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]
+  ];
+
+  let rootPc = 0;
+  const later = [];
+  const stop = () => { later.forEach(clearTimeout); later.length = 0; };
+  const at = (fn, ms) => later.push(setTimeout(fn, ms));
+  const runOf = (ns, gap) => { stop(); A.resume(); ns.forEach((m, i) => at(() => A.note(m, 0.45), i * (gap || 200))); };
+  const chordOf = ns => { stop(); A.resume(); A.chord(ns, 1.5, { spread:0.03 }); };
+  const seqOf = chords => { stop(); A.resume(); chords.forEach((ns, i) => at(() => A.chord(ns, 1.1, { spread:0.03 }), i * 850)); };
+  const clicks = row => { stop(); A.resume(); row.forEach((v, i) => { if (v) at(() => A.click(i === 0 ? 'strong' : 'mid'), i * 150); }); };
+
+  const hear = (label, fn) => {
+    const b = UI.el('button', 'b hear');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Hear ' + label);
+    b.innerHTML = typeof ICONS !== 'undefined' ? ICONS.svg('play') : '▶';
+    b.addEventListener('click', fn);
+    return b;
+  };
+  function table(head, rows) {
+    const tw = UI.el('div', 'tablewrap cheat-table'), t = UI.el('table');
+    const tr = UI.el('tr');
+    ['', ...head].forEach(h => tr.appendChild(UI.html('th', null, h)));
+    const hd = UI.el('thead'); hd.appendChild(tr); t.appendChild(hd);
+    const tb = UI.el('tbody');
+    rows.forEach(r => {
+      const row = UI.el('tr');
+      const c0 = UI.el('td', 'play-cell'); c0.appendChild(hear(r.label, r.play)); row.appendChild(c0);
+      r.cells.forEach((c, i) => row.appendChild(UI.html('td', i === 0 ? 'hi' : null, c)));
+      tb.appendChild(row);
+    });
+    t.appendChild(tb); tw.appendChild(t);
+    return tw;
+  }
+  const section = (host, title, blurb) => {
+    const s = UI.el('section', 'cheat-sec');
+    s.appendChild(UI.html('h3', null, title));
+    if (blurb) s.appendChild(UI.html('p', 'small', blurb));
+    host.appendChild(s);
+    return s;
+  };
+
+  function paint(body) {
+    body.innerHTML = '';
+    const R = 48 + rootPc, rn = T.MAJ_ROOT[rootPc], mn = T.rootFor(rootPc, 'minor');
+
+    /* the twelve notes */
+    const s0 = section(body, 'The twelve notes', 'Tap any one. Black keys have two names — a sharp going up, a flat coming down.');
+    const row = UI.el('div', 'cheat-notes');
+    for (let i = 0; i < 12; i++) {
+      const m = 60 + i;
+      const b = UI.el('button', 'b' + (T.isBlack(m) ? ' blackkey' : ''));
+      b.type = 'button';
+      b.textContent = T.isBlack(m) ? T.name(m) + ' / ' + T.name(m, true) : T.name(m);
+      b.addEventListener('click', () => { A.resume(); A.note(m, 0.8); });
+      row.appendChild(b);
+    }
+    s0.appendChild(row);
+
+    /* intervals */
+    const s1 = section(body, 'Intervals', 'Counted in half steps from ' + esc(rn) + '. Each plays as two notes, then together.');
+    s1.appendChild(table(['Half steps', 'Name', 'Short', 'From ' + esc(rn), 'Sounds'],
+      T.IVL.filter(I => I.n <= 12).map(I => ({
+        label:I.label, play:() => { stop(); A.resume(); A.note(R + 12, 0.5); at(() => A.note(R + 12 + I.n, 0.5), 420);
+                                    at(() => A.chord([R + 12, R + 12 + I.n], 1.2), 900); },
+        cells:[String(I.n), I.label, I.short, esc(rn) + ' → ' + esc(T.spellIvl(rn, I.n)), I.feel]
+      }))));
+
+    /* chords */
+    const s2 = section(body, 'Chords', 'Each chord as a recipe of intervals above its root, spelled on ' + esc(rn) + '.');
+    s2.appendChild(table(['Chord', 'Symbol', 'Recipe', 'On ' + esc(rn)],
+      CHORD_LIST.map(q => {
+        const C = T.CHORDS[q];
+        return { label:C.label + ' chord', play:() => chordOf(T.chordNotes(R, q)),
+          cells:[C.label, esc(T.chordName(rn, q)), C.steps.map(n => T.ivl(n).short).join(' '),
+                 esc(T.spellChord(rn, q).join(' '))] };
+      })));
+
+    /* scales */
+    const s3 = section(body, 'Scales', 'W = whole step, H = half step. Spelled from ' + esc(rn) + '.');
+    s3.appendChild(table(['Scale', 'Steps', 'On ' + esc(rn), 'Mood'],
+      SCALE_LIST.map(k => {
+        const S = T.SCALES[k], st = S.steps.concat([12]);
+        const pattern = st.slice(1).map((v, i) => STEP[v - st[i]] || (v - st[i])).join(' ');
+        const nm = T.rootFor(rootPc, k);
+        return { label:S.label + ' scale', play:() => runOf(T.scaleNotes(R + 12, k).concat([R + 24]), 170),
+          cells:[S.label, pattern, esc(T.spellScale(nm, k).join(' ')), S.mood] };
+      })));
+
+    /* the chords of a key */
+    const s4 = section(body, 'The seven chords of a key', 'Stack thirds on every note of the scale. Capitals are major, small letters minor, ° diminished.');
+    [['major', rn], ['minor', mn]].forEach(([type, name]) => {
+      const dia = T.diatonic(R, type);
+      s4.appendChild(table([esc(name) + ' ' + type, 'Chord', 'Notes'],
+        dia.map(c => {
+          const cn = T.inKey(c.root, name, type);
+          return { label:T.roman(c.degree, c.quality) + ' in ' + name + ' ' + type, play:() => chordOf(c.notes),
+            cells:[T.roman(c.degree, c.quality), esc(T.chordName(cn, c.quality)),
+                   esc(T.spellChord(cn, c.quality).join(' '))] };
+        })));
+    });
+
+    /* progressions */
+    const s5 = section(body, 'Progressions worth stealing', 'The numerals stay the same in every key — that is the point of them.');
+    s5.appendChild(table(['Numerals', 'In ' + esc(rn) + ' major / ' + esc(mn), 'Where you hear it'],
+      PROGS.map(p => {
+        const dia = T.diatonic(R, p.t), name = p.t === 'major' ? rn : mn;
+        const num = p.seq.map(d => T.roman(d, dia[d - 1].quality)).join(' – ');
+        return { label:num, play:() => seqOf(p.seq.map(d => dia[d - 1].notes)),
+          cells:[num, esc(p.seq.map(d => T.chordName(T.inKey(dia[d - 1].root, name, p.t), dia[d - 1].quality)).join(' ')), p.feel] };
+      })));
+
+    /* rhythm */
+    const s6 = section(body, 'Note values', 'One bar of 4/4, sixteen boxes. Each plays its hits across a bar.');
+    s6.appendChild(table(['Value', 'How many'],
+      VALUES.map(v => ({ label:v[0], play:() => clicks(v[2]), cells:[v[0], v[1]] }))));
+  }
+
+  function build(host) {
+    const top = UI.el('div', 'ctl cheat-top');
+    const pick = UI.select('Key', T.MAJ_ROOT.map((n, i) => ({ label:n, value:i })), v => {
+      rootPc = Number(v); paint(body);
+      if (typeof GLOSSARY !== 'undefined') GLOSSARY.decorate(body);
+    }, rootPc);
+    top.appendChild(pick);
+    host.appendChild(top);
+    const body = UI.el('div', 'cheat-body');
+    host.appendChild(body);
+    paint(body);
+    return { stop };
+  }
+  return { build, stop };
+})();
+
+
 /* ── src/lessons-level1.js ── */
 /* ═══════════════════════════════════════════════════════════════
    LESSONS — Level 1 · Fundamentals
@@ -6458,6 +8084,9 @@ LESSONS.push({
     if (saved) saved.forEach((row, l) => ctx.v.pattern(l, row));
     ctx.v.onCell(sync);
     ctx.keepCfg = { kind:'grid', kinds:['kick','snare','hat'], name:'Beat', bpm:() => bpm };
+    /* the first layer of your track: this beat */
+    ctx.trackCfg = { layer:'drums',
+      read:() => ctx.v.state.some(r => r.some(Boolean)) ? TRACK.fromGrid(ctx.v.state) : null };
     ctx.read('one bar of 4/4\n16 boxes  \u00B7  press play');
   }
 });
@@ -6560,9 +8189,7 @@ LESSONS.push({
         ['4/4','Simple','4, split in 2','almost everything'],
         ['3/4','Simple','3, split in 2','waltz, ballads'],
         ['6/8','Compound','2, split in 3','Afro rhythms, ballads, drill rolls'],
-        ['12/8','Compound','4, split in 3','blues shuffle, gospel'],
-        ['5/4 · 7/8','Odd','5 or 7','prog, math rock, film cues'] ] } },
-    { p:'Odd meters are the leftovers drawer. Groups of 2, 3 and 4 dominate because they are what bodies walk to; a group of 5 or 7 will not divide evenly, so it reads as a limp or a skipped step.' },
+        ['12/8','Compound','4, split in 3','blues shuffle, gospel'] ] } },
     { h:'The cheat every producer uses' },
     { p:'You rarely change your DAW’s time signature. Instead you stay in 4/4 and place <b>triplets</b> — three notes in the space of two — for the compound feel, or turn on <b>swing</b>, which nudges every second 16th late so pairs of boxes become long-short. Swing at 0% is stiff and mechanical; at 100% it’s fully triplet.' },
     { try:{ h:'Two against three', p:'The pulse lane marks the big beats, and the tempo stays put when you switch. In 4/4 you get four beats of two boxes; in 12/8 (which is just two bars of 6/8 back to back) you get four beats of three. Same speed, different gait.',
@@ -6729,6 +8356,93 @@ LESSONS.push({
 });
 
 LESSONS.push({
+  id:'notes', level:1, tag:'Pitch', title:'Naming Notes',
+  hint:'Tap a key, then step from it',
+  lede:'Every note has a name, and every name is a number of small steps from its neighbours. Learn the two step sizes and you can find any note without counting up from C.',
+  stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } },
+  blocks:[
+    { h:'Seven letters, twelve notes' },
+    { p:'The white keys carry the seven letters <span class="k">C D E F G A B</span>, then the letters start again. The five black keys in between take their names from a neighbour, so twelve different notes share seven letters. The whole pattern repeats every <b>octave</b>: twelve notes up, the same letter, higher.' },
+    { h:'Two step sizes' },
+    { p:'A <b>half step</b> (a semitone) is the smallest move there is: to the very next key, black or white. A <b>whole step</b> is two half steps: skip one key. That is the entire measuring system. Every scale and chord later in this course is a recipe written in these two sizes.' },
+    { p:'Two pairs of white keys have no black key between them: <span class="k">E–F</span> and <span class="k">B–C</span>. Those are half steps. Every other pair of neighbouring white keys is a whole step apart, with a black key in the middle.' },
+    { table:{ head:['From','Half step up','Whole step up'],
+      rows:[
+        ['C','C♯ / D♭','D'],
+        ['E','F','F♯ / G♭'],
+        ['G','G♯ / A♭','A'],
+        ['B','C','C♯ / D♭'] ] } },
+    { h:'Sharps and flats are directions' },
+    { p:'<b>Sharp (♯)</b> means a half step up; <b>flat (♭)</b> means a half step down. So the black key after C is C♯, and coming down from D the same key is D♭. Same key, same sound, two names: that is called <b>enharmonic</b>. Which name gets written depends on the key you are in, and the lessons after this one spell it for you.' },
+    { note:{ h:'The two edges',
+      p:'Because E–F is already a half step, E♯ is simply the key F, and C♭ is the key B. You will rarely meet those names, but when you do, count the step instead of looking for a black key.' } },
+    { try:{ h:'Walk in steps', p:'Tap any key, then take a half step or a whole step from it and hear how big each one is. Turn the labels off when you want to find notes by the black-key groups alone.',
+      build:ctx => [
+        UI.btn('Half step up', () => ctx.step(1)),
+        UI.btn('Whole step up', () => ctx.step(2)),
+        UI.btn('Half step down', () => ctx.step(-1)),
+        UI.btn('Whole step down', () => ctx.step(-2)),
+        UI.btn('All twelve, in half steps', () => ctx.chromatic()),
+        UI.chips([{ label:'Names on', value:'names' }, { label:'Labels off', value:'none' }],
+          v => ctx.labels(v), 'names')
+      ] } },
+    { keys:[
+      'Seven letters, twelve notes: each black key borrows a neighbour’s name.',
+      'Half step = the very next key. Whole step = skip one key.',
+      'E–F and B–C are the two half steps between white keys.',
+      'Sharp = a half step up, flat = a half step down. C♯ and D♭ are the same key.',
+      'Twelve half steps make an octave: the same letter, higher.' ] }
+  ],
+  quiz:[
+    { q:'Which pair of white keys is only a half step apart?', a:['C–D','E–F','G–A','A–B'], c:1,
+      why:'There is no black key between E and F (or between B and C), so they are next to each other: one half step.' },
+    { q:'A whole step up from E is…', a:['F','F♯','G','E♭'], c:1,
+      why:'E to F is a half step, F to F♯ another one. Two half steps make a whole step, so F♯.' },
+    { q:'D♭ is the same key as…', a:['C♯','D♯','C','E♭'], c:0,
+      why:'Flat means a half step down. From D that lands on the black key after C, which is also called C♯.' },
+    { q:'How many half steps are in an octave?', a:['7','8','12','13'], c:2,
+      why:'Twelve different notes, then the letter comes round again.' }
+  ],
+  init:ctx => {
+    let last = 60;
+    const nm = m => T.isBlack(m) ? T.name(m) + ' / ' + T.name(m, true) : T.name(m);
+    const say = m => ctx.read(nm(m) + T.oct(m) + '\nhalf step up: ' + nm(m + 1) + ' · whole step up: ' + nm(m + 2));
+    ctx.v.onKey(m => {
+      A.note(m, .8); last = m;
+      ctx.v.clear().mark(m, 'root').apply();
+      say(m);
+    });
+    ctx.step = d => {
+      const to = last + d;
+      if (to < 48 || to > 72) { ctx.read('edge of the keyboard\ntry the other direction'); return; }
+      const from = last;
+      A.note(from, .45); ctx.v.press(from);
+      last = to;
+      ctx.later(() => {
+        A.note(to, .6); ctx.v.press(to);
+        ctx.v.clear().mark(from, 'root').mark(to, 'target').apply();
+        ctx.read(nm(from) + ' → ' + nm(to) + '\n' + (Math.abs(d) === 1 ? 'a half step' : 'a whole step') +
+          (d > 0 ? ' up' : ' down') + ' · ' + Math.abs(d) + (Math.abs(d) === 1 ? ' key' : ' keys') + ' along');
+      }, 380);
+    };
+    ctx.chromatic = () => {
+      for (let i = 0; i <= 12; i++) {
+        if (ctx.v.fall) ctx.v.fall(60 + i, i * 170);
+        ctx.later(() => {
+          A.note(60 + i, .35); ctx.v.press(60 + i);
+          ctx.read(nm(60 + i) + '\n' + i + (i === 1 ? ' half step' : ' half steps') + ' above C');
+        }, i * 170);
+      }
+    };
+    ctx.labels = v => { ctx.v.labelMode(v); ctx.keep('labels', v); };
+    const lab = ctx.recall('labels');
+    if (lab) ctx.v.labelMode(lab);
+    ctx.v.clear().mark(60, 'root').apply();
+    say(60);
+  }
+});
+
+LESSONS.push({
   id:'intervals', level:1, tag:'Pitch', title:'Intervals',
   hint:'Pick two notes, hear the gap',
   lede:'An interval is the distance between two notes, measured in semitones. Every chord, scale and hook is built from a handful of them — and each one has a mood.',
@@ -6778,14 +8492,17 @@ LESSONS.push({
       why:'It sits dead centre of the octave and belongs to no comfortable chord on its own, so it pulls hard toward resolution. It’s the engine inside every dominant 7th chord.' }
   ],
   init:ctx => {
-    const base = 60; let together = true, answer = null;
+    const base = 60; let together = true, answer = null, lastN = 7;
     ctx.setTogether = v => { together = v; };
+    /* in a track: the interval as a two-note hook over a plain power chord */
+    ctx.material = () => ({ label:'a ' + T.ivl(lastN).label + ' hook, C up to ' + T.spellIvl('C', lastN),
+      chords:[[48, 55, 60]], line:[base, base + lastN, base, base + lastN, base + lastN, base, base + lastN, base] });
     const playPair = (a, b) => {
       if (together) { A.note(a, 1.5, { gain:.9 }); A.note(b, 1.5, { gain:.9 }); }
       else { A.note(a, .8); ctx.later(() => A.note(b, 1.2), 450); }
     };
     ctx.show = n => {
-      answer = null;
+      answer = null; lastN = n;
       const hi = base + n;
       ctx.v.clear().mark(base, 'root').mark(hi, 'chord').apply().clearExtras();
       const I = T.ivl(n);
@@ -6824,14 +8541,12 @@ LESSONS.push({
   stage:{ view:'keys', cfg:{ lo:48, hi:72, labels:'names' } },
   blocks:[
     { h:'The major scale is a pattern of steps' },
-    { p:'Start on any note and walk up using this recipe of tones (T) and semitones (S): <span class="k a">T T S T T T S</span>. That’s the <b>major scale</b>. From C it uses no black keys at all: <span class="k">C D E F G A B</span>. From any other root the same recipe automatically tells you which black keys you need.' },
-    { p:'In semitones from the root it looks like this: <span class="k">0 2 4 5 7 9 11</span>. Memorise those seven numbers and you can build a major scale from any note in your head.' },
+    { p:'Start on any note and walk up using this recipe of tones (T) and semitones (S): <span class="k a">T T S T T T S</span>. That’s the <b>major scale</b>. From C it uses no black keys at all: <span class="k">C D E F G A B</span>. From any other root the same recipe tells you which black keys you need. In semitones from the root: <span class="k">0 2 4 5 7 9 11</span>.' },
     { h:'Scale degrees are the real vocabulary' },
-    { p:'Inside a scale, each note gets a number — <b>degree</b> 1 to 7 — and that number, not the letter, is what producers actually think in. Degree 1 is the <b>tonic</b>: home. Degree 5 is the <b>dominant</b>: the strongest pull back to home. Degree 3 decides major or minor. Degree 7 is the leading note; it leans hard into the tonic.' },
-    { p:'This is why you can move a melody from C minor to F minor and it still “works” — the degrees are the same, only the letters changed. Learn degrees and transposing becomes free.' },
+    { p:'Inside a scale, each note gets a number — <b>degree</b> 1 to 7 — and that number, not the letter, is what producers actually think in. Degree 1 is the <b>tonic</b>: home. Degree 5 is the <b>dominant</b>: the strongest pull back to home. Degree 3 decides major or minor.' },
     { h:'Minor: the same seven notes, a different home' },
     { p:'The <b>natural minor</b> scale is <span class="k a">T S T T S T T</span>, or <span class="k">0 2 3 5 7 8 10</span>. Compare with major: the 3rd, 6th and 7th are each one semitone lower. That flat 3rd is the whole difference between “happy” and “serious”.' },
-    { p:'Here’s the shortcut that saves hours: every major scale has a <b>relative minor</b> that uses <em>exactly the same notes</em>, starting from its 6th degree. C major and A minor are the same seven white keys. The notes don’t change — which note feels like home does.' },
+    { p:'Every major scale has a <b>relative minor</b> that uses <em>exactly the same notes</em>, starting from its 6th degree. C major and A minor are the same seven white keys. The notes don’t change — which note feels like home does.' },
     { table:{ head:['Scale','Semitones from root','From C','Used for'],
       rows:[
         ['Major','0 2 4 5 7 9 11','C D E F G A B','pop, house, gospel'],
@@ -6840,9 +8555,9 @@ LESSONS.push({
         ['Major pentatonic','0 2 4 7 9','C D E G A','safe, singable melodies'],
         ['Blues','0 3 5 6 7 10','C E♭ F G♭ G B♭','grit, soul, guitar'] ] } },
     { note:{ h:'Pentatonics are the beginner’s cheat code',
-      p:'A pentatonic scale is a 7-note scale with the two most argumentative notes removed. Fewer notes means fewer ways to fight the harmony, which is why hooks so often live here. If your melodies keep clashing, write the hook in minor pentatonic first, then add colour notes back one at a time.' } },
+      p:'A pentatonic scale is a 7-note scale with the two most argumentative notes removed. Fewer notes, fewer ways to fight the harmony — which is why so many hooks live here.' } },
     { note:{ h:'“In the scale” does not mean “safe”',
-      p:'A scale keeps you in the key — it does not guarantee agreement with the chord playing underneath. Hold a D over a C chord and it is a 9th (lovely); hold the same D over a G7 and it is the 5th (plain); hold an F over a C major chord and it fights the E a semitone below it, even though F is in C major. Lesson 20 is entirely about that difference. Treat a scale as a shortlist, not a guarantee.' } },
+      p:'A scale keeps you in the key — it does not guarantee agreement with the chord playing underneath. Hold an F over a C major chord and it rubs against the E a semitone below it, even though F is in C major. <em>Melody Over Chords</em> is all about that difference.' } },
     { try:{ h:'Build a scale from any root', p:'Change the root and the scale type, and watch which keys light up — the pattern moves with the root, the shape stays the same.',
       build:ctx => [
         UI.select('Root', [48,49,50,51,52,53,54,55,56,57,58,59].map(m =>
@@ -6898,6 +8613,14 @@ LESSONS.push({
     };
     ctx.setRoot = v => { rootPc = v; ctx.keep('root', v); paint(); };
     ctx.setScale = v => { type = v; ctx.keep('type', v); paint(); };
+    /* in a track: the scale as a line up and back, over its home chord */
+    ctx.material = () => {
+      const ns = notes().concat([rootPc + 24]);
+      const minorish = T.SCALES[type].steps.indexOf(4) < 0;
+      return { label:RN() + ' ' + T.SCALES[type].label.toLowerCase(),
+        chords:[T.chordNotes(rootPc, minorish ? 'min' : 'maj'), T.chordNotes(rootPc, minorish ? 'min' : 'maj')],
+        line:ns.concat(ns.slice(0, -1).reverse()).slice(0, 16) };
+    };
     ctx.degrees = v => { showDeg = v; paint(); };
     ctx.run = () => {
       const ns = notes().concat([rootPc + 24]);
@@ -7065,6 +8788,13 @@ LESSONS.push({
     };
     ctx.deg = d => { deg = d; ctx.keep('deg', d); show(); };
     ctx.key = k => { keyType = k; ctx.keep('key', k); show(); };
+    /* in a track: the chord on screen as a two-bar vamp, arpeggiated on top */
+    ctx.material = () => {
+      const ch = T.diatonic(root, keyType)[deg - 1];
+      const nm = T.chordName(T.inKey(ch.root, RN(), keyType), ch.quality);
+      const up = ch.notes.map(n => n + 12);
+      return { label:nm, chords:[ch.notes, ch.notes], line:up.concat([up[1]], up, [up[1]]) };
+    };
     ctx.all = () => {
       T.diatonic(root, keyType).forEach((ch, i) => ctx.later(() => {
         deg = i + 1; show();
@@ -7157,6 +8887,7 @@ LESSONS.push({
     const store = () => {
       ctx.keep('state', { keyType, seq:seq.slice(), sevens, preset });
       if (ctx.contentChanged) ctx.contentChanged();
+      if (ctx.trackPaint) ctx.trackPaint();
     };
     const RN = () => T.rootFor(root, keyType === 'major' ? 'major' : 'minor');
     const chordAt = d => {
@@ -7190,6 +8921,10 @@ LESSONS.push({
       showChord(0);
     };
     ctx.sevenths = v => { sevens = v; store(); showChord(0); };
+    /* in a track: your four chords, one a bar, with their top notes as a line */
+    ctx.material = () => ({ label:seq.map(d => chordAt(d).num).join(' \u2013 '),
+      chords:seq.map(d => chordAt(d).notes),
+      line:seq.map(d => { const ns = chordAt(d).notes; return Math.max.apply(null, ns) + 12; }) });
     ctx.loop = () => {
       if (playing) return;
       playing = true;
@@ -7218,6 +8953,16 @@ LESSONS.push({
     ctx.v.onKey(m => { A.note(m, 1); ctx.read(T.inKey(m, RN(), keyType) + T.oct(m)); });
     /* what is worth keeping here is the progression itself — four chords a bar
        each, exported in the key you are hearing */
+    /* the chords layer of your track — which lives in C minor, so a major
+       progression is explained rather than quietly refused */
+    ctx.trackCfg = { layer:'chords',
+      read:() => ({ keyType, seq:seq.slice(), sevens,
+        bars:seq.map(d => { const c = chordAt(d); return { notes:c.notes, root:c.root, label:c.label, spell:c.spell, num:c.num }; }) }),
+      fits:() => (typeof TRACK === 'undefined' || TRACK.fitsKey(keyType)) ? true
+        : 'Your track is in <b>C minor</b> \u2014 the key the bass and melody lessons use \u2014 and this ' +
+          'progression is in C major. Pick one of the minor progressions to add it.',
+      fix:{ label:'Use i\u2013VI\u2013III\u2013VII', run:() => {
+        ctx.loadProg('m1,6,3,7'); if (ctx.pills) ctx.pills.show(3); } } };
     ctx.keepCfg = { kind:'chords', name:'Progression', bpm:() => 96,
       read: () => ({ chords:seq.map(d => chordAt(d).notes), keyType, seq:seq.slice(), sevens }),
       write: d => {
@@ -8001,7 +9746,7 @@ LESSONS.push({
     { p:'Split your phrase in two. Bars 1–2 ask a question — end it on an unstable note, hanging. Bars 3–4 answer it — end on the tonic or the 3rd. That question/answer pair is a <b>period</b>, and it’s the reason 4- and 8-bar phrases feel complete rather than merely long.' },
     { note:{ h:'Space is a note',
       p:'Beginner melodies are too busy. A rest lets the previous note land and gives the vocal or the drums room. Try deleting a third of your notes — the melody usually gets better, and more of the ones you kept get heard.' } },
-    { try:{ h:'Write a shape', p:'Tap the 3D roll to add or remove notes. The rows are the notes of C minor, so everything you write stays in the key — which is not the same as agreeing with a chord underneath (that is lesson 20). Then use the tools to vary what you wrote.',
+    { try:{ h:'Write a shape', p:'Tap the 3D roll to add or remove notes. The rows are the notes of C minor, so everything you write stays in the key — which is not the same as agreeing with a chord underneath (that is Melody Over Chords). Then use the tools to vary what you wrote.',
       build:ctx => [
         UI.btn('Give me a motif', () => ctx.motif()),
         UI.btn('Repeat it', () => ctx.repeat()),
@@ -8088,6 +9833,9 @@ LESSONS.push({
     ctx.read('C minor roll\ntap cells to write \u00B7 only scale notes shown');
     ctx.saveInstrument = () => ctx.keep('notes', ctx.v.notes.slice());
     ctx.keepCfg = { kind:'roll', name:'Melody', bpm:() => bpm };
+    /* the top line of your track */
+    ctx.trackCfg = { layer:'melody',
+      read:() => ctx.v.notes.length ? ctx.v.notes.map(n => ({ step:n.step, midi:n.midi, len:n.len || 1 })) : null };
     const kept = ctx.recall('notes');
     if (kept && kept.length) ctx.v.setNotes(kept); else ctx.motif();
   }
@@ -8656,43 +10404,28 @@ meter:{
   lede:'Some music walks. Some music gallops. That is all “meter” means. Here it is, one tiny step at a time.',
   blocks:[
     { h:'Step 1 · The tap' },
-    { p:'Put your hand on the table. Tap slowly, like a clock: <b>tap … tap … tap … tap</b>.' },
-    { p:'That tap is called a <b>beat</b>. Every song has it underneath, even when no drum is playing it. When you nod your head to music, your neck is tapping the beat.' },
-    { h:'Step 2 · Taps come in little groups' },
-    { p:'We count a few taps, then start again: <span class="k a">1 2 3 4 · 1 2 3 4</span>. One of those groups is a <b>bar</b>, and the <b>1</b> is the loud tap, like the first stomp when you march.' },
-    { h:'Step 3 · Now cut each tap into pieces' },
-    { p:'This is the only new idea in the whole chapter: <b>you can put more than one note inside one tap</b>. Keep tapping at the same slow speed and say a word on every tap:' },
+    { p:'Tap slowly on the table, like a clock: <b>tap … tap … tap … tap</b>. That tap is the <b>beat</b>. We count taps in little groups, <span class="k a">1 2 3 4 · 1 2 3 4</span>, and one group is a <b>bar</b>.' },
+    { h:'Step 2 · Cut each tap into pieces' },
+    { p:'This is the only new idea in the chapter: <b>you can put more than one note inside one tap</b>. Keep tapping at the same slow speed and say a word on every tap:' },
     { keys:[
       'Say <b>AP-PLE</b> on every tap. That is <b>2 pieces</b> in one tap.',
       'Now say <b>STRAW-BER-RY</b> on every tap. That is <b>3 pieces</b> in one tap.' ] },
     { p:'Your hand never sped up. Only the number of pieces inside each tap changed — and that is the whole difference:' },
     { keys:[
-      '<b>Simple meter</b> = apple. Each tap splits into <b>2</b>. It feels like <b>walking</b>. (4/4, 3/4, 2/4)',
-      '<b>Compound meter</b> = strawberry. Each tap splits into <b>3</b>. It feels like a horse <b>galloping</b>. (6/8, 9/8, 12/8)' ] },
-    { note:{ h:'How to hear which one a song is',
-      p:'Tap along and try to fit “<b>1 and 2 and</b>” into it. Comfy? It is simple. If the song keeps wanting a third little word — “<b>1-la-li 2-la-li</b>” — it is compound. Galloping songs: lots of Afrobeats, gospel, blues shuffles, drill triplet flows, and anything swung.' } },
-    { h:'Step 4 · The two numbers' },
-    { p:'Written music squeezes this into two numbers stacked up, like <span class="k">4/4</span>. It is not a fraction — it is two separate answers:' },
-    { keys:[
-      '<b>Top number</b> = how many taps in one group.',
-      '<b>Bottom number</b> = which size of note counts as one tap. 4 means a quarter note, 8 means an 8th note (a smaller one).' ] },
-    { p:'So <span class="k">3/4</span> is three quarter-note taps — a waltz: <em>1</em> 2 3, <em>1</em> 2 3.' },
-    { p:'And <span class="k">6/8</span> is six 8th notes. Six is a lot to count, so we bundle them in threes and feel <b>two big taps of three</b>. Bundling in threes is what makes it gallop. <span class="k">12/8</span> is the same trick with twelve: <b>four big taps of three</b>.' },
-    { table:{ head:['Written','Kind','You feel','Sounds like'],
+      '<b>Simple meter</b> = apple. Each tap splits into <b>2</b>. It feels like <b>walking</b>.',
+      '<b>Compound meter</b> = strawberry. Each tap splits into <b>3</b>. It feels like <b>galloping</b>.' ] },
+    { h:'Step 3 · The two numbers' },
+    { p:'Written music puts this into two stacked numbers, like <span class="k">4/4</span>. The <b>top</b> number is how many taps in a bar. The <b>bottom</b> number is which size of note counts as one tap.' },
+    { table:{ head:['Written','Kind','You feel'],
       rows:[
-        ['4/4','Simple','4 taps, 2 pieces each','almost every song ever'],
-        ['3/4','Simple','3 taps, 2 pieces each','a waltz, a slow ballad'],
-        ['6/8','Compound','2 taps, 3 pieces each','rocking, lullabies, Afro rhythms'],
-        ['12/8','Compound','4 taps, 3 pieces each','blues shuffle, gospel'],
-        ['5/4 · 7/8','Odd','5 or 7 taps','a limp or a skip — prog, film music'] ] } },
-    { p:'That last row is the leftovers drawer. Most groups have 2, 3 or 4 taps because that is what feels natural to walk to. A group of <b>5</b> or <b>7</b> will not split evenly, so it feels like someone skipping a step. It is rare, and it is allowed.' },
-    { h:'Step 5 · What producers actually do' },
-    { p:'Good news: in a music app you almost never touch the time signature. You leave it on 4/4 and get the gallop two other ways.' },
-    { keys:[
-      '<b>Triplets.</b> Put <b>3</b> notes where 2 normally go, in just a few places. That is one strawberry tap inside an apple song — exactly what a triplet hi-hat roll or a triplet rap flow is.',
-      '<b>Swing.</b> A knob that nudges every second little note slightly late, so each pair goes <em>loooong-short</em>. At 0% it is robotic. Turn it up and the beat starts to lope. At 100% you have full triplets.' ] },
+        ['4/4','Simple','4 taps, 2 pieces each'],
+        ['3/4','Simple','3 taps, 2 pieces each — a waltz'],
+        ['6/8','Compound','2 taps, 3 pieces each'],
+        ['12/8','Compound','4 taps, 3 pieces each — a blues shuffle'] ] } },
+    { h:'Step 4 · What producers actually do' },
+    { p:'In a music app you almost never change the time signature. You stay in 4/4 and get the gallop with <b>triplets</b> (3 notes where 2 would go) or the <b>swing</b> knob (every second little note nudged late).' },
     { note:{ h:'One sentence to remember it all',
-      p:'The tap stays the same speed. <b>Two</b> pieces inside it = walking = simple. <b>Three</b> pieces inside it = galloping = compound. Everything else is just how we write that down.' } },
+      p:'The tap stays the same speed. <b>Two</b> pieces inside it = walking = simple. <b>Three</b> pieces inside it = galloping = compound.' } },
     { try:{ h:'Now hear it', p:'The top row is the big taps. Press play, then switch between the two buttons. Keep your hand tapping — the speed never changes, only what is inside each tap.', use:true } },
     { keys:[
       'Beat = one tap. Bar = a little group of taps.',
@@ -8755,6 +10488,44 @@ pianoroll:{
   ]
 },
 
+notes:{
+  lede:'Every key has a name. Learn two little moves — a tiny step and a bigger step — and you can find any key.',
+  blocks:[
+    { h:'Step 1 · Seven letters' },
+    { p:'The white keys are named with letters: <span class="k a">C D E F G A B</span>. After B the letters start again from C.' },
+    { h:'Step 2 · The black keys borrow names' },
+    { p:'A black key takes its name from a white key next to it. The black key just after C is called <b>C♯</b> (“C sharp”). That same black key is also called <b>D♭</b> (“D flat”), because it is just before D.' },
+    { p:'<b>Sharp</b> means “one key up”. <b>Flat</b> means “one key down”. Two names, same key.' },
+    { h:'Step 3 · The tiny step' },
+    { p:'Moving to the very next key — black or white — is a <b>half step</b>. It is the smallest move there is.' },
+    { h:'Step 4 · The bigger step' },
+    { p:'Skipping one key is a <b>whole step</b>. It is two half steps.' },
+    { p:'Two white-key pairs have no black key between them: <b>E and F</b>, and <b>B and C</b>. Those are only a half step apart.' },
+    { table:{ head:['Start on','Half step up','Whole step up'],
+      rows:[
+        ['C','C♯ / D♭','D'],
+        ['E','F','F♯ / G♭'],
+        ['B','C','C♯ / D♭'] ] } },
+    { h:'Step 5 · Twelve and round again' },
+    { p:'Count every key from one C to the next C and you get <b>12 half steps</b>. That jump is called an <b>octave</b>. It sounds like the same note, just higher.' },
+    { try:{ h:'Take some steps', p:'Tap a key. Then press “Half step up” or “Whole step up” and listen to how far it moves.', use:true } },
+    { keys:[
+      'White keys: C D E F G A B, then again.',
+      'Sharp = one key up. Flat = one key down.',
+      'Half step = next key. Whole step = skip one.',
+      'E to F and B to C are half steps.',
+      '12 half steps = an octave.' ] }
+  ],
+  quiz:[
+    { q:'A half step is…', a:['The very next key','Skipping one key','Eight keys up','Only black keys'], c:0,
+      why:'The very next key, black or white. That is the smallest move on a keyboard.' },
+    { q:'Which two white keys are only a half step apart?', a:['C and D','E and F','F and G','A and B'], c:1,
+      why:'There is no black key between E and F, so they are right next to each other.' },
+    { q:'C♯ is the same key as…', a:['D♭','D♯','B','C'], c:0,
+      why:'Sharp = one key up from C. Flat = one key down from D. They land on the same black key.' }
+  ]
+},
+
 intervals:{
   lede:'An interval is just “how far apart are these two notes”. You find it by counting keys. That is the whole trick.',
   blocks:[
@@ -8808,23 +10579,21 @@ scales:{
     { h:'Step 1 · A scale is a walking pattern' },
     { p:'Start on any key and walk upwards using big steps (<b>T</b>, two keys) and small steps (<b>S</b>, one key), in this exact order:' },
     { p:'<span class="k a">T &nbsp; T &nbsp; S &nbsp; T &nbsp; T &nbsp; T &nbsp; S</span>' },
-    { p:'That is the <b>major scale</b>. Do it from C and you use only white keys: <span class="k">C D E F G A B</span>. Do it from any other key and the pattern tells you which black keys you need — you never have to guess.' },
-    { p:'Counted from the first note, the major scale is <span class="k">0 2 4 5 7 9 11</span>. Learn those seven numbers and you can build it anywhere.' },
+    { p:'That is the <b>major scale</b>. Do it from C and you use only white keys: <span class="k">C D E F G A B</span>. From any other key the pattern tells you which black keys you need.' },
     { h:'Step 2 · Give the notes numbers, not letters' },
     { p:'Inside a scale each note gets a number from 1 to 7, called its <b>degree</b>. Producers think in these numbers, because they work in every key.' },
     { keys:[
       '<b>1</b> is home. Its real name is the <b>tonic</b>. Songs feel finished here.',
       '<b>5</b> pulls hardest back to home. Its name is the <b>dominant</b>.',
       '<b>3</b> decides happy or sad.',
-      '<b>7</b> leans right into home, so it is called the leading note.' ] },
-    { p:'This is why a tune can move from one key to another and still work: the <em>numbers</em> stay the same, only the letters change.' },
+      '<b>7</b> leans into home: the leading note.' ] },
     { h:'Step 3 · Minor is the same notes with a different home' },
     { p:'The <b>natural minor</b> scale walks <span class="k a">T S T T S T T</span>, or <span class="k">0 2 3 5 7 8 10</span>. Compared to major, the <b>3rd, 6th and 7th</b> are each one key lower. That lower 3rd is the whole difference between happy and serious.' },
-    { p:'Here is the shortcut that saves hours: every major scale has a <b>relative minor</b> that uses <em>exactly the same notes</em>, starting from note number 6. C major and A minor are the same seven white keys. Nothing moved — only which note feels like home.' },
+    { p:'Every major scale has a <b>relative minor</b> that uses <em>exactly the same notes</em>, starting from note number 6. C major and A minor are the same seven white keys. Nothing moved — only which note feels like home.' },
     { h:'Step 4 · The beginner’s cheat scale' },
-    { p:'A <b>pentatonic</b> scale is a normal scale with the two most argumentative notes taken out, leaving five. Fewer notes means fewer ways to fight the chords, which is why so many hooks live here. If your tunes keep clashing, write them in minor pentatonic first and add the other notes back one at a time.' },
+    { p:'A <b>pentatonic</b> scale is a normal scale with the two most argumentative notes taken out, leaving five. Fewer notes, fewer ways to fight the chords — so many hooks live here.' },
     { note:{ h:'One thing to be careful about',
-      p:'Staying inside the scale keeps you in the <b>key</b>. It does <em>not</em> promise that every note will suit the <b>chord</b> playing underneath at that moment. F is in C major, but hold it over a C chord and it rubs against the E right below it. Lesson 20 is all about that, so do not be surprised when a “correct” note still sounds wrong — it is not you making a mistake.' } },
+      p:'Staying inside the scale keeps you in the <b>key</b>. It does <em>not</em> promise that every note will suit the <b>chord</b> playing underneath at that moment. F is in C major, but hold it over a C chord and it rubs against the E right below it. <em>Melody Over Chords</em> is all about that.' } },
     { table:{ head:['Scale','Numbers','From C','Good for'],
       rows:[
         ['Major','0 2 4 5 7 9 11','C D E F G A B','pop, house, gospel'],
@@ -8837,7 +10606,6 @@ scales:{
       'Major = T T S T T T S = 0 2 4 5 7 9 11.',
       'Minor = 0 2 3 5 7 8 10 — lower 3rd, 6th and 7th.',
       'Think in numbers 1–7, not letters.',
-      'A major scale and the minor starting on its 6th note share every note.',
       'Pentatonic = five notes, almost no wrong answers.' ] }
   ],
   quiz:[
@@ -8960,9 +10728,8 @@ progressions:{
       '<b>IV → I</b> — a soft landing, like an “amen”. (Called <em>plagal</em>.)',
       'Stopping <b>on V</b> — a comma. It leaves a question hanging. (Called <em>half</em>, or <em>imperfect</em>.)',
       '<b>V → vi</b> — a surprise. You expect the full stop and get a different chord instead. (Called <em>deceptive</em>, or <em>interrupted</em>.)' ] },
-    { small:'Two sets of names exist for the same four things, because British and American theory books label them differently. Learn the sound; read whichever label your book uses.' },
     { note:{ h:'Loops do not want an ending',
-      p:'Modern music loops 4 or 8 bars forever, so a full stop is often not what you want — a wobbly last chord (V, or VII, or IV) throws you back to bar 1. Try it both ways and listen: ending on home makes each pass feel complete, ending on the wobbly chord makes it circle. Neither is a rule.' } },
+      p:'Modern music loops 4 or 8 bars forever, so a full stop is often not what you want — a wobbly last chord (V, VII or IV) throws you back to bar 1. Try both and listen. Neither is a rule.' } },
     { try:{ h:'Four slots, your choice', p:'Load a famous progression, then change any slot to another number. You will hear straight away which swaps keep the story and which break it.', use:true } },
     { keys:[
       'Three jobs: home, away, wobbly.',
@@ -9536,17 +11303,24 @@ LESSONS.push({
   init:ctx => {
     let bpm = 92, lock = ctx.recall('lock') !== false, kit = true;
     const KICK = [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0];
+    /* the chords under the bass are the ones in your track, if you have added
+       some — otherwise the stock Cm A♭ E♭ B♭ loop */
+    const BED = typeof TRACK !== 'undefined' ? TRACK.bed() : LOOP_CM;
+    const R = BED.map(c => c.root);
     const PAT = {
-      roots:   [[0,36],[4,32],[8,39],[12,34]],
-      octaves: [[0,36],[2,48],[4,32],[6,44],[8,39],[10,51],[12,34],[14,46]],
-      fifths:  [[0,36],[3,43],[4,32],[7,39],[8,39],[11,46],[12,34],[15,41]],
-      passing: [[0,36],[3,36],[4,32],[6,32],[7,34],[8,39],[11,39],[12,34],[14,34],[15,35]],
+      roots:   BED.map((c, i) => [c.step, R[i]]),
+      octaves: [].concat.apply([], BED.map((c, i) => [[c.step, R[i]], [c.step + 2, R[i] + 12]])),
+      fifths:  [].concat.apply([], BED.map((c, i) => [[c.step, R[i]], [c.step + 3, R[i] + 7]])),
+      passing: [].concat.apply([], BED.map((c, i) => {
+        const nx = R[(i + 1) % R.length];
+        return [[c.step, R[i]], [c.step + 2, R[i]], [c.step + 3, nx + (nx >= R[i] ? -2 : 2)]];
+      })),
       busy:    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].map(s =>
-                 [s, LOOP_CM[Math.floor(s / 4)].root])
+                 [s, R[Math.floor(s / 4)]])
     };
     const rows = () => [36,38,39,41,43,44,46,48,50,51,53,55,56,58,60];
     const snap = m => rows().reduce((b, r) => Math.abs(r - m) < Math.abs(b - m) ? r : b, rows()[0]);
-    ctx.v.setChords(LOOP_CM);
+    ctx.v.setChords(BED);
     ctx.load = k => {
       const ns = PAT[k].map(([step, midi]) => ({ step, midi:snap(midi), len:1 }));
       ctx.v.setNotes(ns);
@@ -9567,7 +11341,7 @@ LESSONS.push({
     ctx.play = () => {
       ctx.stop();
       ctx.seq({ bpm, div:16, steps:16, cb:(step, t) => {
-        const c = LOOP_CM.find(b => b.step === step);
+        const c = BED.find(b => b.step === step);
         if (c) A.chord(c.notes.map(n => n + 12), 2.1, { when:t, spread:.03, gain:.4 });
         if (kit) {
           if (KICK[step]) A.click('kick', t);
@@ -9581,13 +11355,16 @@ LESSONS.push({
     };
     ctx.v.onCell((s, m, added) => {
       if (added) A.note(m, .6);
-      const c = LOOP_CM[Math.floor(s / 4)];
+      const c = BED[Math.floor(s / 4)];
       const role = c && c.notes.concat([c.root]).some(n => T.pc(n) === T.pc(m))
         ? 'chord tone — safe' : 'outside the chord — keep it short';
       ctx.read(T.inKey(m, 'C', 'minor') + T.oct(m) + ' under ' + (c ? c.label : '—') + '\n' + role);
       ctx.keep('notes', ctx.v.notes.slice());
     });
     ctx.keepCfg = { kind:'roll', name:'Bassline', bpm:() => bpm };
+    /* this is the bass layer of your track */
+    ctx.trackCfg = { layer:'bass',
+      read:() => ctx.v.notes.length ? ctx.v.notes.map(n => ({ step:n.step, midi:n.midi, len:n.len || 1 })) : null };
     ctx.stage(
       UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
       UI.toggle('Drums', v => { kit = v; }, true),
@@ -9770,9 +11547,16 @@ LESSONS.push({
   ],
   init:ctx => {
     let bpm = 90, mute = { drums:false, bass:false, chords:false };
-    const KICK = [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0];
-    const BASS = [[0,36],[4,32],[8,39],[12,34]];
-    ctx.v.setChords(LOOP_CM);
+    /* Everything under your melody is your own work where you have made it:
+       the beat from The Grid, the chords from Progressions, the bass from
+       Basslines. Whatever is missing is filled with the stock loop. */
+    const HAS = typeof TRACK !== 'undefined';
+    const BED = HAS ? TRACK.bed() : LOOP_CM;
+    const DR = HAS ? TRACK.drums() : { kick:[1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0],
+      snare:[0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], hat:[1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0] };
+    const BASS = HAS ? TRACK.bass().map(n => [n.step, n.midi, n.len || 3]) : BED.map(c => [c.step, c.root, 3]);
+    const KICK = DR.kick;
+    ctx.v.setChords(BED);
     const rows = [60,62,63,65,67,68,70,72,74,75,77,79,80,82,84];
     ctx.seed = () => {
       const shape = [[0,63],[2,67],[4,65],[7,63]];
@@ -9804,7 +11588,7 @@ LESSONS.push({
       const ns = ctx.v.notes.slice().sort((a, b) => a.step - b.step);
       const first = ns.filter(n => n.step < 8), second = ns.filter(n => n.step >= 8);
       const onChordTone = ns.filter(n => {
-        const c = LOOP_CM[Math.floor(n.step / 4)];
+        const c = BED[Math.floor(n.step / 4)];
         return c && c.notes.some(x => T.pc(x) === T.pc(n.midi)) && n.step % 4 === 0;
       }).length;
       const barStarts = ns.filter(n => n.step % 4 === 0).length;
@@ -9830,12 +11614,12 @@ LESSONS.push({
     ctx.exportAll = () => {
       if (typeof STUDIO === 'undefined') return;
       const step = STUDIO.PPQ / 4, out = [];
-      LOOP_CM.forEach(c => c.notes.forEach(n =>
+      BED.forEach(c => c.notes.forEach(n =>
         out.push({ note:n + 12, t:c.step * step, dur:c.len * step - 20, vel:78 })));
-      BASS.forEach(([s, m]) => out.push({ note:m, t:s * step, dur:step * 3.5, vel:105 }));
+      BASS.forEach(([s, m, len]) => out.push({ note:m, t:s * step, dur:step * Math.max(0.9, (len || 3) + 0.5), vel:105 }));
       KICK.forEach((v, s) => { if (v) out.push({ note:STUDIO.DRUM.kick, t:s * step, dur:step / 2, vel:110 }); });
-      [4, 12].forEach(s => out.push({ note:STUDIO.DRUM.snare, t:s * step, dur:step / 2, vel:112 }));
-      for (let s = 0; s < 16; s += 2) out.push({ note:STUDIO.DRUM.hat, t:s * step, dur:step / 3, vel:70 });
+      DR.snare.forEach((v, s) => { if (v) out.push({ note:STUDIO.DRUM.snare, t:s * step, dur:step / 2, vel:112 }); });
+      DR.hat.forEach((v, s) => { if (v) out.push({ note:STUDIO.DRUM.hat, t:s * step, dur:step / 3, vel:70 }); });
       ctx.v.notes.forEach(n => out.push({ note:n.midi, t:n.step * step, dur:(n.len || 1) * step - 12, vel:100 }));
       const okDl = STUDIO.download(STUDIO.midi(out, { bpm, name:'8-bar idea' }), 'musiclearn-8-bar-idea.mid');
       ctx.read(okDl
@@ -9846,14 +11630,14 @@ LESSONS.push({
       ctx.stop();
       ctx.seq({ bpm, div:16, steps:16, cb:(step, t) => {
         if (!mute.chords) {
-          const c = LOOP_CM.find(b => b.step === step);
+          const c = BED.find(b => b.step === step);
           if (c) A.chord(c.notes.map(n => n + 12), 2.2, { when:t, spread:.03, gain:.38 });
         }
-        if (!mute.bass) { const b = BASS.find(x => x[0] === step); if (b) A.note(b[1], .55, { when:t }); }
+        if (!mute.bass) BASS.filter(x => x[0] === step).forEach(b => A.note(b[1], .22 * (b[2] || 1) + .3, { when:t }));
         if (!mute.drums) {
           if (KICK[step]) A.click('kick', t);
-          if (step === 4 || step === 12) A.click('snare', t);
-          if (step % 2 === 0) A.click('hat', t, step % 4 === 0 ? .8 : .45);
+          if (DR.snare[step]) A.click('snare', t);
+          if (DR.hat[step]) A.click('hat', t, step % 4 === 0 ? .8 : .45);
         }
         ctx.v.notes.filter(n => n.step === step).forEach(n =>
           A.note(n.midi, .3 * (n.len || 1) + .25, { when:t, gain:.95 }));
@@ -9863,20 +11647,30 @@ LESSONS.push({
     ctx.v.onCell((s, m, added) => {
       if (added) A.note(m, .6);
       ctx.keep('notes', ctx.v.notes.slice());
-      const c = LOOP_CM[Math.floor(s / 4)];
+      const c = BED[Math.floor(s / 4)];
       ctx.read(T.inKey(m, 'C', 'minor') + T.oct(m) + ' over ' + (c ? c.label : '—') + '\n' +
         (c && c.notes.some(x => T.pc(x) === T.pc(m)) ? 'chord tone — good landing' : 'not in the chord — pass through it'));
     });
     ctx.keepCfg = { kind:'roll', name:'8-bar idea', bpm:() => bpm };
+    ctx.trackCfg = { layer:null };
     ctx.stage(
       UI.toggle('▶ Loop', v => { if (v) ctx.play(); else { ctx.stop(); ctx.v.playhead(-1); } }),
       UI.toggle('Drums', v => { mute.drums = !v; }, true),
       UI.toggle('Bass', v => { mute.bass = !v; }, true),
       UI.toggle('Chords', v => { mute.chords = !v; }, true)
     );
+    /* the melody: what you wrote here, else the tune from your track */
+    const mine = HAS ? TRACK.melody() : null;
+    const made = HAS ? TRACK.LAYERS.filter(x => TRACK.has(x.id)).map(x => x.name.toLowerCase()) : [];
     const back = ctx.recall('notes');
     if (back && back.length) { ctx.v.setNotes(back); ctx.read('your 8 bars\npress loop, or check them'); }
-    else ctx.read('empty roll\nchords and drums are already playing — add a melody');
+    else if (mine) {
+      ctx.v.setNotes(mine.map(n => ({ step:n.step, midi:n.midi, len:n.len || 1 })));
+      ctx.keep('notes', ctx.v.notes.slice());
+      ctx.read('your melody from Melody Craft\nnow arrange it: copy, vary, check');
+    }
+    else ctx.read(made.length ? 'your ' + made.join(', ') + ' are playing\nadd a melody on the roll'
+                              : 'empty roll\nchords and drums are already playing — add a melody');
   }
 });
 
@@ -9933,6 +11727,8 @@ LESSONS.push({
       why:'One good loop plus a plan for what is missing when gets you a full arrangement.' }
   ],
   init:ctx => {
+    /* the arrangement plays your track's chords when it has some */
+    const BED = typeof TRACK !== 'undefined' ? TRACK.bed() : LOOP_CM;
     let bpm = 110;
     const SHAPES = {
       pop: [
@@ -9983,9 +11779,9 @@ LESSONS.push({
             if (b % 2 === 1) A.click('snare', tb, .9);
             A.click('hat', tb + beat / 2, .4);
           }
-          if (on(1) && b % 2 === 0) A.note(LOOP_CM[bar % 4].root, .7, { when:tb, gain:.9 });
+          if (on(1) && b % 2 === 0) A.note(BED[bar % 4].root, .7, { when:tb, gain:.9 });
         }
-        if (on(2)) A.chord(LOOP_CM[bar % 4].notes.map(n => n + 12), beat * 3.6,
+        if (on(2)) A.chord(BED[bar % 4].notes.map(n => n + 12), beat * 3.6,
           { when:t, spread:.03, gain:.34 });
         if (on(3)) [0, 1.5, 2.5].forEach((b, i) =>
           A.note([75, 70, 72][i], .45, { when:t + b * beat, gain:.85 }));
@@ -10193,7 +11989,9 @@ const CURRICULUM = (() => {
       blurb:'Put the four layers together, then arrange them into a track.' },
     { id:'toolkit', name:'Harmony Toolkit',
       blurb:'The chords that make a progression sound expensive.' },
-    { id:'advanced',name:'Advanced Producer Theory',
+    { id:'colour',  name:'Colour & Tension',
+      blurb:'Every interval, the minor that bends, and the chords that pull hardest.' },
+    { id:'advanced',name:'Modes & Keys',
       blurb:'Modes, borrowed chords and the map of all twelve keys.' },
     { id:'ear',     name:'Ear & Production Skills',
       blurb:'Recognise it without looking, and get unstuck when you are staring at an empty project.' }
@@ -10202,12 +12000,13 @@ const CURRICULUM = (() => {
   /* The path. Every lesson id appears exactly once; the tests enforce that. */
   const PATH = {
     start:    ['grid', 'accents', 'meter', 'pianoroll'],
-    notes:    ['intervals', 'scales'],
+    notes:    ['notes', 'intervals', 'scales'],
     first:    ['chords', 'progressions', 'bassline', 'melody'],
     musical:  ['melody-chords', 'velocity'],
     finish:   ['eightbar', 'structure'],
     toolkit:  ['inversions', 'sevenths', 'suspensions', 'extensions'],
-    advanced: ['modes', 'adv-intervals', 'harmonic-minor', 'dom-dim-aug', 'borrowed', 'circle'],
+    colour:   ['adv-intervals', 'harmonic-minor', 'dom-dim-aug'],
+    advanced: ['modes', 'borrowed', 'circle'],
     ear:      ['beatblock', 'challenges']
   };
 

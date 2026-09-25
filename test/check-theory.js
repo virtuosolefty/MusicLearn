@@ -94,7 +94,7 @@ Object.keys(T.CHORDS).forEach(k => {
 
 /* ── 5. lesson data integrity ── */
 head('Lesson data');
-ok(LESSONS.length === 26, '26 lessons present');
+ok(LESSONS.length === 27, '27 lessons present');
 const ids = LESSONS.map(l => l.id);
 ok(new Set(ids).size === ids.length, 'lesson ids are unique');
 LESSONS.forEach(L => {
